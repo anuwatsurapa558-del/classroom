@@ -312,7 +312,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
   <div class="sb-logo">
-    <div class="sb-logo-t"><h1>📚 ClassRoom</h1><p>ระบบครู</p></div>
+    <div class="sb-logo-t" id="sbLogoArea" style="display:flex;align-items:center;gap:8px">
+      <span id="sbLogoImg"><span style="font-size:20px">📚</span></span>
+      <div style="min-width:0"><h1 id="sbSchoolName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ClassRoom</h1><p id="sbSchoolSub">ระบบครู</p></div>
+    </div>
     <button class="sb-close" onclick="closeSB()"><i class="ti ti-x"></i></button>
   </div>
   <div class="sb-nav">
@@ -619,6 +622,19 @@ function sortClasses(){db.classes.sort((a,b)=>clsSortKey(a.name).localeCompare(c
 /* ════════════════════════════════════════════
    SCHOOL INFO + TERM MANAGEMENT
 ════════════════════════════════════════════ */
+function updateSidebarLogo(){
+  const sch=db.school||{};
+  const nameEl=document.getElementById('sbSchoolName');
+  const subEl=document.getElementById('sbSchoolSub');
+  const imgEl=document.getElementById('sbLogoImg');
+  if(nameEl)nameEl.textContent=sch.name||'ClassRoom';
+  if(subEl)subEl.textContent=sch.name?(sch.subdistrict||'ระบบครู'):'ระบบครู';
+  if(imgEl){
+    imgEl.innerHTML=sch.logo
+      ?`<img src="${sch.logo}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.3)">`
+      :'<span style="font-size:20px">📚</span>';
+  }
+}
 function renderSchool(){
   const el=document.getElementById('school-content');if(!el)return;
   const sch=db.school||{};
@@ -680,7 +696,7 @@ function uploadLogo(input){
   const file=input.files[0];if(!file)return;
   if(file.size>500000){showToast('ไฟล์ใหญ่เกิน 500KB กรุณาย่อขนาด');return;}
   const reader=new FileReader();
-  reader.onload=e=>{db.school.logo=e.target.result;save();renderSchool();showToast('บันทึกตราโรงเรียนแล้ว ✓');};
+  reader.onload=e=>{db.school.logo=e.target.result;save();renderSchool();updateSidebarLogo();showToast('บันทึกตราโรงเรียนแล้ว ✓');};
   reader.readAsDataURL(file);
 }
 function openEditSchool(){
@@ -694,7 +710,7 @@ function openEditSchool(){
 }
 function saveSchool(){
   db.school={...db.school,name:val('schName'),subdistrict:val('schSub'),district:val('schDist'),province:val('schProv')};
-  save();closeMD();renderSchool();showToast('บันทึกข้อมูลโรงเรียนแล้ว ✓');
+  save();closeMD();renderSchool();updateSidebarLogo();showToast('บันทึกข้อมูลโรงเรียนแล้ว ✓');
 }
 function openAddTerm(){
   const now=new Date(),thYear=now.getFullYear()+543;
@@ -934,7 +950,7 @@ function renderAttEdit(){
     <div class="f ic g8 fw"><label style="font-size:13px;font-weight:600">เลือกวันที่:</label>
     <select class="wa" onchange="attEditDate=this.value;renderAttEdit()" style="font-size:14px">`;
   dates.forEach(d=>{html+=`<option value="${d}" ${d===attEditDate?'selected':''}>${thDate(d)}</option>`;});
-  html+=`</select><button class="btn btn-g btn-sm" onclick="saveAttEdit('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึกการแก้ไข</button></div></div>
+  html+=`</select><button class="btn btn-g btn-sm" onclick="saveAttEdit('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button><button class="btn btn-sm" style="color:var(--rd);border-color:var(--rd)" onclick="deleteAttDay('${cid}','${subid}')"><i class="ti ti-trash"></i>ลบทั้งวันนี้</button></div></div>
   <div class="card"><div class="cp" style="padding-top:6px;padding-bottom:6px">`;
   stus.forEach(s=>{
     const curSt=rec[s.id]||'',curK=km[curSt]||'';
@@ -950,6 +966,18 @@ function renderAttEdit(){
   el.innerHTML=html;
 }
 function pickStEdit(btn){const g=btn.closest('.abtns');g.querySelectorAll('.ab').forEach(b=>b.className='ab');btn.className=`ab${btn.dataset.k?' s-'+btn.dataset.k:''}`;}
+function deleteAttDay(cid,subid){
+  if(!confirm('ลบข้อมูลการเช็คชื่อทั้งหมดของวันที่ '+thDate(attEditDate)+' ?\nสถิติของวันนี้จะถูกลบออกด้วย'))return;
+  const tkey=tk(cid);
+  if(db.attendance[tkey]&&db.attendance[tkey][subid]&&db.attendance[tkey][subid][attEditDate]){
+    delete db.attendance[tkey][subid][attEditDate];
+  }
+  // เลือกวันที่ถัดไปที่เหลือ
+  const dates=Object.keys(((db.attendance[tkey]||{})[subid])||{}).sort().reverse();
+  attEditDate=dates[0]||todayStr();
+  save();showToast('ลบข้อมูลการเช็คชื่อทั้งวันแล้ว ✓');
+  renderAtt();
+}
 function saveAttEdit(cid,subid){
   if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
   if(!db.attendance[tk(cid)][subid])db.attendance[tk(cid)][subid]={};
@@ -960,7 +988,13 @@ function saveAttEdit(cid,subid){
     if(a){const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');if(k)db.attendance[tk(cid)][subid][attEditDate][s.id]=lkmap[k]||k;}
     else delete db.attendance[tk(cid)][subid][attEditDate][s.id];
   });
-  save();showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');renderAttEdit();
+  // ถ้าวันนี้ไม่มีสถานะเหลือเลย ให้ลบ key วันออก (ไม่ให้สถิติค้าง)
+  if(Object.keys(db.attendance[tk(cid)][subid][attEditDate]).length===0){
+    delete db.attendance[tk(cid)][subid][attEditDate];
+    const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort().reverse();
+    attEditDate=dates[0]||todayStr();
+  }
+  save();showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');renderAtt();
 }
 
 function renderAttSummary(){
@@ -978,6 +1012,46 @@ function renderAttSummary(){
   html+=`<div class="chbox mb14"><div class="chtitle">อัตรามาเรียนรายวัน (${recent.length} วันล่าสุด)</div><div class="barchart">`;
   recent.forEach(d=>{let ma=0,t2=0;stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')ma++;if(st)t2++;});const pct=t2?Math.round(ma/t2*100):0,c2=pct>=80?'var(--gn)':pct>=60?'var(--am)':'var(--rd)';const[,m,day]=d.split('-');html+=`<div class="bw"><div class="bval" style="font-size:9px">${pct}%</div><div class="bout"><div class="bin" style="height:${pct}%;background:${c2}"></div></div><div class="blbl">${+day}/${+m}</div></div>`;});
   html+=`</div></div>`;
+
+  // ── สถิติรายเดือน ──
+  const months={};
+  dates.forEach(d=>{const ym=d.slice(0,7);if(!months[ym])months[ym]={ma:0,tot:0};stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')months[ym].ma++;if(st)months[ym].tot++;});});
+  const monthKeys=Object.keys(months).sort();
+  if(monthKeys.length){
+    const thMonth=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    html+=`<div class="card mb14"><div class="cp" style="border-bottom:1px solid var(--bd)"><b><i class="ti ti-calendar-month"></i> สถิติรายเดือน</b></div><div class="tw"><table><thead><tr><th>เดือน</th><th>วันเช็ค</th><th>มาเรียน</th><th>อัตรา</th></tr></thead><tbody>`;
+    monthKeys.forEach(ym=>{
+      const[y,m]=ym.split('-');const mInfo=months[ym];
+      const daysInMonth=dates.filter(d=>d.slice(0,7)===ym).length;
+      const mpct=mInfo.tot?Math.round(mInfo.ma/mInfo.tot*100):0;
+      const mc=mpct>=80?'var(--gn)':mpct>=60?'var(--am)':'var(--rd)';
+      html+=`<tr><td><b>${thMonth[+m-1]} ${+y+543}</b></td><td>${daysInMonth} วัน</td><td>${mInfo.ma}/${mInfo.tot}</td><td style="font-weight:700;color:${mc}">${mpct}%</td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  }
+
+  // ── นักเรียนเวลาเรียนต่ำกว่า 80% / ขาดบ่อย ──
+  const risk=[];
+  stus.forEach(s=>{
+    let ma=0,kh=0,tot=0;
+    dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')ma++;else if(st==='ขาด')kh++;if(st)tot++;});
+    const pct=tot?Math.round(ma/tot*100):100;
+    if(tot>0&&(pct<80||kh>=3))risk.push({s,pct,kh,ma,tot});
+  });
+  risk.sort((a,b)=>a.pct-b.pct);
+  html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd);background:${risk.length?'var(--rdl)':'var(--gnl)'}"><b style="color:${risk.length?'var(--rd)':'var(--gn)'}"><i class="ti ti-alert-triangle"></i> นักเรียนที่ต้องติดตาม (เวลาเรียน < 80% หรือขาด ≥ 3 ครั้ง)</b></div>`;
+  if(!risk.length){
+    html+=`<div class="empty" style="padding:20px"><i class="ti ti-circle-check" style="color:var(--gn)"></i><div>นักเรียนทุกคนมีเวลาเรียนเพียงพอ</div></div>`;
+  }else{
+    html+=`<div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>มาเรียน</th><th>ขาด</th><th>อัตรา</th></tr></thead><tbody>`;
+    risk.forEach(r=>{
+      const rc=r.pct<60?'var(--rd)':'var(--am)';
+      html+=`<tr><td style="font-weight:700;color:var(--mu)">${r.s.no}</td><td>${r.s.firstName} ${r.s.lastName}</td><td>${r.ma}/${r.tot}</td><td><span class="badge br">${r.kh}</span></td><td style="font-weight:800;color:${rc}">${r.pct}%</td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+  html+=`</div>`;
+
   el.innerHTML=html;
 }
 
@@ -1041,10 +1115,13 @@ function renderScEntry(){
       <button class="score-type-btn active" id="atype-score" onclick="setAsgType('score')"><i class="ti ti-star"></i> งานเก็บคะแนน</button>
       <button class="score-type-btn" id="atype-track" onclick="setAsgType('track')"><i class="ti ti-checklist"></i> งานติดตามการส่ง</button>
     </div>
-    <div class="f g8 fw">
+    <div class="f g8 fw" style="margin-bottom:8px">
       <div style="flex:2;min-width:150px"><input type="text" id="asgName" placeholder="ชื่องาน เช่น งานชิ้นที่ 1"></div>
       <div style="width:110px" id="asgMaxWrap"><input type="number" id="asgMax" placeholder="คะแนนเต็ม" min="1"></div>
-      <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่ม</button>
+    </div>
+    <div class="f g8 fw ic">
+      <div style="flex:1;min-width:150px"><label style="font-size:12px;color:var(--mu);display:block;margin-bottom:2px">กำหนดส่ง (ถ้ามี)</label><input type="date" id="asgDue"></div>
+      <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')" style="align-self:flex-end"><i class="ti ti-plus"></i>เพิ่มงาน</button>
     </div>
     <div style="font-size:11.5px;color:var(--mu);margin-top:6px" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด | งานติดตาม = แค่เช็คว่าส่งหรือยัง ไม่คิดคะแนน</div>
   </div>`;
@@ -1061,14 +1138,16 @@ function renderScEntry(){
   const isTrack=asg.type==='track';
 
   if(isTrack){
-    // ── งานติดตามการส่ง: ปุ่มส่งแล้ว/ยังไม่ส่ง ──
-    html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${asg.name}</b> <span class="badge bo">งานติดตามการส่ง</span></div><button class="btn btn-g btn-sm" onclick="saveTrack('${cid}','${subid}','${selAsg}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
+    // ── งานติดตามการส่ง: 3 สถานะ ตรงเวลา/ส่งช้า/ยังไม่ส่ง ──
+    const dueTxt=asg.dueDate?` <span class="badge bb"><i class="ti ti-calendar"></i> กำหนด ${thDate(asg.dueDate)}</span>`:'';
+    html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb fw g8"><div><b>${asg.name}</b> <span class="badge bo">งานติดตาม</span>${dueTxt}</div><button class="btn btn-g btn-sm" onclick="saveTrack('${cid}','${subid}','${selAsg}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
     <div class="cp" style="padding-top:6px;padding-bottom:6px">`;
     stus.forEach(s=>{
-      const v=sc[s.id];const sent=(v==='ส่ง'||v===1||v==='1'||v===true);
+      const v=sc[s.id];
       html+=`<div class="atr"><div class="anum">${s.no}</div><div class="aname">${s.firstName} ${s.lastName}</div><div class="abtns" id="trk-${s.id}">
-        <button class="ab${sent?' s-ma':''}" data-v="1" onclick="pickTrack(this)">ส่งแล้ว</button>
-        <button class="ab${(v!==undefined&&!sent)?' s-kh':''}" data-v="0" onclick="pickTrack(this)">ยังไม่ส่ง</button>
+        <button class="ab${v==='ตรงเวลา'?' s-ma':''}" data-v="ตรงเวลา" onclick="pickTrack(this)">ตรงเวลา</button>
+        <button class="ab${v==='ส่งช้า'?' s-sa':''}" data-v="ส่งช้า" onclick="pickTrack(this)">ส่งช้า</button>
+        <button class="ab${v==='ไม่ส่ง'?' s-kh':''}" data-v="ไม่ส่ง" onclick="pickTrack(this)">ยังไม่ส่ง</button>
       </div></div>`;
     });
     html+=`</div></div>`;
@@ -1099,13 +1178,13 @@ function addAsg(cid,subid){
   if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
   if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
   const id=uid();
+  const due=val('asgDue')||'';
   if(asgType==='track'){
-    // งานติดตาม ไม่มีคะแนนเต็ม
-    db.assignments[tk(cid)][subid].push({id,name,type:'track'});
+    db.assignments[tk(cid)][subid].push({id,name,type:'track',dueDate:due});
   }else{
     const max=parseInt(val('asgMax'));
     if(!max||max<1){showToast('กรุณากรอกคะแนนเต็ม');return;}
-    db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score'});
+    db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score',dueDate:due});
   }
   selAsg=id;save();renderScEntry();
 }
@@ -1118,16 +1197,19 @@ function delAsg(cid,subid,aid){
 function pickTrack(btn){
   const g=btn.closest('.abtns');
   g.querySelectorAll('.ab').forEach(b=>b.className='ab');
-  btn.className='ab '+(btn.dataset.v==='1'?'s-ma':'s-kh');
+  const v=btn.dataset.v;
+  const cls=(v==='ตรงเวลา')?'s-ma':(v==='ส่งช้า')?'s-sa':'s-kh';
+  btn.className='ab '+cls;
 }
 function saveTrack(cid,subid,aid){
-  if(!db.scores[tk(cid)])db.scores[tk(cid)]={};
-  if(!db.scores[tk(cid)][subid])db.scores[tk(cid)][subid]={};
-  if(!db.scores[tk(cid)][subid][aid])db.scores[tk(cid)][subid][aid]={};
+  const tkey=tk(cid);
+  if(!db.scores[tkey])db.scores[tkey]={};
+  if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
+  if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
   stuList(cid).forEach(s=>{
     const g=document.getElementById('trk-'+s.id);if(!g)return;
     const sel=g.querySelector('[class*="s-"]');
-    if(sel){db.scores[tk(cid)][subid][aid][s.id]=(sel.dataset.v==='1')?'ส่ง':'ไม่ส่ง';}
+    if(sel){db.scores[tkey][subid][aid][s.id]=sel.dataset.v;}
   });
   save();showToast('บันทึกการส่งงานเรียบร้อย ✓');
 }
@@ -1213,16 +1295,18 @@ function renderScAll(){
   // ── ตารางงานติดตามการส่ง (ไม่คิดคะแนน) ──
   if(trackAsgs.length){
     html+=`<div class="card mt14" style="overflow:hidden"><div class="cp" style="border-bottom:1px solid var(--bd)"><b><i class="ti ti-checklist"></i> งานติดตามการส่ง</b> <span style="font-size:12px;color:var(--mu)">(ไม่นำมาคิดคะแนน)</span></div><div class="tw"><table class="score-table"><thead><tr><th class="fc1">#</th><th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
-    trackAsgs.forEach(a=>{html+=`<th style="min-width:80px">${a.name}</th>`;});
+    trackAsgs.forEach(a=>{html+=`<th style="min-width:90px">${a.name}${a.dueDate?`<br><span style="font-size:9px;font-weight:400;color:var(--mu)">${thDate(a.dueDate)}</span>`:''}</th>`;});
     html+=`<th style="min-width:70px">ส่งแล้ว</th></tr></thead><tbody>`;
     stus.forEach(s=>{
       html+=`<tr><td class="fc1" style="font-weight:700;color:var(--mu)">${s.no}</td><td class="fc2">${s.firstName} ${s.lastName}</td>`;
       let sent=0;
       trackAsgs.forEach(a=>{
         const v=scMap(cid,subid,a.id)[s.id];
-        const isSent=(v==='ส่ง');
-        if(isSent)sent++;
-        html+=`<td style="text-align:center">${v!==undefined?(isSent?'<span class="badge bg">ส่ง</span>':'<span class="badge br">ยังไม่ส่ง</span>'):'<span class="badge bx">—</span>'}</td>`;
+        let cell='<span class="badge bx">—</span>';
+        if(v==='ตรงเวลา'){cell='<span class="badge bg">ตรงเวลา</span>';sent++;}
+        else if(v==='ส่งช้า'){cell='<span class="badge bo">ส่งช้า</span>';sent++;}
+        else if(v==='ไม่ส่ง'||v==='ส่ง'){cell='<span class="badge br">ยังไม่ส่ง</span>';}
+        html+=`<td style="text-align:center">${cell}</td>`;
       });
       html+=`<td style="text-align:center;font-weight:700">${sent}/${trackAsgs.length}</td></tr>`;
     });
@@ -1440,6 +1524,7 @@ function openResetPwSingle(cid,sid){
 function doResetPwSingle(cid,sid){
   const pw=val('newPwInput');
   if(!db.studentPasswords)db.studentPasswords={};
+  if(!db.submitStatus)db.submitStatus={};
   if(pw) db.studentPasswords[sid]=pw;
   else delete db.studentPasswords[sid];
   save();showToast('รีเซ็ตรหัสผ่านแล้ว ✓');
@@ -1590,7 +1675,7 @@ function _initDB(){
 }
 
 /* ── INIT ── */
-load().then(()=>{renderSchool();renderDash();});
+load().then(()=>{updateSidebarLogo();renderSchool();renderDash();});
 </script>
 </body>
 </html>

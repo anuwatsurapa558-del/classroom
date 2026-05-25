@@ -175,9 +175,12 @@ input[type=password]:focus{border-color:var(--tl);}
 <!-- HEADER -->
 <div class="header">
   <div class="header-inner">
-    <div>
-      <h1>📚 ClassRoom</h1>
-      <p id="headerSub">ระบบสำหรับนักเรียน</p>
+    <div style="display:flex;align-items:center;gap:10px;min-width:0">
+      <span id="hdrLogo"><span style="font-size:22px">📚</span></span>
+      <div style="min-width:0">
+        <h1 id="hdrName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ClassRoom</h1>
+        <p id="headerSub">ระบบสำหรับนักเรียน</p>
+      </div>
     </div>
     <div class="header-right">
       <div class="sync-dot" id="syncDot" title="สถานะการเชื่อมต่อ"></div>
@@ -186,8 +189,7 @@ input[type=password]:focus{border-color:var(--tl);}
   <div class="nav-tabs" id="navTabs" style="display:none">
     <button class="nav-tab active" onclick="switchTab('home',this)"><i class="ti ti-home"></i> หน้าหลัก</button>
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
-    <button class="nav-tab" onclick="switchTab('scores',this)"><i class="ti ti-star"></i> คะแนน</button>
-    <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
+    <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งานที่สั่ง</button>
   </div>
 </div>
 
@@ -242,6 +244,15 @@ function calcTotal(cid,subid,stuId){
 }
 
 /* ── LOAD DATA ── */
+function updateHeaderSchool(){
+  const sch=db.school||{};
+  const nameEl=document.getElementById('hdrName');
+  const logoEl=document.getElementById('hdrLogo');
+  if(nameEl)nameEl.textContent=sch.name||'ClassRoom';
+  if(logoEl)logoEl.innerHTML=sch.logo
+    ?`<img src="${sch.logo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.4)">`
+    :'<span style="font-size:22px">📚</span>';
+}
 function _normalizeDB(){
   if(!db.examScores)db.examScores={};
   if(!db.studentPasswords)db.studentPasswords={};
@@ -250,6 +261,7 @@ function _normalizeDB(){
   // ตั้ง currentTermId จาก term ที่ isCurrent
   const cur=db.terms.find(t=>t.isCurrent);
   window._currentTermId=cur?cur.id:(db.terms[0]?.id||null);
+  updateHeaderSchool();
 }
 
 async function loadData(){
@@ -537,7 +549,6 @@ function switchTab(tab,btn){
 function renderTab(tab){
   if(tab==='home')renderHome();
   else if(tab==='attendance')renderAttendance();
-  else if(tab==='scores')renderScores();
   else if(tab==='assignments')renderAssignments();
 }
 
@@ -574,13 +585,16 @@ function renderHome(){
   if(subs.length){
     html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">สรุปรายวิชา</div></div>`;
     subs.forEach(sub=>{
-      // นับการส่งงาน (ไม่โชว์คะแนน)
+      // นับการส่งงาน (3 สถานะ)
       const asgs=(asgBlock(cid)[sub.id])||[];
-      let sent=0;
+      let sent=0,late=0;
       asgs.forEach(a=>{
         const v=((scBlock(cid)[sub.id]||{})[a.id]||{})[sid];
-        const isSent=(a.type==='track')?(v==='ส่ง'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
-        if(isSent)sent++;
+        if(a.type==='track'){
+          if(v==='ตรงเวลา'){sent++;}else if(v==='ส่งช้า'){late++;sent++;}
+        }else{
+          if(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))sent++;
+        }
       });
       const asgPct=asgs.length?Math.round(sent/asgs.length*100):0;
       // มาเรียน
@@ -591,7 +605,7 @@ function renderHome(){
       html+=`<div class="card-bd" style="border-bottom:1px solid var(--bd)">
         <div class="f" style="justify-content:space-between;align-items:center;margin-bottom:6px">
           <div><b>${sub.name}</b>${sub.code?` <span style="font-size:11px;color:var(--mu)">${sub.code}</span>`:''}</div>
-          <span class="badge ${asgPct>=80?'bg':asgPct>=50?'ba':'br'}">ส่งงาน ${sent}/${asgs.length}</span>
+          <span class="badge ${asgPct>=80?'bg':asgPct>=50?'ba':'br'}">ส่งงาน ${sent}/${asgs.length}${late?' (ช้า '+late+')':''}</span>
         </div>
         <div class="f" style="gap:14px;font-size:12.5px;color:var(--mu)">
           <span>ส่งงาน <b style="color:var(--tx)">${asgPct}%</b></span>
@@ -731,39 +745,57 @@ function renderAssignments(){
 
   const sub=subs.find(s=>s.id===currentSubject);
   const asgs=(asgBlock(cid)[currentSubject])||[];
-  let submitted=[],notSub=[];
-  asgs.forEach(a=>{
+
+  // คำนวณสถานะแต่ละงาน
+  function statusOf(a){
     const v=((scBlock(cid)[currentSubject]||{})[a.id]||{})[sid];
-    const isSent=(a.type==='track')?(v==='ส่ง'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
-    if(isSent)submitted.push(a);
-    else notSub.push(a);
-  });
+    if(a.type==='track'){
+      if(v==='ตรงเวลา')return 'ontime';
+      if(v==='ส่งช้า')return 'late';
+      return 'none';
+    } else {
+      // งานคะแนน: มีคะแนน = ส่งแล้ว (ตรงเวลา) ยังไม่มี = ยังไม่ส่ง
+      const has=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+      return has?'ontime':'none';
+    }
+  }
+
+  let cOntime=0,cLate=0,cNone=0;
+  asgs.forEach(a=>{const st=statusOf(a);if(st==='ontime')cOntime++;else if(st==='late')cLate++;else cNone++;});
 
   html+=`<div class="sg">
     <div class="sc"><div class="sl">งานทั้งหมด</div><div class="sv" style="color:var(--tl)">${asgs.length}</div></div>
-    <div class="sc"><div class="sl">ส่งแล้ว</div><div class="sv" style="color:var(--gn)">${submitted.length}</div></div>
-    <div class="sc"><div class="sl">ยังไม่ส่ง</div><div class="sv" style="color:var(--rd)">${notSub.length}</div></div>
+    <div class="sc"><div class="sl">ส่งตรงเวลา</div><div class="sv" style="color:var(--gn)">${cOntime}</div></div>
+    <div class="sc"><div class="sl">ส่งช้า</div><div class="sv" style="color:var(--or)">${cLate}</div></div>
+    <div class="sc"><div class="sl">ยังไม่ส่ง</div><div class="sv" style="color:var(--rd)">${cNone}</div></div>
   </div>`;
 
-  if(notSub.length){
-    html+=`<div class="card" style="margin-bottom:14px"><div class="card-hd" style="background:var(--rdl)"><div class="card-hd-title" style="color:var(--rd)"><i class="ti ti-alert-circle"></i> งานที่ยังไม่ส่ง (${notSub.length} ชิ้น)</div></div><div class="card-bd" style="padding:0">`;
-    notSub.forEach(a=>{
-      const tag=(a.type==='track')?'<span style="font-size:10px;color:var(--or);background:var(--orl);padding:1px 6px;border-radius:8px;margin-left:6px">ติดตาม</span>':'';
-      html+=`<div style="padding:11px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div>${a.name}${tag}</div><span class="badge br">ยังไม่ส่ง</span></div>`;
-    });
-    html+=`</div></div>`;
+  if(!asgs.length){
+    html+=`<div class="card"><div class="empty"><i class="ti ti-clipboard-list"></i><div>ยังไม่มีงาน</div><p>รอครูสั่งงาน</p></div></div>`;
+    document.getElementById('mainContent').innerHTML=html;return;
   }
 
-  if(submitted.length){
-    html+=`<div class="card"><div class="card-hd"><div class="card-hd-title"><i class="ti ti-circle-check"></i> งานที่ส่งแล้ว (${submitted.length} ชิ้น)</div></div><div class="card-bd" style="padding:0">`;
-    submitted.forEach(a=>{
-      const tag=(a.type==='track')?'<span style="font-size:10px;color:var(--or);background:var(--orl);padding:1px 6px;border-radius:8px;margin-left:6px">ติดตาม</span>':'';
-      html+=`<div style="padding:11px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div>${a.name}${tag}</div><span class="badge bg"><i class="ti ti-check"></i> ส่งแล้ว</span></div>`;
-    });
-    html+=`</div></div>`;
-  }
+  // รายการงานทั้งหมด เรียงตามกำหนดส่ง
+  const sorted=asgs.slice().sort((a,b)=>{
+    if(a.dueDate&&b.dueDate)return a.dueDate.localeCompare(b.dueDate);
+    if(a.dueDate)return -1;if(b.dueDate)return 1;return 0;
+  });
 
-  if(!asgs.length)html+=`<div class="card"><div class="empty"><i class="ti ti-clipboard-list"></i><div>ยังไม่มีงาน</div><p>รอครูสั่งงาน</p></div></div>`;
+  html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">รายการงาน (${asgs.length} งาน)</div></div><div class="card-bd" style="padding:0">`;
+  sorted.forEach(a=>{
+    const st=statusOf(a);
+    let badge,bcol;
+    if(st==='ontime'){badge='<span class="badge bg"><i class="ti ti-check"></i> ส่งแล้ว</span>';bcol='var(--gn)';}
+    else if(st==='late'){badge='<span class="badge bo"><i class="ti ti-clock-exclamation"></i> ส่งช้า</span>';bcol='var(--or)';}
+    else{badge='<span class="badge br"><i class="ti ti-x"></i> ยังไม่ส่ง</span>';bcol='var(--rd)';}
+    const typeTag=(a.type==='track')?'<span style="font-size:10px;color:var(--or);background:var(--orl);padding:1px 6px;border-radius:8px;margin-left:6px">ติดตาม</span>':'';
+    const dueTag=a.dueDate?`<div style="font-size:11.5px;color:var(--mu);margin-top:2px"><i class="ti ti-calendar"></i> กำหนดส่ง: ${thDate(a.dueDate)}</div>`:'';
+    html+=`<div style="padding:12px 14px;border-bottom:1px solid var(--bd);border-left:4px solid ${bcol};display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div style="flex:1"><div style="font-weight:600">${a.name}${typeTag}</div>${dueTag}</div>
+      <div style="flex-shrink:0">${badge}</div>
+    </div>`;
+  });
+  html+=`</div></div>`;
 
   document.getElementById('mainContent').innerHTML=html;
 }
