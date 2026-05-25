@@ -372,6 +372,7 @@ async function init(){
 /* ── LOGIN / REGISTER ── */
 function renderLogin(){
   document.getElementById('navTabs').style.display='none';
+  updateHeaderSchool();
   document.getElementById('headerSub').textContent='ระบบสำหรับนักเรียน';
   const content=document.getElementById('mainContent');
   const clsOpts=db.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
@@ -535,6 +536,7 @@ function renderApp(){
 
   document.getElementById('navTabs').style.display='flex';
   document.getElementById('headerSub').textContent=`${stu.firstName} ${stu.lastName} • ${cls.name}`;
+  updateHeaderSchool();
   renderTab(currentTab);
 }
 
