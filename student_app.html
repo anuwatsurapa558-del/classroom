@@ -445,6 +445,7 @@ function renderApp(){
   renderTab(currentTab);
 }
 
+function goHome(){switchTab("home");}
 function switchTab(tab,btn){
   currentTab=tab;
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
@@ -752,7 +753,7 @@ function renderSetPassword(cid,sid,isChange=false){
     <div class="pw-dots" id="npd2"></div>
     <div id="setPwMatch" style="font-size:12px;margin-bottom:10px"></div>
     <button class="btn btn-tl btn-full" onclick="doSetPassword('${cid}','${sid}',${isChange})"><i class="ti ti-check"></i> ${title}</button>
-    <div style="margin-top:12px;text-align:center"><button class="btn btn-sm btn-outline" onclick="${isChange?'switchTab('home')':'renderLogin()'}">← ยกเลิก</button></div>
+    <div style="margin-top:12px;text-align:center"><button class="btn btn-sm btn-outline" onclick="${isChange?'goHome()':'renderLogin()'}">← ยกเลิก</button></div>
   </div>`;
 }
 function checkPwMatchSet(){

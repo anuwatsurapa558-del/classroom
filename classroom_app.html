@@ -1349,8 +1349,7 @@ function doResetPwSingle(cid,sid){
 }
 
 function clearPw(cid,sid){
-  if(!confirm('ลบรหัสผ่านนักเรียนคนนี้?
-นักเรียนจะต้องตั้งรหัสผ่านใหม่ตอนเข้าระบบครั้งต่อไป'))return;
+  if(!confirm('ลบรหัสผ่านนักเรียนคนนี้? นักเรียนจะต้องตั้งรหัสผ่านใหม่ตอนเข้าระบบครั้งต่อไป'))return;
   if(db.studentPasswords)delete db.studentPasswords[sid];
   save();showToast('ลบรหัสผ่านแล้ว ✓');
   openPwManager(cid);
