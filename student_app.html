@@ -142,6 +142,17 @@ input[type=password]:focus{border-color:var(--tl);}
 .pw-toggle input{padding-right:44px;}
 .pw-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--mu);font-size:18px;background:none;border:none;}
 
+/* STUDENT PICKER LIST */
+.stu-picker{max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1.5px solid var(--bmd);border-radius:10px;margin-top:6px;}
+.stu-pick-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s;}
+.stu-pick-item:last-child{border-bottom:none;}
+.stu-pick-item:active,.stu-pick-item.sel{background:var(--tll);}
+.stu-pick-item.sel{border-left:4px solid var(--tl);}
+.stu-pick-no{width:32px;height:32px;border-radius:50%;background:var(--s2);color:var(--tld);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stu-pick-name{flex:1;font-size:14px;}
+.stu-pick-check{color:var(--tl);font-size:20px;}
+.stu-search{margin-top:8px;}
+
 /* LOADING */
 .loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--mu);gap:10px;font-size:14px;}
 .spinner{width:20px;height:20px;border:2px solid var(--s3);border-top-color:var(--tl);border-radius:50%;animation:spin .8s linear infinite;}
@@ -322,54 +333,97 @@ function renderLogin(){
   document.getElementById('navTabs').style.display='none';
   document.getElementById('headerSub').textContent='ระบบสำหรับนักเรียน';
   const content=document.getElementById('mainContent');
-  // แสดงเฉพาะ class ที่มีนักเรียนอยู่จริง (ทุก term)
   const clsOpts=db.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   content.innerHTML=`
   <div class="login-box">
     <div class="login-logo">
       <i class="ti ti-user-shield"></i>
       <h2>เข้าสู่ระบบ</h2>
-      <p>เลือกชื่อและกรอกรหัสผ่านของคุณ</p>
+      <p>เลือกห้อง เลือกชื่อ แล้วกรอกรหัสผ่าน</p>
     </div>
     <div id="loginErr"></div>
-    <div class="fg"><label class="fl"><i class="ti ti-door"></i> ห้องเรียน</label><select id="loginCls" onchange="updateLoginStuList()">${clsOpts}</select></div>
-    <div class="fg"><label class="fl"><i class="ti ti-user"></i> ชื่อของคุณ</label><select id="loginStu"><option value="">— เลือกชื่อ —</option></select></div>
-    <div class="fg pw-toggle">
+    <div class="fg"><label class="fl"><i class="ti ti-door"></i> เลือกห้องเรียน</label>
+      <select id="loginCls" onchange="updateLoginStuList()">
+        <option value="">— เลือกห้อง —</option>
+        ${clsOpts}
+      </select>
+    </div>
+    <div class="fg" id="stuPickWrap" style="display:none">
+      <label class="fl"><i class="ti ti-user"></i> เลือกชื่อของคุณ</label>
+      <input type="text" class="stu-search" id="stuSearch" placeholder="🔍 พิมพ์ค้นหาชื่อ..." oninput="filterStuList()">
+      <div class="stu-picker" id="stuPicker"></div>
+    </div>
+    <div class="fg pw-toggle" id="loginPwWrap" style="display:none">
       <label class="fl"><i class="ti ti-lock"></i> รหัสผ่าน</label>
-      <input type="password" id="loginPw" placeholder="••••••" autocomplete="current-password" oninput="updPwDots('loginPw','ld')" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="password" id="loginPw" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="pw-eye" onclick="togglePwEye('loginPw',this)" type="button"><i class="ti ti-eye"></i></button>
     </div>
-    <div class="pw-dots" id="ld"></div>
-    <button class="btn btn-tl btn-full" style="margin-top:6px" onclick="doLogin()"><i class="ti ti-login"></i> เข้าสู่ระบบ</button>
+    <button class="btn btn-tl btn-full" id="loginBtn" style="display:none;margin-top:6px" onclick="doLogin()"><i class="ti ti-login"></i> เข้าสู่ระบบ</button>
     <div style="text-align:center;margin:14px 0;font-size:13px;color:var(--mu)">ยังไม่มีบัญชี?</div>
     <button class="btn btn-outline btn-full" onclick="renderRegister()"><i class="ti ti-user-plus"></i> ลงทะเบียน</button>
   </div>`;
-  updateLoginStuList();
 }
-
+let _loginStuId=null;
 function updateLoginStuList(){
   const cid=document.getElementById('loginCls')?.value;
-  const sel=document.getElementById('loginStu');if(!sel)return;
+  const wrap=document.getElementById('stuPickWrap');
+  const pwWrap=document.getElementById('loginPwWrap');
+  const btn=document.getElementById('loginBtn');
+  _loginStuId=null;
+  if(!cid){wrap.style.display='none';pwWrap.style.display='none';btn.style.display='none';return;}
+  wrap.style.display='block';
+  renderStuPickList(cid,'');
+}
+function renderStuPickList(cid,filter){
+  const picker=document.getElementById('stuPicker');if(!picker)return;
   const stus=stuArr(cid).slice().sort((a,b)=>a.no-b.no);
-  sel.innerHTML=`<option value="">— เลือกชื่อ —</option>`+stus.map(s=>`<option value="${s.id}">${s.no}. ${s.firstName} ${s.lastName}</option>`).join('');
+  const f=(filter||'').toLowerCase().trim();
+  const filtered=f?stus.filter(s=>(`${s.no} ${s.firstName} ${s.lastName}`).toLowerCase().includes(f)):stus;
+  if(!filtered.length){
+    picker.innerHTML=`<div style="padding:20px;text-align:center;color:var(--mu);font-size:13px">${stus.length?'ไม่พบชื่อที่ค้นหา':'ยังไม่มีนักเรียนในห้องนี้ กดลงทะเบียนด้านล่าง'}</div>`;
+    return;
+  }
+  picker.innerHTML=filtered.map(s=>`
+    <div class="stu-pick-item${s.id===_loginStuId?' sel':''}" onclick="pickLoginStu('${s.id}')">
+      <div class="stu-pick-no">${s.no}</div>
+      <div class="stu-pick-name">${s.firstName} ${s.lastName}</div>
+      ${s.id===_loginStuId?'<i class="ti ti-circle-check stu-pick-check"></i>':''}
+    </div>`).join('');
+}
+function filterStuList(){
+  const cid=document.getElementById('loginCls')?.value;
+  const f=document.getElementById('stuSearch')?.value||'';
+  renderStuPickList(cid,f);
+}
+function pickLoginStu(sid){
+  _loginStuId=sid;
+  const cid=document.getElementById('loginCls')?.value;
+  renderStuPickList(cid,document.getElementById('stuSearch')?.value||'');
+  document.getElementById('loginPwWrap').style.display='block';
+  document.getElementById('loginBtn').style.display='flex';
+  // ถ้ายังไม่มีรหัส แสดงข้อความ
+  const errEl=document.getElementById('loginErr');
+  if(!hasPw(sid)){
+    if(errEl)errEl.innerHTML=`<div class="ok-box"><i class="ti ti-info-circle"></i>ครั้งแรก! กดเข้าสู่ระบบเพื่อตั้งรหัสผ่าน</div>`;
+  } else {
+    if(errEl)errEl.innerHTML='';
+  }
+  setTimeout(()=>document.getElementById('loginPw')?.focus(),100);
 }
 
 async function doLogin(){
   const cid=document.getElementById('loginCls')?.value;
-  const sid=document.getElementById('loginStu')?.value;
+  const sid=_loginStuId;
   const pw=(document.getElementById('loginPw')?.value||'').trim();
   const errEl=document.getElementById('loginErr');
   if(!cid||!sid){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณาเลือกห้องและชื่อ</div>`;return;}
-  // ถ้ายังไม่มีรหัส → ต้องไปตั้งรหัสก่อน
-  if(!hasPw(sid)){
-    renderSetPassword(cid,sid,false);return;
-  }
+  // ถ้ายังไม่มีรหัส → ไปตั้งรหัสก่อน
+  if(!hasPw(sid)){renderSetPassword(cid,sid,false);return;}
   if(!pw){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>กรุณากรอกรหัสผ่าน</div>`;return;}
   const ok=await checkPw(sid,pw);
   if(!ok){
     if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านไม่ถูกต้อง</div>`;
-    document.getElementById('loginPw').value='';
-    updPwDots('loginPw','ld');
+    const pwIn=document.getElementById('loginPw');if(pwIn)pwIn.value='';
     return;
   }
   me={classId:cid,studentId:sid};saveSession();renderApp();
@@ -423,7 +477,9 @@ async function doRegister(){
   if(!cid||!no||!fn){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณากรอกข้อมูลให้ครบ</div>`;return;}
   if(pw.length<4){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร</div>`;return;}
   if(pw!==pw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
-  const tkey=tk(cid);
+  // ใช้ termId ของห้องที่เลือก เพื่อให้ key ตรงกับระบบครู
+  const cls2=db.classes.find(x=>x.id===cid);
+  const tkey=(cls2&&cls2.termId)?cls2.termId+'__'+cid:(window._currentTermId?window._currentTermId+'__'+cid:cid);
   if(!db.students[tkey])db.students[tkey]=[];
   const id=uid();
   db.students[tkey].push({id,no,firstName:fn,lastName:ln});
