@@ -541,7 +541,7 @@ async function load(){
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
     const r=await fetch(GAS_URL+'?action=load');
     const j=JSON.parse(await r.text());
-    if(j&&j.classes){
+    if(j&&(j.classes||j.school||j.terms)){
       db=j;
       _initDB();
       if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
@@ -713,8 +713,11 @@ function uploadLogo(input){
       while(dataUrl.length>40000&&q>0.3){q-=0.1;dataUrl=canvas.toDataURL('image/jpeg',q);}
       if(dataUrl.length>45000){showToast('รูปนี้ซับซ้อนเกินไป กรุณาใช้รูปที่เรียบง่ายกว่า');return;}
       db.school.logo=dataUrl;
-      save();renderSchool();updateSidebarLogo();
-      showToast('บันทึกตราโรงเรียนแล้ว ✓ ('+Math.round(dataUrl.length/1024)+'KB)');
+      try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+      renderSchool();updateSidebarLogo();
+      showToast('กำลังบันทึกขึ้นระบบ...');
+      // บันทึกขึ้น cloud ทันที ไม่รอ debounce (กันตราหายตอนรีเฟรชเร็ว)
+      _cloudSave().then(()=>showToast('บันทึกตราโรงเรียนแล้ว ✓ ('+Math.round(dataUrl.length/1024)+'KB)'));
     };
     img.onerror=()=>showToast('ไม่สามารถอ่านรูปนี้ได้');
     img.src=e.target.result;
@@ -732,7 +735,7 @@ function openEditSchool(){
 }
 function saveSchool(){
   db.school={...db.school,name:val('schName'),subdistrict:val('schSub'),district:val('schDist'),province:val('schProv')};
-  save();closeMD();renderSchool();updateSidebarLogo();showToast('บันทึกข้อมูลโรงเรียนแล้ว ✓');
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}closeMD();renderSchool();updateSidebarLogo();showToast('กำลังบันทึก...');_cloudSave().then(()=>showToast('บันทึกข้อมูลโรงเรียนแล้ว ✓'));
 }
 function openAddTerm(){
   const now=new Date(),thYear=now.getFullYear()+543;

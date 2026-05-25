@@ -268,7 +268,7 @@ async function loadData(){
   try{
     const r=await fetch(GAS_URL+'?action=load');
     const j=JSON.parse(await r.text());
-    if(j&&j.classes){
+    if(j&&(j.classes||j.school||j.terms)){
       db=j;
       _normalizeDB();
       setSync('ok');return true;
