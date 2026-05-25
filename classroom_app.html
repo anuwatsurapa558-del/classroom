@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ClassRoom">
+<meta name="theme-color" content="#111113">
+<title>ระบบเช็คชื่อและเก็บคะแนน (ครู)</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#F4F3EF;--sf:#fff;--s2:#EDEBE7;--s3:#E4E2DD;
+  --bd:rgba(0,0,0,0.08);--bmd:rgba(0,0,0,0.14);
+  --tx:#1A1A1A;--mu:#686868;--hn:#AAA;
+  --bl:#2563EB;--bll:#EFF6FF;
+  --gn:#16A34A;--gnl:#DCFCE7;
+  --rd:#DC2626;--rdl:#FEE2E2;
+  --am:#D97706;--aml:#FEF3C7;
+  --pu:#7C3AED;--pul:#EDE9FE;
+  --tl:#0D9488;--tll:#CCFBF1;
+  --or:#EA580C;--orl:#FED7AA;
+  --r:9px;--rl:13px;
+  --sh:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --sbw:220px;--tbh:52px;--bnh:60px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.6;}
+.app{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sbw);background:#111113;color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;transition:transform .25s;}
+.sb-logo{padding:14px 15px 12px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;}
+.sb-logo-t h1{font-size:14px;font-weight:700;}
+.sb-logo-t p{font-size:10px;color:rgba(255,255,255,0.35);}
+.sb-close{display:none;background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer;}
+.sb-nav{flex:1;padding:8px 6px;overflow-y:auto;}
+.nl{font-size:9px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,0.25);text-transform:uppercase;padding:8px 8px 3px;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.55);transition:all .12s;border:none;background:none;width:100%;text-align:left;font-family:inherit;}
+.ni:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.ni.active{background:rgba(255,255,255,0.12);color:#fff;font-weight:600;}
+.ni i{font-size:16px;width:18px;text-align:center;}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:190;}
+.sb-overlay.show{display:block;}
+
+/* MAIN */
+.main{margin-left:var(--sbw);flex:1;min-width:0;}
+.topbar{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 18px;height:var(--tbh);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
+.topbar-menu{display:none;background:none;border:none;font-size:22px;color:var(--tx);cursor:pointer;}
+.topbar-left{flex:1;min-width:0;}
+.topbar-title{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topbar-sub{font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#sync-status{font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+
+/* PAGES */
+.page{padding:16px;display:none;padding-bottom:80px;}
+.page.active{display:block;}
+
+/* BOTTOM NAV */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--bnh);background:var(--sf);border-top:1px solid var(--bd);z-index:150;padding:0 2px;padding-bottom:env(safe-area-inset-bottom);}
+.bottom-nav-inner{display:flex;height:100%;align-items:stretch;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;font-family:inherit;color:var(--mu);font-size:9.5px;font-weight:500;padding:4px 2px;border-radius:8px;touch-action:manipulation;}
+.bn-item i{font-size:20px;}
+.bn-item.active{color:var(--bl);}
+
+/* SEL BAR */
+.sel-bar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);box-shadow:var(--sh);margin-bottom:14px;overflow:hidden;}
+.sel-row{display:flex;align-items:center;flex-wrap:wrap;gap:3px;padding:5px 6px;}
+.sel-row+.sel-row{border-top:1px solid var(--bd);background:var(--s2);}
+.sel-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mu);padding:4px 6px;white-space:nowrap;}
+.sel-tab{padding:6px 12px;border-radius:7px;border:none;background:none;font-family:inherit;font-size:12px;font-weight:500;color:var(--mu);cursor:pointer;transition:all .12s;white-space:nowrap;}
+.sel-tab:hover{background:var(--s3);color:var(--tx);}
+.sel-tab.ac{background:var(--bl);color:#fff;font-weight:600;}
+.sel-tab.as{background:var(--tl);color:#fff;font-weight:600;}
+.sel-add{padding:5px 9px;border-radius:7px;border:1.5px dashed var(--bmd);background:none;font-family:inherit;font-size:12px;color:var(--mu);cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:3px;}
+.sel-add:hover{border-color:var(--bl);color:var(--bl);}
+.sel-add.sa:hover{border-color:var(--tl);color:var(--tl);}
+
+/* CARDS */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);box-shadow:var(--sh);}
+.cp{padding:16px;}
+
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;margin-bottom:14px;}
+.sc-stat{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px;box-shadow:var(--sh);}
+.sl{font-size:10px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.sv{font-size:24px;font-weight:800;line-height:1.15;margin-top:2px;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--bmd);background:var(--sf);color:var(--tx);transition:all .12s;touch-action:manipulation;}
+.btn:active{opacity:.8;}
+.btn-p{background:var(--bl);color:#fff;border-color:var(--bl);}
+.btn-t{background:var(--tl);color:#fff;border-color:var(--tl);}
+.btn-g{background:var(--gn);color:#fff;border-color:var(--gn);}
+.btn-o{background:var(--or);color:#fff;border-color:var(--or);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.btn-xs{padding:3px 7px;font-size:11px;border-radius:6px;}
+
+/* TABLE */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mu);padding:8px 10px;border-bottom:1px solid var(--bd);background:var(--s2);white-space:nowrap;}
+td{padding:8px 10px;border-bottom:1px solid var(--bd);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--s2);}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:700;}
+.bg{background:var(--gnl);color:var(--gn);}
+.br{background:var(--rdl);color:var(--rd);}
+.ba{background:var(--aml);color:var(--am);}
+.bb{background:var(--bll);color:var(--bl);}
+.bt{background:var(--tll);color:var(--tl);}
+.bx{background:var(--s2);color:var(--mu);}
+.bp{background:var(--pul);color:var(--pu);}
+.bo{background:var(--orl);color:var(--or);}
+
+/* ATTENDANCE ROWS */
+.atr{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--bd);}
+.atr:last-child{border-bottom:none;}
+.anum{width:30px;font-size:12px;color:var(--mu);font-weight:700;flex-shrink:0;}
+.aname{flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;}
+.abtns{display:flex;gap:3px;flex-shrink:0;}
+.ab{padding:6px 9px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid transparent;transition:all .1s;font-family:inherit;background:var(--s2);color:var(--mu);touch-action:manipulation;}
+.ab.s-ma{background:var(--gnl);color:var(--gn);border-color:var(--gn);}
+.ab.s-sa{background:var(--aml);color:var(--am);border-color:var(--am);}
+.ab.s-la{background:var(--bll);color:var(--bl);border-color:var(--bl);}
+.ab.s-kh{background:var(--rdl);color:var(--rd);border-color:var(--rd);}
+
+/* PROGRESS */
+.prog{height:5px;background:var(--s2);border-radius:3px;overflow:hidden;}
+.pf{height:100%;border-radius:3px;transition:width .4s;}
+
+/* FORM */
+.fg{margin-bottom:12px;}
+.fl{display:block;font-size:13px;font-weight:600;margin-bottom:4px;}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:9px 11px;border:1px solid var(--bmd);border-radius:7px;font-family:inherit;font-size:16px;color:var(--tx);background:var(--sf);outline:none;transition:border-color .12s;}
+input:focus,select:focus,textarea:focus{border-color:var(--bl);}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:none;align-items:flex-end;justify-content:center;}
+.mo.open{display:flex;}
+.md{background:var(--sf);border-radius:16px 16px 0 0;padding:22px;width:100%;max-width:560px;box-shadow:0 -4px 30px rgba(0,0,0,0.15);max-height:92vh;overflow-y:auto;animation:slideUp .22s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.md::before{content:'';display:block;width:40px;height:4px;background:var(--s3);border-radius:2px;margin:0 auto 16px;}
+.mt{font-size:16px;font-weight:700;margin-bottom:16px;}
+
+/* TABS */
+.tabs{display:flex;gap:2px;background:var(--s2);border-radius:9px;padding:3px;margin-bottom:14px;}
+.tb{flex:1;padding:7px 6px;border-radius:7px;border:none;background:none;font-family:inherit;font-size:12px;font-weight:500;color:var(--mu);cursor:pointer;transition:all .12s;white-space:nowrap;}
+.tb.active{background:var(--sf);color:var(--tx);box-shadow:var(--sh);}
+
+/* DATE NAV */
+.dnav{display:flex;align-items:center;gap:6px;margin-bottom:14px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;box-shadow:var(--sh);}
+.dnav button{border:1px solid var(--bmd);background:var(--s2);border-radius:5px;padding:6px 10px;cursor:pointer;font-size:16px;color:var(--tx);touch-action:manipulation;}
+.dd{flex:1;text-align:center;font-weight:700;font-size:13px;}
+
+/* CHART */
+.chbox{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;box-shadow:var(--sh);}
+.chtitle{font-size:12px;font-weight:700;margin-bottom:10px;color:var(--mu);}
+.barchart{display:flex;align-items:flex-end;gap:5px;height:100px;}
+.bw{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;}
+.bout{flex:1;width:100%;display:flex;align-items:flex-end;background:var(--s2);border-radius:4px;overflow:hidden;}
+.bin{width:100%;border-radius:4px 4px 0 0;transition:height .4s;}
+.blbl{font-size:9px;color:var(--mu);text-align:center;max-width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bval{font-size:10px;font-weight:700;}
+
+/* SCORE */
+.sc-inp{width:68px!important;text-align:center;padding:5px 6px!important;font-size:14px!important;}
+.stitle{font-size:14px;font-weight:700;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bd);}
+.score-table th,.score-table td{padding:6px 8px;font-size:12px;}
+.score-table th{text-align:center;}
+.score-table td:nth-child(1),.score-table th:nth-child(1){text-align:right;width:32px;}
+.score-table td:nth-child(2),.score-table th:nth-child(2){text-align:left;}
+.fc1{position:sticky;left:0;background:var(--sf);z-index:1;}
+.fc2{position:sticky;left:32px;background:var(--sf);z-index:1;}
+
+/* GRADE BADGE */
+.grade{display:inline-block;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:800;}
+.g4{background:#14532D;color:#fff;}
+.g35{background:var(--gnl);color:#14532D;}
+.g3{background:var(--gnl);color:var(--gn);}
+.g25{background:var(--bll);color:var(--bl);}
+.g2{background:var(--bll);color:var(--bl);}
+.g15{background:var(--aml);color:var(--am);}
+.g1{background:var(--aml);color:var(--am);}
+.g0{background:var(--rdl);color:var(--rd);}
+
+/* SCORE SECTION TABS (คะแนนเก็บ / สอบ) */
+.score-type-bar{display:flex;gap:0;margin-bottom:14px;border:1px solid var(--bmd);border-radius:8px;overflow:hidden;}
+.score-type-btn{flex:1;padding:9px;border:none;background:var(--s2);font-family:inherit;font-size:13px;font-weight:500;color:var(--mu);cursor:pointer;transition:all .12s;}
+.score-type-btn.active{background:var(--bl);color:#fff;font-weight:700;}
+
+/* EMPTY */
+.empty{padding:32px;text-align:center;color:var(--mu);}
+.empty i{font-size:28px;margin-bottom:8px;display:block;}
+.empty p{font-size:12px;margin-top:4px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(var(--bnh) + 10px);left:50%;transform:translateX(-50%) translateY(20px);background:#111;color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;z-index:400;opacity:0;transition:all .22s;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+/* EXPORT */
+.exp-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);box-shadow:var(--sh);overflow:hidden;margin-bottom:14px;}
+.exp-hd{padding:14px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;}
+.exp-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.exp-icon.sc{background:var(--bll);color:var(--bl);}
+.exp-icon.at{background:var(--tll);color:var(--tl);}
+.exp-bd{padding:12px 16px;}
+.exp-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);}
+.exp-row:last-child{border-bottom:none;}
+.exp-lbl{flex:1;}
+.exp-lbl b{font-size:13px;}
+.exp-lbl small{display:block;font-size:11px;color:var(--mu);margin-top:2px;}
+.dl-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:none;touch-action:manipulation;}
+.dl-btn.sc{background:var(--bl);color:#fff;}
+.dl-btn.at{background:var(--tl);color:#fff;}
+.dl-btn:active{opacity:.8;}
+
+/* PROPORTION BOX */
+.prop-box{background:var(--s2);border-radius:var(--r);padding:14px;margin-bottom:14px;}
+.prop-title{font-size:13px;font-weight:700;margin-bottom:10px;}
+.prop-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.prop-label{font-size:12.5px;color:var(--mu);min-width:120px;}
+.prop-val{font-size:14px;font-weight:700;}
+.prop-bar{height:18px;border-radius:4px;overflow:hidden;display:flex;margin-bottom:10px;}
+.prop-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;transition:width .4s;}
+
+
+/* SCHOOL INFO PAGE */
+.school-card{background:linear-gradient(135deg,#1e3a5f,#2563EB);color:#fff;border-radius:var(--rl);padding:24px;margin-bottom:14px;box-shadow:0 4px 20px rgba(37,99,235,0.3);text-align:center;}
+.school-logo-area{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.15);border:3px solid rgba(255,255,255,0.3);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:all .2s;}
+.school-logo-area:hover{background:rgba(255,255,255,0.25);}
+.school-logo-area img{width:100%;height:100%;object-fit:cover;}
+.school-logo-area i{font-size:36px;opacity:.7;}
+.school-name-big{font-size:18px;font-weight:800;margin-bottom:4px;}
+.school-sub-txt{font-size:12px;opacity:.75;margin-bottom:2px;}
+.term-banner{background:var(--sf);border:2px solid var(--bl);border-radius:var(--r);padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh);}
+.term-banner-title{font-weight:700;color:var(--bl);font-size:13px;}
+.term-banner-sub{font-size:11.5px;color:var(--mu);}
+.term-selector{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;box-shadow:var(--sh);}
+.term-selector-title{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+.term-pill{display:inline-flex;align-items:center;gap:4px;padding:6px 13px;border-radius:20px;border:1.5px solid var(--bmd);background:none;font-family:inherit;font-size:12px;font-weight:500;color:var(--mu);cursor:pointer;transition:all .12s;margin:3px;}
+.term-pill.act{background:var(--bl);color:#fff;border-color:var(--bl);font-weight:700;}
+.term-pill.add-t{border-style:dashed;}
+.term-pill.add-t:hover{border-color:var(--bl);color:var(--bl);}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.info-item{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px;box-shadow:var(--sh);}
+.info-item-label{font-size:10px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}
+.info-item-value{font-size:16px;font-weight:800;color:var(--tx);}
+.logo-input{display:none;}
+/* PASSWORD MANAGEMENT */
+.pw-table td{vertical-align:middle;}
+.pw-show{font-family:monospace;font-size:14px;font-weight:600;background:var(--s2);padding:4px 10px;border-radius:6px;letter-spacing:1px;color:var(--tx);}
+.pw-empty{font-size:12px;color:var(--hn);font-style:italic;}
+.pw-badge-set{background:var(--gnl);color:var(--gn);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;}
+.pw-badge-none{background:var(--rdl);color:var(--rd);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;}
+.pw-reveal-btn{padding:3px 8px;border-radius:6px;border:1px solid var(--bmd);background:var(--s2);cursor:pointer;font-size:11.5px;font-family:inherit;color:var(--mu);}
+.pw-reveal-btn:hover{background:var(--s3);}
+
+/* UTILS *//* UTILS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.mb14{margin-bottom:14px;}.mb18{margin-bottom:18px;}.mt10{margin-top:10px;}.mt14{margin-top:14px;}
+.f{display:flex;}.g8{gap:8px;}.g12{gap:12px;}.ic{align-items:center;}.jb{justify-content:space-between;}.fw{flex-wrap:wrap;}
+.wa{width:auto!important;} .nowrap{white-space:nowrap;}
+.info-box{background:var(--bll);border:1px solid rgba(37,99,235,.2);border-radius:var(--r);padding:10px 14px;font-size:12.5px;color:var(--bl);margin-bottom:14px;}
+
+/* RESPONSIVE MOBILE */
+@media(max-width:767px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .sb-close{display:block;}
+  .main{margin-left:0;}
+  .topbar-menu{display:block;}
+  .topbar{padding:0 12px;}
+  .bottom-nav{display:flex;flex-direction:column;justify-content:flex-start;}
+  .page{padding:12px 12px 80px;}
+  .cp .f.ic.jb{flex-wrap:wrap;gap:8px;}
+  .ab{padding:7px 8px;font-size:11px;}
+  .sc-inp{width:58px!important;}
+  .g2.dash-c{grid-template-columns:1fr;}
+  .sel-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+  .sel-row::-webkit-scrollbar{display:none;}
+  .toast{bottom:calc(var(--bnh) + env(safe-area-inset-bottom) + 6px);}
+  .md{border-radius:16px 16px 0 0;max-height:88vh;}
+}
+@media(min-width:768px) and (max-width:1023px){
+  :root{--sbw:64px;}
+  .sb-logo-t,.nl{display:none;}
+  .ni{justify-content:center;padding:12px 0;}
+  .ni i{width:auto;font-size:20px;}
+  .ni span{display:none;}
+  .sb-close{display:none;}
+  .toast{bottom:18px;left:auto;right:18px;transform:none;}
+  .toast.show{transform:none;}
+}
+@media(min-width:1024px){
+  .topbar-menu{display:none;}
+  .page{padding-bottom:20px;}
+  .toast{bottom:18px;left:auto;right:18px;transform:none;}
+  .toast.show{transform:none;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-t"><h1>📚 ClassRoom</h1><p>ระบบครู</p></div>
+    <button class="sb-close" onclick="closeSB()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="sb-nav">
+    <div class="nl">โรงเรียน</div>
+    <button class="ni" onclick="gotoPage('school',this)"><i class="ti ti-building-bank"></i><span>ข้อมูลพื้นฐาน</span></button>
+    <div class="nl" style="margin-top:6px">ภาพรวม</div>
+    <button class="ni active" onclick="gotoPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>แดชบอร์ด</span></button>
+    <div class="nl" style="margin-top:6px">จัดการ</div>
+    <button class="ni" onclick="gotoPage('students',this)"><i class="ti ti-users"></i><span>ข้อมูลนักเรียน</span></button>
+    <button class="ni" onclick="gotoPage('subjects',this)"><i class="ti ti-book"></i><span>จัดการวิชา</span></button>
+    <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
+    <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
+    <div class="nl" style="margin-top:6px">รายงาน</div>
+    <button class="ni" onclick="gotoPage('export',this)"><i class="ti ti-file-export"></i><span>ส่งออกข้อมูล</span></button>
+  </div>
+</nav>
+<div class="sb-overlay" id="sb-overlay" onclick="closeSB()"></div>
+
+<main class="main">
+  <div class="topbar">
+    <button class="topbar-menu" onclick="openSB()"><i class="ti ti-menu-2"></i></button>
+    <div class="topbar-left">
+      <div class="topbar-title" id="ttitle">แดชบอร์ด</div>
+      <div class="topbar-sub" id="tsub">ภาพรวมทุกห้องเรียน</div>
+    </div>
+    <div id="sync-status"></div>
+  </div>
+
+  <div class="page active" id="page-dashboard"><div id="db-content"></div></div>
+
+  <div class="page" id="page-school"><div id="school-content"></div></div>
+
+  <div class="page" id="page-students">
+    <div id="stu-selbar"></div><div id="stu-content"></div>
+  </div>
+
+  <div class="page" id="page-subjects">
+    <div id="sub-selbar"></div><div id="sub-content"></div>
+  </div>
+
+  <div class="page" id="page-attendance">
+    <div id="att-selbar"></div>
+    <div class="tabs" id="att-subtabs">
+      <button class="tb active" onclick="attSub('check',this)">เช็คชื่อ</button>
+      <button class="tb" onclick="attSub('edit',this)">แก้ไข</button>
+      <button class="tb" onclick="attSub('summary',this)">สถิติ</button>
+      <button class="tb" onclick="attSub('individual',this)">รายบุคคล</button>
+    </div>
+    <div id="att-check"></div>
+    <div id="att-edit" style="display:none"></div>
+    <div id="att-summary" style="display:none"></div>
+    <div id="att-individual" style="display:none"></div>
+  </div>
+
+  <div class="page" id="page-scores">
+    <div id="sc-selbar"></div>
+    <div class="tabs" id="sc-subtabs">
+      <button class="tb active" onclick="scSub('entry',this)">บันทึก</button>
+      <button class="tb" onclick="scSub('exam',this)">คะแนนสอบ</button>
+      <button class="tb" onclick="scSub('all',this)">ภาพรวม</button>
+      <button class="tb" onclick="scSub('grade',this)">เกรด</button>
+    </div>
+    <div id="sc-entry"></div>
+    <div id="sc-exam" style="display:none"></div>
+    <div id="sc-all" style="display:none"></div>
+    <div id="sc-grade" style="display:none"></div>
+  </div>
+
+  <div class="page" id="page-export">
+    <div id="exp-selbar"></div><div id="exp-content"></div>
+  </div>
+</main>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" id="bn-dashboard" onclick="gotoPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>หน้าหลัก</span></button>
+    <button class="bn-item" id="bn-attendance" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
+    <button class="bn-item" id="bn-scores" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>คะแนน</span></button>
+    <button class="bn-item" id="bn-students" onclick="gotoPage('students',this)"><i class="ti ti-users"></i><span>นักเรียน</span></button>
+    <button class="bn-item" id="bn-school" onclick="gotoPage('school',this)"><i class="ti ti-building-bank"></i><span>โรงเรียน</span></button>
+  </div>
+</nav>
+</div>
+
+<div class="mo" id="MO" onclick="if(event.target===this)closeMD()">
+  <div class="md"><div id="MC"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL='https://script.google.com/macros/s/AKfycby73U_-tNfHjYxl8VWTypaD-okmCQL1_WrodI62_ggxgI4IgD2dd7HrZg47C0pz0LFq/exec';
+
+/* ════ DATA ════
+  db.classes   [{id,name}]
+  db.students  {cid:[{id,no,firstName,lastName}]}
+  db.subjects  {cid:[{id,name,code, wAssign,wExam, wMid,wFinal}]}
+               wAssign+wExam=100; wMid+wFinal=100 (of exam portion)
+  db.attendance {cid:{sid:{date:{stuId:status}}}}
+  db.assignments {cid:{sid:[{id,name,maxScore,type:'assign'}]}}
+  db.scores    {cid:{sid:{asgId:{stuId:score}}}}
+  db.examScores {cid:{sid:{stuId:{mid:score,final:score}}}}
+*/
+let db={school:{name:'',subdistrict:'',district:'',province:'',logo:''},terms:[],classes:[],students:{},subjects:{},attendance:{},assignments:{},scores:{},examScores:{}};
+let currentTermId=null;
+
+const P={
+  students:{cls:null},subjects:{cls:null},
+  attendance:{cls:null,sub:null},scores:{cls:null,sub:null},
+  export:{cls:null,sub:null}
+};
+let attSubtab='check',scSubtab='entry';
+let attDate=todayStr();
+let attEditDate=todayStr();
+let selStu=null,selAsg=null;
+
+/* ── HELPERS ── */
+function uid(){return Math.random().toString(36).slice(2,10);}
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function thDate(d){
+  const mo=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const[y,m,day]=d.split('-');return `${+day} ${mo[+m-1]} ${+y+543}`;
+}
+function val(id){return(document.getElementById(id)||{}).value?.trim()||'';}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function noData(icon,msg,sub=''){return`<div class="card cp"><div class="empty"><i class="ti ti-${icon}"></i><div>${msg}</div>${sub?`<p>${sub}</p>`:''}</div></div>`;}
+
+/* term key helpers */
+function tk(cid){return currentTermId?currentTermId+'__'+cid:cid;}
+function curTerm(){return db.terms.find(t=>t.id===currentTermId)||db.terms[0]||null;}
+function termClasses(){return currentTermId?db.classes.filter(c=>c.termId===currentTermId):db.classes;}
+function termLabel(){const t=curTerm();return t?'ปีการศึกษา '+t.year+' ภาคเรียนที่ '+t.semester:'ยังไม่ได้เลือกภาคเรียน';}
+
+/* getters */
+function getCls(id){return db.classes.find(c=>c.id===id);}
+function stuList(cid){return(db.students[tk(cid)]||[]).slice().sort((a,b)=>a.no-b.no);}
+function subList(cid){return db.subjects[tk(cid)]||[];}
+function getSub(cid,sid){return subList(cid).find(s=>s.id===sid);}
+function asgList(cid,sid){return((db.assignments[tk(cid)]||{})[sid])||[];}
+function attRec(cid,sid,date){return(((db.attendance[tk(cid)]||{})[sid])||{})[date]||{};}
+function scMap(cid,sid,aid){return((((db.scores[tk(cid)]||{})[sid])||{})[aid])||{};}
+function examMap(cid,sid){return((db.examScores[tk(cid)]||{})[sid])||{};}
+
+function ensureCls(page){if(!P[page].cls&&db.classes.length)P[page].cls=db.classes[0].id;return P[page].cls;}
+function ensureSub(page){
+  const cid=P[page].cls; if(!cid)return null;
+  const subs=subList(cid);
+  if(!P[page].sub||!subs.find(s=>s.id===P[page].sub))P[page].sub=subs[0]?.id||null;
+  return P[page].sub;
+}
+function needCS(page){const cid=ensureCls(page);if(!cid)return null;const subid=ensureSub(page);if(!subid)return null;return{cid,subid};}
+
+/* GRADE CALC */
+function calcGrade(pct){
+  if(pct>=80)return{g:'4',cls:'g4'};
+  if(pct>=75)return{g:'3.5',cls:'g35'};
+  if(pct>=70)return{g:'3',cls:'g3'};
+  if(pct>=65)return{g:'2.5',cls:'g25'};
+  if(pct>=60)return{g:'2',cls:'g2'};
+  if(pct>=55)return{g:'1.5',cls:'g15'};
+  if(pct>=50)return{g:'1',cls:'g1'};
+  return{g:'0',cls:'g0'};
+}
+
+/* TOTAL SCORE for student */
+function calcTotal(cid,subid,stuId){
+  const sub=getSub(cid,subid);
+  if(!sub)return{assignPct:0,examPct:0,totalPct:0,grade:{g:'0',cls:'g0'}};
+  const wA=sub.wAssign??70; const wE=sub.wExam??30;
+  const wMid=sub.wMid??50; const wFin=sub.wFinal??50;
+  // assign score
+  const asgs=asgList(cid,subid);
+  let assignRaw=0,assignMax=0;
+  asgs.forEach(a=>{
+    const v=scMap(cid,subid,a.id)[stuId];
+    if(v!==undefined&&v!==''){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
+  });
+  const assignPct=assignMax?assignRaw/assignMax*100:0;
+  // exam score
+  const ex=examMap(cid,subid)[stuId]||{};
+  const midMax=sub.midMax||100; const finMax=sub.finalMax||100;
+  const midRaw=ex.mid!==undefined?parseFloat(ex.mid):null;
+  const finRaw=ex.final!==undefined?parseFloat(ex.final):null;
+  const midPct=midRaw!==null?midRaw/midMax*100:null;
+  const finPct=finRaw!==null?finRaw/finMax*100:null;
+  let examPct=0;
+  if(midPct!==null&&finPct!==null) examPct=midPct*(wMid/100)+finPct*(wFin/100);
+  else if(midPct!==null) examPct=midPct;
+  else if(finPct!==null) examPct=finPct;
+  const totalPct=assignPct*(wA/100)+examPct*(wE/100);
+  return{assignPct:Math.round(assignPct*10)/10,examPct:Math.round(examPct*10)/10,totalPct:Math.round(totalPct*10)/10,grade:calcGrade(totalPct),midRaw,finRaw,midMax,finMax,midPct,finPct};
+}
+
+/* ── PERSISTENCE ── */
+let _saveTimer=null;
+function save(){
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(_cloudSave,1500);
+}
+async function _cloudSave(){
+  const s=document.getElementById('sync-status');
+  try{
+    if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
+    const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify(db),headers:{'Content-Type':'text/plain'}});
+    const j=await r.json();
+    if(j.status==='ok'){if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}}
+  }catch(e){
+    if(s){s.textContent='⚠️ ออฟไลน์';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},4000);}
+  }
+}
+async function load(){
+  const s=document.getElementById('sync-status');
+  try{
+    if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
+    const r=await fetch(GAS_URL+'?action=load');
+    const j=JSON.parse(await r.text());
+    if(j&&j.classes){
+      db=j;
+      _initDB();
+      if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+      return;
+    }
+  }catch(e){}
+  try{const x=localStorage.getItem('crDB4');if(x){db=JSON.parse(x);}}catch(e){}
+  _initDB();
+  if(s){s.textContent='📱 โหลดจากเครื่อง';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+}
+
+/* ── SIDEBAR ── */
+function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('sb-overlay').classList.add('show');}
+function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-overlay').classList.remove('show');}
+
+/* ── NAV ── */
+function gotoPage(p,btn){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.ni,.bn-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.ni').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+p+"'"))b.classList.add('active');});
+  const bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
+  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
+  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
+  document.getElementById('ttitle').textContent=T[p]||p;
+  document.getElementById('tsub').textContent=S[p]||'';
+  if(window.innerWidth<768)closeSB();
+  renderPage(p);
+}
+function renderPage(p){
+  if(p==='dashboard')renderDash();
+  else if(p==='school')renderSchool();
+  else if(p==='students')renderStudents();
+  else if(p==='subjects')renderSubjects();
+  else if(p==='attendance')renderAtt();
+  else if(p==='scores')renderSc();
+  else if(p==='export')renderExport();
+}
+function curPage(){const e=document.querySelector('.page.active');return e?e.id.replace('page-',''):'dashboard';}
+
+/* ── SEL BAR ── */
+function selBar(containerId,page,showSub){
+  const el=document.getElementById(containerId);if(!el)return;
+  ensureCls(page);
+  const cid=P[page].cls;
+  const subs=cid?subList(cid):[];
+  if(showSub)ensureSub(page);
+  const tCls=termClasses();
+  let html=`<div class="sel-bar"><div class="sel-row"><span class="sel-lbl"><i class="ti ti-door"></i> ห้อง</span>`;
+  if(!tCls.length){html+=`<button class="sel-add" onclick="openAddClass()"><i class="ti ti-plus"></i>เพิ่มห้องเรียน</button>`;}
+  else{
+    tCls.forEach(c=>{
+      html+=`<button class="sel-tab ${P[page].cls===c.id?'ac':''}" onclick="pickCls('${page}','${c.id}')">${c.name}</button>`;
+    });
+    html+=`<button class="sel-add" onclick="openAddClass()"><i class="ti ti-plus"></i></button>`;
+  }
+  html+=`</div>`;
+  if(showSub){
+    html+=`<div class="sel-row"><span class="sel-lbl"><i class="ti ti-book"></i> วิชา</span>`;
+    if(!cid)html+=`<span style="font-size:12px;color:var(--hn);padding:4px 8px">เลือกห้องก่อน</span>`;
+    else if(!subs.length)html+=`<button class="sel-add sa" onclick="openAddSubject('${cid}','${page}')"><i class="ti ti-plus"></i>เพิ่มวิชา</button>`;
+    else{
+      subs.forEach(s=>{html+=`<button class="sel-tab ${P[page].sub===s.id?'as':''}" onclick="pickSub('${page}','${s.id}')">${s.name}${s.code?` <span style='font-size:10px;opacity:.7'>(${s.code})</span>`:''}</button>`;});
+      html+=`<button class="sel-add sa" onclick="openAddSubject('${cid}','${page}')"><i class="ti ti-plus"></i></button>`;
+    }
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+function pickCls(page,cid){P[page].cls=cid;if(P[page].sub!==undefined)P[page].sub=null;selStu=null;selAsg=null;renderPage(page);}
+function pickSub(page,sid){P[page].sub=sid;selStu=null;selAsg=null;renderPage(page);}
+
+/* ── CLASS SORT ── */
+function clsSortKey(n){const m=n.match(/[มปMm][.]?\s*(\d+)\s*[/\\\-]?\s*(\d*)/);if(!m)return n;return String(+m[1]).padStart(3,'0')+String(+(m[2]||0)).padStart(3,'0')+n;}
+function sortClasses(){db.classes.sort((a,b)=>clsSortKey(a.name).localeCompare(clsSortKey(b.name),'th'));}
+
+/* ════════════════════════════════════════════
+   SCHOOL INFO + TERM MANAGEMENT
+════════════════════════════════════════════ */
+function renderSchool(){
+  const el=document.getElementById('school-content');if(!el)return;
+  const sch=db.school||{};
+  const terms=db.terms||[];
+  const cur=curTerm();
+  const logoHtml=sch.logo?`<img src="${sch.logo}" alt="ตราโรงเรียน">`:`<i class="ti ti-building-bank"></i>`;
+  let html=`
+  <div class="school-card">
+    <div class="school-logo-area" onclick="document.getElementById('logoInput').click()" title="คลิกเปลี่ยนตราโรงเรียน">${logoHtml}</div>
+    <input type="file" id="logoInput" class="logo-input" accept="image/*" onchange="uploadLogo(this)">
+    <div class="school-name-big">${sch.name||'ชื่อโรงเรียน (กดแก้ไข)'}</div>
+    <div class="school-sub-txt">${sch.subdistrict||'สังกัด...'}</div>
+    <div class="school-sub-txt">${[sch.district,sch.province].filter(Boolean).join(' ')}</div>
+    <div style="margin-top:12px"><button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3)" onclick="openEditSchool()"><i class="ti ti-edit"></i> แก้ไขข้อมูล</button></div>
+  </div>
+  <div class="info-grid">
+    <div class="info-item"><div class="info-item-label">ปีการศึกษา</div><div class="info-item-value">${cur?cur.year:'—'}</div></div>
+    <div class="info-item"><div class="info-item-label">ภาคเรียนที่</div><div class="info-item-value">${cur?cur.semester:'—'}</div></div>
+    <div class="info-item"><div class="info-item-label">ห้องเรียน</div><div class="info-item-value">${termClasses().length} ห้อง</div></div>
+    <div class="info-item"><div class="info-item-label">นักเรียนรวม</div><div class="info-item-value">${termClasses().reduce((s,c2)=>s+(db.students[tk(c2.id)]||[]).length,0)} คน</div></div>
+  </div>
+  <div class="term-selector">
+    <div class="term-selector-title"><i class="ti ti-calendar"></i> เลือกปีการศึกษา / ภาคเรียน</div>
+    <div>`;
+  terms.forEach(t=>{
+    const cls2=db.classes.filter(c2=>c2.termId===t.id).length;
+    html+=`<button class="term-pill${t.id===currentTermId?' act':''}" onclick="switchTerm('${t.id}')">
+      ${t.isCurrent?'<i class="ti ti-star" style="color:#FBBF24;font-size:10px"></i> ':''}${t.label} <span style="font-size:10px;opacity:.6">(${cls2}ห้อง)</span>
+    </button>`;
+  });
+  html+=`<button class="term-pill add-t" onclick="openAddTerm()"><i class="ti ti-plus"></i> เพิ่มภาคเรียน</button>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--mu)">
+      <i class="ti ti-info-circle"></i> กำลังดู: <b>${cur?cur.label:'—'}</b>
+      ${cur&&!cur.isCurrent?`<button class="btn btn-xs btn-g" style="margin-left:8px" onclick="setCurrentTerm('${cur.id}')">ตั้งเป็นภาคปัจจุบัน</button>`:''}
+    </div>
+  </div>
+  <div class="card cp">
+    <div class="stitle">ทุกปีการศึกษา / ภาคเรียน</div>
+    <div class="tw"><table><thead><tr><th>ปีการศึกษา</th><th>ภาค</th><th>ห้อง</th><th>นักเรียน</th><th>สถานะ</th><th></th></tr></thead><tbody>`;
+  terms.slice().sort((a,b)=>b.year-a.year||b.semester-a.semester).forEach(t=>{
+    const cls3=db.classes.filter(c2=>c2.termId===t.id);
+    const stu3=cls3.reduce((s,c2)=>s+(db.students[t.id+'__'+c2.id]||[]).length,0);
+    html+=`<tr>
+      <td style="font-weight:700">${t.year}</td><td>ภาค ${t.semester}</td>
+      <td>${cls3.length} ห้อง</td><td>${stu3} คน</td>
+      <td>${t.isCurrent?'<span class="badge bg">ปัจจุบัน</span>':t.id===currentTermId?'<span class="badge bb">กำลังดู</span>':'<span class="badge bx">—</span>'}</td>
+      <td><div class="f g8">
+        ${!t.isCurrent?`<button class="btn btn-xs btn-g" onclick="setCurrentTerm('${t.id}')">ตั้งเป็นปัจจุบัน</button>`:''}
+        <button class="btn btn-xs" onclick="switchTerm('${t.id}')">เปิดดู</button>
+        <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteTerm('${t.id}')"><i class="ti ti-trash"></i></button>
+      </div></td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+function uploadLogo(input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>500000){showToast('ไฟล์ใหญ่เกิน 500KB กรุณาย่อขนาด');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{db.school.logo=e.target.result;save();renderSchool();showToast('บันทึกตราโรงเรียนแล้ว ✓');};
+  reader.readAsDataURL(file);
+}
+function openEditSchool(){
+  const sch=db.school||{};
+  showMD(`<div class="mt"><i class="ti ti-building-bank"></i> ข้อมูลโรงเรียน</div>
+    <div class="fg"><label class="fl">ชื่อโรงเรียน</label><input type="text" id="schName" value="${sch.name||''}"></div>
+    <div class="fg"><label class="fl">สังกัด (สำนักงานเขตพื้นที่)</label><input type="text" id="schSub" value="${sch.subdistrict||''}" placeholder="เช่น สพม.กรุงเทพมหานคร เขต 1"></div>
+    <div class="fg"><label class="fl">เขต / อำเภอ</label><input type="text" id="schDist" value="${sch.district||''}"></div>
+    <div class="fg"><label class="fl">จังหวัด</label><input type="text" id="schProv" value="${sch.province||''}"></div>
+    <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="saveSchool()">บันทึก</button></div>`);
+}
+function saveSchool(){
+  db.school={...db.school,name:val('schName'),subdistrict:val('schSub'),district:val('schDist'),province:val('schProv')};
+  save();closeMD();renderSchool();showToast('บันทึกข้อมูลโรงเรียนแล้ว ✓');
+}
+function openAddTerm(){
+  const now=new Date(),thYear=now.getFullYear()+543;
+  showMD(`<div class="mt"><i class="ti ti-calendar-plus"></i> เพิ่มปีการศึกษา / ภาคเรียน</div>
+    <div class="g2">
+      <div class="fg"><label class="fl">ปีการศึกษา (พ.ศ.)</label><input type="number" id="tYear" value="${thYear}" min="2560" max="2600"></div>
+      <div class="fg"><label class="fl">ภาคเรียนที่</label><select id="tSem"><option value="1">1</option><option value="2">2</option></select></div>
+    </div>
+    <div style="background:var(--gnl);border-radius:8px;padding:10px;font-size:12.5px;color:var(--gn);margin-bottom:12px">
+      <i class="ti ti-info-circle"></i> ข้อมูลทุกอย่างจะแยกตามปีการศึกษาและภาคเรียน ไม่ปนกัน
+    </div>
+    <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddTerm()">เพิ่ม</button></div>`);
+}
+function submitAddTerm(){
+  const year=parseInt(val('tYear'));
+  const sem=parseInt(document.getElementById('tSem')?.value||'1');
+  if(!year){showToast('กรอกปีการศึกษา');return;}
+  const exists=db.terms.find(t=>t.year===year&&t.semester===sem);
+  if(exists){showToast('ภาคเรียนนี้มีอยู่แล้ว');switchTerm(exists.id);closeMD();return;}
+  const id=uid(),label=year+' ภาค '+sem;
+  db.terms.push({id,year,semester:sem,label,isCurrent:false});
+  currentTermId=id;save();closeMD();
+  Object.keys(P).forEach(p=>{P[p].cls=null;if(P[p].sub!==undefined)P[p].sub=null;});
+  renderSchool();showToast('เพิ่มภาคเรียน '+label+' แล้ว ✓');
+}
+function switchTerm(id){
+  currentTermId=id;
+  Object.keys(P).forEach(p=>{P[p].cls=null;if(P[p].sub!==undefined)P[p].sub=null;});
+  renderSchool();renderDash();
+  showToast('สลับไปภาคเรียน: '+(db.terms.find(t=>t.id===id)?.label||''));
+}
+function setCurrentTerm(id){
+  db.terms.forEach(t=>{t.isCurrent=(t.id===id);});
+  currentTermId=id;save();renderSchool();
+  showToast('ตั้งภาคเรียนปัจจุบันแล้ว ✓');
+}
+function deleteTerm(id){
+  const t=db.terms.find(x=>x.id===id);
+  if(!confirm('ลบภาคเรียน "'+t?.label+'"?\nข้อมูลทุกอย่างของภาคนี้จะหายทั้งหมด'))return;
+  db.classes.filter(c2=>c2.termId===id).forEach(c2=>{
+    const tkey=id+'__'+c2.id;
+    ['students','subjects','attendance','assignments','scores','examScores'].forEach(k=>{delete db[k][tkey];});
+  });
+  db.classes=db.classes.filter(c2=>c2.termId!==id);
+  db.terms=db.terms.filter(x=>x.id!==id);
+  if(currentTermId===id)currentTermId=db.terms[0]?.id||null;
+  save();renderSchool();showToast('ลบภาคเรียนแล้ว');
+}
+
+/* ════════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════════ */
+function renderDash(){
+  const el=document.getElementById('db-content');
+  const curCls=termClasses();
+  const totalCls=curCls.length;
+  const totalStu=curCls.reduce((s,c2)=>s+(db.students[tk(c2.id)]||[]).length,0);
+  const totalSub=curCls.reduce((s,c2)=>s+(db.subjects[tk(c2.id)]||[]).length,0);
+  const sch=db.school||{};
+  let allMa=0,allSay=0,allLa=0,allKh=0,allTot=0;
+  Object.values(db.attendance).forEach(bS=>Object.values(bS).forEach(bD=>Object.values(bD).forEach(rec=>Object.values(rec).forEach(st=>{
+    if(st==='มา')allMa++;else if(st==='สาย')allSay++;else if(st==='ลา')allLa++;else if(st==='ขาด')allKh++;allTot++;
+  }))));
+  const rate=allTot?Math.round((allMa+allSay)/allTot*100):0;
+  let html=`<div class="sg">
+    <div class="sc-stat"><div class="sl">ห้อง</div><div class="sv" style="color:var(--bl)">${db.classes.length}</div></div>
+    <div class="sc-stat"><div class="sl">วิชา</div><div class="sv" style="color:var(--tl)">${totalSub}</div></div>
+    <div class="sc-stat"><div class="sl">นักเรียน</div><div class="sv" style="color:var(--gn)">${totalStu}</div></div>
+    <div class="sc-stat"><div class="sl">มาเรียน</div><div class="sv" style="color:${rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)'}">${rate}%</div></div>
+  </div>`;
+  if(!curCls.length){html+=noData('school','ยังไม่มีห้องเรียนในภาคเรียนนี้','ไปที่เมนูข้อมูลพื้นฐาน เพื่อสร้างภาคเรียน');el.innerHTML=html;return;}
+  // donut + bar
+  html+=`<div class="g2 dash-c mb14">`;
+  html+=`<div class="chbox"><div class="chtitle">สถิติการมาเรียน</div>`;
+  if(allTot>0){
+    const items=[{l:'มา',c:allMa,col:'var(--gn)'},{l:'สาย',c:allSay,col:'var(--am)'},{l:'ลา',c:allLa,col:'var(--bl)'},{l:'ขาด',c:allKh,col:'var(--rd)'}];
+    html+=`<svg viewBox="0 0 200 120" width="100%">`;
+    let cx=65,cy=60,r=48,st=-Math.PI/2;
+    items.forEach(it=>{if(!it.c)return;const pct=it.c/allTot,angle=pct*2*Math.PI,x1=cx+r*Math.cos(st),y1=cy+r*Math.sin(st),x2=cx+r*Math.cos(st+angle),y2=cy+r*Math.sin(st+angle);html+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${angle>Math.PI?1:0},1 ${x2},${y2} Z" fill="${it.col}" opacity=".85"/>`;st+=angle;});
+    html+=`<circle cx="${cx}" cy="${cy}" r="24" fill="white"/><text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1A1A">${rate}%</text><text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="9" fill="#6B6B6B">มาเรียน</text>`;
+    items.forEach((it,i)=>{html+=`<rect x="128" y="${9+i*24}" width="9" height="9" rx="4" fill="${it.col}"/><text x="141" y="${18+i*24}" font-size="11" fill="#1A1A1A">${it.l} ${it.c}</text>`;});
+    html+=`</svg>`;
+  }else html+=`<div class="empty" style="padding:16px"><i class="ti ti-chart-donut"></i>ยังไม่มีข้อมูล</div>`;
+  html+=`</div>`;
+  html+=`<div class="chbox"><div class="chtitle">นักเรียนต่อห้อง</div><div class="barchart">`;
+  const mx=Math.max(...curCls.map(c2=>(db.students[tk(c2.id)]||[]).length),1);
+  curCls.forEach(c=>{const n=(db.students[c.id]||[]).length,h=Math.round(n/mx*100);html+=`<div class="bw"><div class="bval">${n}</div><div class="bout"><div class="bin" style="height:${h}%;background:var(--bl)"></div></div><div class="blbl">${c.name}</div></div>`;});
+  html+=`</div></div></div>`;
+  // summary table
+  html+=`<div class="card"><div class="tw"><table><thead><tr><th>ห้อง</th><th>วิชา</th><th>สัดส่วน</th><th>นักเรียน</th><th>วันเช็ค</th><th>มา%</th><th>งาน</th></tr></thead><tbody>`;
+  curCls.forEach(c=>{
+    const subs=subList(c.id),stus=stuList(c.id);
+    if(!subs.length){html+=`<tr><td><b>${c.name}</b></td><td colspan="6" style="color:var(--hn);font-size:12px">ยังไม่มีวิชา</td></tr>`;return;}
+    subs.forEach((sub,si)=>{
+      const dates=Object.keys(((db.attendance[c.id]||{})[sub.id])||{});
+      let ma=0,tot=0;dates.forEach(d=>Object.values(attRec(c.id,sub.id,d)).forEach(s=>{if(s==='มา'||s==='สาย')ma++;if(s)tot++;}));
+      const r2=tot?Math.round(ma/tot*100):0,col=r2>=80?'var(--gn)':r2>=60?'var(--am)':'var(--rd)';
+      const wA=sub.wAssign??70,wE=sub.wExam??30;
+      html+=`<tr>${si===0?`<td rowspan="${subs.length}" style="font-weight:700;vertical-align:top;padding-top:12px">${c.name}</td>`:''}<td><span class="badge bt">${sub.name}</span></td><td style="font-size:11px;color:var(--mu)">เก็บ${wA}:สอบ${wE}</td><td>${stus.length}</td><td>${dates.length}</td><td style="font-weight:700;color:${col}">${r2}%</td><td>${asgList(c.id,sub.id).length}</td></tr>`;
+    });
+  });
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+
+/* ════════════════════════════════════════════
+   STUDENTS
+════════════════════════════════════════════ */
+function renderStudents(){
+  selBar('stu-selbar','students',false);
+  const el=document.getElementById('stu-content');
+  const cid=ensureCls('students');
+  if(!termClasses().length){el.innerHTML=noData('door','ยังไม่มีห้องเรียน','ไปที่ข้อมูลพื้นฐาน เพื่อสร้างภาคเรียน');return;}
+  const c=getCls(cid),stus=stuList(cid);
+  let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb fw g8"><div><span style="font-weight:700;font-size:16px">${c.name}</span><span class="badge bx" style="margin-left:8px">${stus.length} คน</span></div><div class="f g8 fw"><button class="btn btn-p btn-sm" onclick="openAddStu('${cid}')"><i class="ti ti-user-plus"></i>เพิ่ม</button><button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button><button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i></button><button class="btn btn-sm" style="color:var(--rd);border-color:var(--rd)" onclick="deleteCls('${cid}')"><i class="ti ti-trash"></i></button></div></div></div>`;
+  if(!stus.length)html+=`<div class="empty"><i class="ti ti-user-x"></i><div>ยังไม่มีนักเรียน</div></div>`;
+  else{
+    html+=`<div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ</th><th>นามสกุล</th><th></th></tr></thead><tbody>`;
+    stus.forEach(s=>{html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName}</td><td>${s.lastName}</td><td><div class="f g8"><button class="btn btn-xs" onclick="openEditStu('${cid}','${s.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delStu('${cid}','${s.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;});
+    html+=`</tbody></table></div>`;
+  }
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+/* ════════════════════════════════════════════
+   SUBJECTS (with proportion settings)
+════════════════════════════════════════════ */
+function renderSubjects(){
+  selBar('sub-selbar','subjects',false);
+  const el=document.getElementById('sub-content');
+  const cid=ensureCls('subjects');
+  if(!termClasses().length){el.innerHTML=noData('book','ยังไม่มีห้องเรียนในภาคเรียนนี้','ไปที่ข้อมูลพื้นฐาน');return;}
+  const c=getCls(cid),subs=subList(cid);
+  let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${c.name}</b> <span class="badge bt" style="margin-left:6px">${subs.length} วิชา</span></div><button class="btn btn-t btn-sm" onclick="openAddSubject('${cid}','subjects')"><i class="ti ti-plus"></i>เพิ่มวิชา</button></div></div>`;
+  if(!subs.length)html+=`<div class="empty"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชา</div><p>กด "เพิ่มวิชา" ด้านบน</p></div>`;
+  else{
+    html+=`<div class="tw"><table><thead><tr><th>#</th><th>ชื่อวิชา</th><th>รหัส</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>กลางภาค</th><th>ปลายภาค</th><th></th></tr></thead><tbody>`;
+    subs.forEach((sub,i)=>{
+      const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+      html+=`<tr><td style="color:var(--mu);font-weight:700">${i+1}</td><td style="font-weight:600">${sub.name}</td><td>${sub.code?`<span class="badge bx">${sub.code}</span>`:'-'}</td>
+        <td><span class="badge bb">${wA}%</span></td><td><span class="badge bt">${wE}%</span></td>
+        <td><span class="badge bp">${wM}% ของสอบ</span></td><td><span class="badge bp">${wF}% ของสอบ</span></td>
+        <td><div class="f g8"><button class="btn btn-xs" onclick="openEditSubject('${cid}','${sub.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${sub.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+/* ════════════════════════════════════════════
+   ATTENDANCE
+════════════════════════════════════════════ */
+function renderAtt(){
+  selBar('att-selbar','attendance',true);
+  if(attSubtab==='check')renderAttCheck();
+  else if(attSubtab==='edit')renderAttEdit();
+  else if(attSubtab==='summary')renderAttSummary();
+  else renderAttInd();
+}
+function attSub(tab,btn){
+  attSubtab=tab;
+  document.querySelectorAll('#att-subtabs .tb').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  ['check','edit','summary','individual'].forEach(t=>{document.getElementById('att-'+t).style.display=t===tab?'block':'none';});
+  renderAtt();
+}
+
+/* เช็คชื่อ */
+function renderAttCheck(){
+  const el=document.getElementById('att-check');
+  const cs=needCS('attendance');
+  if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;
+  const stus=stuList(cid);
+  if(!stus.length){el.innerHTML=noData('user-x','ไม่มีนักเรียน');return;}
+  const sub=getSub(cid,subid);
+  const rec=attRec(cid,subid,attDate);
+  const cnt={มา:0,สาย:0,ลา:0,ขาด:0};
+  Object.values(rec).forEach(s=>{if(cnt[s]!==undefined)cnt[s]++;});
+  const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
+  let html=`<div class="dnav"><button onclick="shiftDate(-1)"><i class="ti ti-chevron-left"></i></button><div class="dd">${thDate(attDate)}</div><input type="date" value="${attDate}" onchange="attDate=this.value;renderAttCheck()" style="width:auto;padding:4px 8px;font-size:13px"><button onclick="shiftDate(1)"><i class="ti ti-chevron-right"></i></button></div>
+  <div class="card mb14"><div class="cp" style="border-bottom:1px solid var(--bd)">
+    <div class="f ic jb fw g8"><div><b>${getCls(cid).name}</b> <span class="badge bt" style="margin:0 6px">${sub.name}</span><span style="font-size:13px;color:var(--mu)">${stus.length} คน</span></div>
+    <div class="f g8"><button class="btn btn-sm" onclick="markAll('${cid}','${subid}','มา')">ทุกคน "มา"</button><button class="btn btn-g btn-sm" onclick="saveAtt('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div>
+  </div></div><div class="cp" style="padding-top:6px;padding-bottom:6px">`;
+  stus.forEach(s=>{
+    const curSt=rec[s.id]||'',curK=km[curSt]||'';
+    html+=`<div class="atr"><div class="anum">${s.no}</div><div class="aname">${s.firstName} ${s.lastName}</div><div class="abtns" id="abg-${s.id}">
+      <button class="ab${curK==='ma'?' s-ma':''}" data-k="ma" onclick="pickSt(this)">มา</button>
+      <button class="ab${curK==='sa'?' s-sa':''}" data-k="sa" onclick="pickSt(this)">สาย</button>
+      <button class="ab${curK==='la'?' s-la':''}" data-k="la" onclick="pickSt(this)">ลา</button>
+      <button class="ab${curK==='kh'?' s-kh':''}" data-k="kh" onclick="pickSt(this)">ขาด</button>
+    </div></div>`;
+  });
+  html+=`</div></div>
+  <div class="sg"><div class="sc-stat"><div class="sl">มา</div><div class="sv" style="color:var(--gn)" id="cnt-ma">${cnt['มา']}</div></div><div class="sc-stat"><div class="sl">สาย</div><div class="sv" style="color:var(--am)" id="cnt-sa">${cnt['สาย']}</div></div><div class="sc-stat"><div class="sl">ลา</div><div class="sv" style="color:var(--bl)" id="cnt-la">${cnt['ลา']}</div></div><div class="sc-stat"><div class="sl">ขาด</div><div class="sv" style="color:var(--rd)" id="cnt-kh">${cnt['ขาด']}</div></div></div>`;
+  el.innerHTML=html;
+}
+function pickSt(btn){const g=btn.closest('.abtns');g.querySelectorAll('.ab').forEach(b=>b.className='ab');btn.className=`ab s-${btn.dataset.k}`;}
+function markAll(cid,subid,status){
+  const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
+  stuList(cid).forEach(s=>{const g=document.getElementById('abg-'+s.id);if(!g)return;g.querySelectorAll('.ab').forEach(b=>b.className='ab');const t=g.querySelector(`[data-k="${km[status]}"]`);if(t)t.className=`ab s-${km[status]}`;});
+}
+const lkmap={'ma':'มา','sa':'สาย','la':'ลา','kh':'ขาด'};
+function saveAtt(cid,subid){
+  if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
+  if(!db.attendance[tk(cid)][subid])db.attendance[tk(cid)][subid]={};
+  if(!db.attendance[tk(cid)][subid][attDate])db.attendance[tk(cid)][subid][attDate]={};
+  stuList(cid).forEach(s=>{
+    const g=document.getElementById('abg-'+s.id);if(!g)return;
+    const a=g.querySelector('[class*="s-"]');if(!a)return;
+    const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');
+    if(k)db.attendance[tk(cid)][subid][attDate][s.id]=lkmap[k]||k;
+  });
+  save();showToast('บันทึกการมาเรียนเรียบร้อย ✓');
+  const rec=attRec(cid,subid,attDate),cnt={มา:0,สาย:0,ลา:0,ขาด:0};
+  Object.values(rec).forEach(s=>{if(cnt[s]!==undefined)cnt[s]++;});
+  [['มา','cnt-ma'],['สาย','cnt-sa'],['ลา','cnt-la'],['ขาด','cnt-kh']].forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.textContent=cnt[k];});
+}
+function shiftDate(d){const dt=new Date(attDate);dt.setDate(dt.getDate()+d);attDate=dt.toISOString().split('T')[0];renderAttCheck();}
+
+/* แก้ไขการเช็คชื่อ */
+function renderAttEdit(){
+  const el=document.getElementById('att-edit');
+  const cs=needCS('attendance');
+  if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;
+  const stus=stuList(cid);
+  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort().reverse();
+  if(!dates.length){el.innerHTML=noData('calendar-off','ยังไม่มีข้อมูลการมาเรียน','ไปเช็คชื่อที่แท็บ "เช็คชื่อ" ก่อน');return;}
+  const rec=attRec(cid,subid,attEditDate);
+  const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
+  let html=`<div class="info-box"><i class="ti ti-edit"></i> <b>โหมดแก้ไข</b> — เลือกวันที่ต้องการแก้ไข แล้วกดบันทึก</div>
+  <div class="cp" style="background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);margin-bottom:14px;box-shadow:var(--sh)">
+    <div class="f ic g8 fw"><label style="font-size:13px;font-weight:600">เลือกวันที่:</label>
+    <select class="wa" onchange="attEditDate=this.value;renderAttEdit()" style="font-size:14px">`;
+  dates.forEach(d=>{html+=`<option value="${d}" ${d===attEditDate?'selected':''}>${thDate(d)}</option>`;});
+  html+=`</select><button class="btn btn-g btn-sm" onclick="saveAttEdit('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึกการแก้ไข</button></div></div>
+  <div class="card"><div class="cp" style="padding-top:6px;padding-bottom:6px">`;
+  stus.forEach(s=>{
+    const curSt=rec[s.id]||'',curK=km[curSt]||'';
+    html+=`<div class="atr"><div class="anum">${s.no}</div><div class="aname">${s.firstName} ${s.lastName}</div><div class="abtns" id="eabg-${s.id}">
+      <button class="ab${curK==='ma'?' s-ma':''}" data-k="ma" onclick="pickStEdit(this)">มา</button>
+      <button class="ab${curK==='sa'?' s-sa':''}" data-k="sa" onclick="pickStEdit(this)">สาย</button>
+      <button class="ab${curK==='la'?' s-la':''}" data-k="la" onclick="pickStEdit(this)">ลา</button>
+      <button class="ab${curK==='kh'?' s-kh':''}" data-k="kh" onclick="pickStEdit(this)">ขาด</button>
+      <button class="ab" data-k="" onclick="pickStEdit(this)" title="ล้าง">—</button>
+    </div></div>`;
+  });
+  html+=`</div></div>`;
+  el.innerHTML=html;
+}
+function pickStEdit(btn){const g=btn.closest('.abtns');g.querySelectorAll('.ab').forEach(b=>b.className='ab');btn.className=`ab${btn.dataset.k?' s-'+btn.dataset.k:''}`;}
+function saveAttEdit(cid,subid){
+  if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
+  if(!db.attendance[tk(cid)][subid])db.attendance[tk(cid)][subid]={};
+  if(!db.attendance[tk(cid)][subid][attEditDate])db.attendance[tk(cid)][subid][attEditDate]={};
+  stuList(cid).forEach(s=>{
+    const g=document.getElementById('eabg-'+s.id);if(!g)return;
+    const a=g.querySelector('[class*="s-"]');
+    if(a){const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');if(k)db.attendance[tk(cid)][subid][attEditDate][s.id]=lkmap[k]||k;}
+    else delete db.attendance[tk(cid)][subid][attEditDate][s.id];
+  });
+  save();showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');renderAttEdit();
+}
+
+function renderAttSummary(){
+  const el=document.getElementById('att-summary');
+  const cs=needCS('attendance');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs,stus=stuList(cid),sub=getSub(cid,subid);
+  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort();
+  if(!dates.length){el.innerHTML=noData('calendar-off','ยังไม่มีข้อมูล');return;}
+  let tMa=0,tSay=0,tLa=0,tKh=0,tot=0;
+  stus.forEach(s=>dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา')tMa++;else if(st==='สาย')tSay++;else if(st==='ลา')tLa++;else if(st==='ขาด')tKh++;if(st)tot++;}));
+  const rate=tot?Math.round((tMa+tSay)/tot*100):0,col=rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)';
+  let html=`<div class="f ic g8 mb14"><span class="badge bt">${getCls(cid).name}</span><i class="ti ti-chevron-right" style="color:var(--hn)"></i><span class="badge bt">${sub.name}</span></div>
+  <div class="sg"><div class="sc-stat"><div class="sl">วันเช็ค</div><div class="sv" style="color:var(--bl)">${dates.length}</div></div><div class="sc-stat"><div class="sl">มา</div><div class="sv" style="color:var(--gn)">${tMa}</div></div><div class="sc-stat"><div class="sl">สาย</div><div class="sv" style="color:var(--am)">${tSay}</div></div><div class="sc-stat"><div class="sl">ลา</div><div class="sv" style="color:var(--bl)">${tLa}</div></div><div class="sc-stat"><div class="sl">ขาด</div><div class="sv" style="color:var(--rd)">${tKh}</div></div><div class="sc-stat"><div class="sl">อัตรา</div><div class="sv" style="color:${col}">${rate}%</div></div></div>`;
+  const recent=dates.slice(-20);
+  html+=`<div class="chbox mb14"><div class="chtitle">อัตรามาเรียนรายวัน (${recent.length} วันล่าสุด)</div><div class="barchart">`;
+  recent.forEach(d=>{let ma=0,t2=0;stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')ma++;if(st)t2++;});const pct=t2?Math.round(ma/t2*100):0,c2=pct>=80?'var(--gn)':pct>=60?'var(--am)':'var(--rd)';const[,m,day]=d.split('-');html+=`<div class="bw"><div class="bval" style="font-size:9px">${pct}%</div><div class="bout"><div class="bin" style="height:${pct}%;background:${c2}"></div></div><div class="blbl">${+day}/${+m}</div></div>`;});
+  html+=`</div></div>`;
+  el.innerHTML=html;
+}
+
+function renderAttInd(){
+  const el=document.getElementById('att-individual');
+  const cs=needCS('attendance');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs,stus=stuList(cid),sub=getSub(cid,subid);
+  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort();
+  let html=`<div class="card mb14"><div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>รวมมา</th><th>%มา</th></tr></thead><tbody>`;
+  stus.forEach(s=>{
+    let ma=0,say=0,la=0,kh=0,tot=0;
+    dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;if(st)tot++;});
+    const rate=tot?Math.round((ma+say)/tot*100):0,col=rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)';
+    html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td><span class="badge bg">${ma}</span></td><td><span class="badge ba">${say}</span></td><td><span class="badge bb">${la}</span></td><td><span class="badge br">${kh}</span></td><td style="font-weight:700">${ma+say}</td><td style="font-weight:700;color:${col}">${rate}%</td></tr>`;
+  });
+  html+=`</tbody></table></div></div>
+  <div class="card cp"><div class="stitle">รายละเอียดรายบุคคล</div><div class="f ic g8 mb14"><label style="font-size:13px;font-weight:600">นักเรียน:</label><select class="wa" onchange="selStu=this.value;renderAttIndDetail('${cid}','${subid}')"><option value="">— เลือก —</option>`;
+  stus.forEach(s=>{html+=`<option value="${s.id}" ${s.id===selStu?'selected':''}>${s.no}. ${s.firstName} ${s.lastName}</option>`;});
+  html+=`</select></div><div id="att-ind-detail"></div></div>`;
+  el.innerHTML=html;renderAttIndDetail(cid,subid);
+}
+function renderAttIndDetail(cid,subid){
+  const el=document.getElementById('att-ind-detail');if(!el||!selStu)return;
+  const s=stuList(cid).find(x=>x.id===selStu);if(!s)return;
+  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort();
+  let rows='';
+  dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id]||'—';const bc=st==='มา'?'bg':st==='ขาด'?'br':st==='สาย'?'ba':st==='ลา'?'bb':'bx';rows+=`<tr><td>${thDate(d)}</td><td><span class="badge ${bc}">${st}</span></td></tr>`;});
+  el.innerHTML=rows?`<div class="tw"><table style="max-width:320px"><thead><tr><th>วันที่</th><th>สถานะ</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<p style="color:var(--mu);font-size:13px">ยังไม่มีข้อมูล</p>`;
+}
+
+/* ════════════════════════════════════════════
+   SCORES (คะแนนเก็บ + คะแนนสอบ + เกรด)
+════════════════════════════════════════════ */
+function renderSc(){
+  selBar('sc-selbar','scores',true);
+  if(scSubtab==='entry')renderScEntry();
+  else if(scSubtab==='exam')renderScExam();
+  else if(scSubtab==='all')renderScAll();
+  else renderScGrade();
+}
+function scSub(tab,btn){
+  scSubtab=tab;
+  document.querySelectorAll('#sc-subtabs .tb').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  ['entry','exam','all','grade'].forEach(t=>{document.getElementById('sc-'+t).style.display=t===tab?'block':'none';});
+  renderSc();
+}
+
+/* คะแนนเก็บ */
+function renderScEntry(){
+  const el=document.getElementById('sc-entry');
+  const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
+  const wA=sub.wAssign??70;
+  let html=`<div class="prop-box"><div class="prop-title">สัดส่วนคะแนน — ${sub.name}</div>
+    <div class="prop-bar"><div class="prop-seg" style="width:${wA}%;background:var(--bl)">${wA}% เก็บ</div><div class="prop-seg" style="width:${100-wA}%;background:var(--tl)">${100-wA}% สอบ</div></div>
+    <div style="font-size:12px;color:var(--mu)">คะแนนเก็บ = ${wA}% | คะแนนสอบ = ${100-wA}% &nbsp;·&nbsp; <a href="#" onclick="gotoPage('subjects');return false" style="color:var(--bl)">แก้ไขสัดส่วน</a></div>
+  </div>
+  <div class="card cp mb14"><div class="stitle">เพิ่มงาน</div><div class="f g8 fw"><div style="flex:2;min-width:150px"><input type="text" id="asgName" placeholder="ชื่องาน เช่น งานชิ้นที่ 1"></div><div style="width:100px"><input type="number" id="asgMax" placeholder="คะแนนเต็ม" min="1"></div><button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่ม</button></div></div>`;
+  if(!asgs.length){html+=noData('clipboard-list','ยังไม่มีงาน','กรอกข้อมูลด้านบนเพื่อเพิ่ม');el.innerHTML=html;return;}
+  html+=`<div class="card cp mb14"><div class="stitle">เลือกงาน</div><div class="f fw" style="gap:5px">`;
+  asgs.forEach(a=>{html+=`<div class="f ic" style="gap:3px"><button class="btn${a.id===selAsg?' btn-p':''}" onclick="selAsg='${a.id}';renderScEntry()">${a.name} <span style="opacity:.6;font-size:11px">(/${a.maxScore})</span></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}')"><i class="ti ti-x"></i></button></div>`;});
+  html+=`</div></div>`;
+  if(!selAsg||!asgs.find(a=>a.id===selAsg)){html+=noData('hand-click','เลือกงานด้านบนเพื่อบันทึกคะแนน');el.innerHTML=html;return;}
+  const asg=asgs.find(a=>a.id===selAsg),sc=scMap(cid,subid,selAsg);
+  html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${asg.name}</b> <span class="badge bx">/${asg.maxScore}</span></div><button class="btn btn-g btn-sm" onclick="saveSc('${cid}','${subid}','${selAsg}',${asg.maxScore})"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
+  <div class="tw"><table><thead><tr><th style="width:40px">ที่</th><th>ชื่อ-สกุล</th><th style="width:90px">คะแนน</th><th>สถานะ</th></tr></thead><tbody>`;
+  stus.forEach(s=>{const v=sc[s.id],has=v!==undefined&&v!=='';html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td><input type="number" class="sc-inp" id="sc-${s.id}" value="${has?v:''}" min="0" max="${asg.maxScore}" placeholder="—"></td><td>${has?`<span class="badge bg">${v}/${asg.maxScore}</span>`:`<span class="badge bx">ยังไม่ส่ง</span>`}</td></tr>`;});
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+function addAsg(cid,subid){
+  const name=val('asgName'),max=parseInt(val('asgMax'));
+  if(!name||!max||max<1){showToast('กรุณากรอกชื่องานและคะแนนเต็ม');return;}
+  if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
+  if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
+  const id=uid();db.assignments[tk(cid)][subid].push({id,name,maxScore:max});
+  selAsg=id;save();renderScEntry();
+}
+function delAsg(cid,subid,aid){
+  if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
+  db.assignments[tk(cid)][subid]=(db.assignments[tk(cid)][subid]||[]).filter(a=>a.id!==aid);
+  if((db.scores[tk(cid)]||{})[subid])delete db.scores[tk(cid)][subid][aid];
+  if(selAsg===aid)selAsg=null;save();renderScEntry();
+}
+function saveSc(cid,subid,aid,maxScore){
+  if(!db.scores[tk(cid)])db.scores[tk(cid)]={};if(!db.scores[tk(cid)][subid])db.scores[tk(cid)][subid]={};if(!db.scores[tk(cid)][subid][aid])db.scores[tk(cid)][subid][aid]={};
+  stuList(cid).forEach(s=>{const inp=document.getElementById('sc-'+s.id);if(!inp)return;const v=inp.value.trim();if(v!=='')db.scores[tk(cid)][subid][aid][s.id]=Math.min(parseFloat(v),maxScore);});
+  save();showToast('บันทึกคะแนนเรียบร้อย ✓');renderScEntry();
+}
+
+/* คะแนนสอบ */
+function renderScExam(){
+  const el=document.getElementById('sc-exam');
+  const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid);
+  const wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+  const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+  const exMap=examMap(cid,subid);
+  let html=`<div class="prop-box"><div class="prop-title">สัดส่วนคะแนนสอบ — ${sub.name}</div>
+    <div class="prop-bar"><div class="prop-seg" style="width:${wM}%;background:var(--pu)">${wM}% กลางภาค</div><div class="prop-seg" style="width:${wF}%;background:var(--or)">${wF}% ปลายภาค</div></div>
+    <div style="font-size:12px;color:var(--mu)">คะแนนสอบรวม ${wE}% ของคะแนนทั้งหมด | กลางภาค ${wM}% | ปลายภาค ${wF}% ของคะแนนสอบ</div>
+  </div>
+  <div class="card cp mb14"><div class="f ic g8 fw"><div><b>คะแนนเต็มกลางภาค:</b></div><input type="number" id="midMaxInp" value="${midMax}" style="width:80px" onchange="updateExamMax('${cid}','${subid}','mid',this.value)"><div><b>คะแนนเต็มปลายภาค:</b></div><input type="number" id="finMaxInp" value="${finMax}" style="width:80px" onchange="updateExamMax('${cid}','${subid}','fin',this.value)"></div></div>
+  <div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>กรอกคะแนนสอบ</b></div><button class="btn btn-g btn-sm" onclick="saveExam('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
+  <div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>กลางภาค (/${midMax})</th><th>ปลายภาค (/${finMax})</th></tr></thead><tbody>`;
+  stus.forEach(s=>{
+    const ex=exMap[s.id]||{};
+    html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td>
+      <td><input type="number" class="sc-inp" id="mid-${s.id}" value="${ex.mid!==undefined?ex.mid:''}" min="0" max="${midMax}" placeholder="—"></td>
+      <td><input type="number" class="sc-inp" id="fin-${s.id}" value="${ex.final!==undefined?ex.final:''}" min="0" max="${finMax}" placeholder="—"></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+function updateExamMax(cid,subid,type,v){
+  const sub=getSub(cid,subid);if(!sub)return;
+  if(type==='mid')sub.midMax=parseFloat(v)||100;
+  else sub.finalMax=parseFloat(v)||100;
+  save();
+}
+function saveExam(cid,subid){
+  if(!db.examScores[tk(cid)])db.examScores[tk(cid)]={};if(!db.examScores[tk(cid)][subid])db.examScores[tk(cid)][subid]={};
+  const sub=getSub(cid,subid);const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+  stuList(cid).forEach(s=>{
+    if(!db.examScores[tk(cid)][subid][s.id])db.examScores[tk(cid)][subid][s.id]={};
+    const mi=document.getElementById('mid-'+s.id),fi=document.getElementById('fin-'+s.id);
+    if(mi&&mi.value.trim()!=='')db.examScores[tk(cid)][subid][s.id].mid=Math.min(parseFloat(mi.value),midMax);
+    if(fi&&fi.value.trim()!=='')db.examScores[tk(cid)][subid][s.id].final=Math.min(parseFloat(fi.value),finMax);
+  });
+  save();showToast('บันทึกคะแนนสอบเรียบร้อย ✓');renderScExam();
+}
+
+/* ภาพรวมคะแนนทั้งหมด */
+function renderScAll(){
+  const el=document.getElementById('sc-all');
+  const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
+  const wA=sub.wAssign??70,wE=sub.wExam??30;
+  let html=`<div class="prop-box"><div class="f ic g8"><span class="badge bb">คะแนนเก็บ ${wA}%</span><span class="badge bt">คะแนนสอบ ${wE}%</span><span style="font-size:12px;color:var(--mu)">คะแนนรวม = ${wA}% × เก็บ + ${wE}% × สอบ</span></div></div>
+  <div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr><th class="fc1">#</th><th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
+  asgs.forEach(a=>{html+=`<th style="min-width:78px">${a.name}<br><span style="font-size:10px;font-weight:400;color:var(--mu)">(/${a.maxScore})</span></th>`;});
+  html+=`<th style="min-width:70px">เก็บ%</th><th>กลางภาค</th><th>ปลายภาค</th><th style="min-width:70px">สอบ%</th><th style="min-width:70px">รวม%</th><th>เกรด</th></tr></thead><tbody>`;
+  stus.forEach(s=>{
+    const t=calcTotal(cid,subid,s.id);
+    html+=`<tr><td class="fc1" style="font-weight:700;color:var(--mu)">${s.no}</td><td class="fc2">${s.firstName} ${s.lastName}</td>`;
+    asgs.forEach(a=>{
+      const v=scMap(cid,subid,a.id)[s.id];
+      if(v!==undefined&&v!==''){const p=Math.round(v/a.maxScore*100),bg=p>=80?'#DCFCE7':p>=60?'#FEF3C7':'#FEE2E2',fc=p>=80?'#15803D':p>=60?'#92400E':'#B91C1C';html+=`<td style="background:${bg};color:${fc};font-weight:700;text-align:center">${v}</td>`;}
+      else html+=`<td style="background:#FEE2E2;color:#B91C1C;text-align:center;font-size:11px">ไม่ส่ง</td>`;
+    });
+    const sub2=getSub(cid,subid);const midMax=sub2.midMax||100,finMax=sub2.finalMax||100;
+    html+=`<td style="text-align:center;font-weight:700">${Math.round(t.assignPct)}%</td>
+      <td style="text-align:center">${t.midRaw!==null?t.midRaw+'/'+midMax:'-'}</td>
+      <td style="text-align:center">${t.finRaw!==null?t.finRaw+'/'+finMax:'-'}</td>
+      <td style="text-align:center;font-weight:700">${Math.round(t.examPct)}%</td>
+      <td style="text-align:center;font-weight:800;color:${t.totalPct>=80?'var(--gn)':t.totalPct>=60?'var(--am)':'var(--rd)'}">${t.totalPct}%</td>
+      <td style="text-align:center"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+
+/* เกรด */
+function renderScGrade(){
+  const el=document.getElementById('sc-grade');
+  const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid);
+  const gradeDist={4:0,3.5:0,3:0,2.5:0,2:0,1.5:0,1:0,0:0};
+  let html=`<div class="card mb14"><div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>คะแนนเก็บ%</th><th>คะแนนสอบ%</th><th>รวม%</th><th>เกรด</th></tr></thead><tbody>`;
+  stus.forEach(s=>{
+    const t=calcTotal(cid,subid,s.id);
+    gradeDist[parseFloat(t.grade.g)]=(gradeDist[parseFloat(t.grade.g)]||0)+1;
+    html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td style="text-align:center">${t.assignPct}%</td><td style="text-align:center">${t.examPct}%</td><td style="text-align:center;font-weight:700">${t.totalPct}%</td><td style="text-align:center"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  // grade distribution
+  html+=`<div class="card cp"><div class="stitle">การกระจายเกรด</div><div class="sg">`;
+  [4,3.5,3,2.5,2,1.5,1,0].forEach(g=>{
+    const cnt=gradeDist[g]||0;
+    const cls=g>=3.5?'g4':g>=3?'g3':g>=2?'g2':g>=1?'g1':'g0';
+    html+=`<div class="sc-stat"><div class="sl">เกรด ${g}</div><div class="sv"><span class="grade ${cls}">${cnt}</span></div><div style="font-size:11px;color:var(--mu)">คน</div></div>`;
+  });
+  html+=`</div></div>`;
+  // grade legend
+  html+=`<div class="card cp mt14"><div class="stitle">เกณฑ์การตัดเกรด</div><div class="f fw" style="gap:6px">`;
+  [{r:'80-100',g:'4',c:'g4'},{r:'75-79',g:'3.5',c:'g35'},{r:'70-74',g:'3',c:'g3'},{r:'65-69',g:'2.5',c:'g25'},{r:'60-64',g:'2',c:'g2'},{r:'55-59',g:'1.5',c:'g15'},{r:'50-54',g:'1',c:'g1'},{r:'0-49',g:'0',c:'g0'}].forEach(x=>{
+    html+=`<div style="text-align:center;padding:6px 10px;background:var(--s2);border-radius:8px"><div style="font-size:11px;color:var(--mu)">${x.r}%</div><span class="grade ${x.c}">${x.g}</span></div>`;
+  });
+  html+=`</div></div>`;
+  el.innerHTML=html;
+}
+
+/* ════════════════════════════════════════════
+   EXPORT
+════════════════════════════════════════════ */
+function renderExport(){
+  selBar('exp-selbar','export',true);
+  const el=document.getElementById('exp-content');
+  const cid=ensureCls('export');
+  const clsOpts=db.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const subOpts=cid?subList(cid).map(s=>`<option value="${s.id}">${s.name}${s.code?' ('+s.code+')':''}</option>`).join(''):'';
+  el.innerHTML=`
+  <div class="exp-card">
+    <div class="exp-hd"><div class="exp-icon sc"><i class="ti ti-file-spreadsheet"></i></div><div><div style="font-weight:700;font-size:15px">ส่งออกคะแนน</div><div style="font-size:12px;color:var(--mu)">คะแนนเก็บ คะแนนสอบ รวม% และเกรด แยกตามวิชา</div></div></div>
+    <div class="exp-bd">
+      <div class="exp-row"><div class="exp-lbl"><b>ห้อง</b></div><select id="ex-sc-cls" onchange="expClsChange('sc')">${clsOpts}</select></div>
+      <div class="exp-row"><div class="exp-lbl"><b>วิชา</b></div><select id="ex-sc-sub"><option value="__all__">ทุกวิชา</option>${subOpts}</select></div>
+      <div class="exp-row" style="border:none;padding-top:12px"><div class="exp-lbl"><b>ดาวน์โหลด</b><small>ไฟล์ CSV เปิดใน Excel ได้เลย</small></div><button class="dl-btn sc" onclick="exportScores()"><i class="ti ti-download"></i> ดาวน์โหลด CSV</button></div>
+    </div>
+  </div>
+  <div class="exp-card">
+    <div class="exp-hd"><div class="exp-icon at"><i class="ti ti-calendar-stats"></i></div><div><div style="font-weight:700;font-size:15px">ส่งออกเวลาเรียน</div><div style="font-size:12px;color:var(--mu)">แสดงทุกวันที่มาเรียน/ขาดเรียน แยกตามวิชา</div></div></div>
+    <div class="exp-bd">
+      <div class="exp-row"><div class="exp-lbl"><b>ห้อง</b></div><select id="ex-at-cls" onchange="expClsChange('at')">${clsOpts}</select></div>
+      <div class="exp-row"><div class="exp-lbl"><b>วิชา</b></div><select id="ex-at-sub"><option value="__all__">ทุกวิชา</option>${subOpts}</select></div>
+      <div class="exp-row"><div class="exp-lbl"><b>รูปแบบ</b><small>สรุป = รวมมา/ขาด | รายวัน = แต่ละวันแยกคอลัมน์</small></div><select id="ex-at-mode"><option value="daily">รายวัน (แนะนำ)</option><option value="summary">สรุปรายคน</option></select></div>
+      <div class="exp-row" style="border:none;padding-top:12px"><div class="exp-lbl"><b>ดาวน์โหลด</b><small>ไฟล์ CSV เปิดใน Excel ได้เลย</small></div><button class="dl-btn at" onclick="exportAttendance()"><i class="ti ti-download"></i> ดาวน์โหลด CSV</button></div>
+    </div>
+  </div>`;
+  if(cid){const sc=document.getElementById('ex-sc-cls'),at=document.getElementById('ex-at-cls');if(sc)sc.value=cid;if(at)at.value=cid;}
+}
+function expClsChange(type){
+  const cid=document.getElementById(`ex-${type}-cls`).value;
+  const subs=subList(cid);
+  const subSel=document.getElementById(`ex-${type}-sub`);
+  subSel.innerHTML=`<option value="__all__">ทุกวิชา</option>`+subs.map(s=>`<option value="${s.id}">${s.name}${s.code?' ('+s.code+')':''}</option>`).join('');
+}
+function csvEsc(v){const s=String(v===null||v===undefined?'':v);return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s;}
+function csvRow(arr){return arr.map(csvEsc).join(',');}
+function dlCSV(fname,rows){
+  const bom='\uFEFF',csv=bom+rows.join('\r\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+}
+
+function exportScores(){
+  const cid=document.getElementById('ex-sc-cls')?.value;
+  const subVal=document.getElementById('ex-sc-sub')?.value;
+  if(!cid){showToast('เลือกห้องเรียนก่อน');return;}
+  const cls=getCls(cid),stus=stuList(cid);
+  const targetSubs=subVal==='__all__'?subList(cid):subList(cid).filter(s=>s.id===subVal);
+  if(!targetSubs.length){showToast('ไม่มีวิชา');return;}
+  if(!stus.length){showToast('ไม่มีนักเรียน');return;}
+  const rows=[];
+  targetSubs.forEach(sub=>{
+    const asgs=asgList(cid,sub.id);
+    const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+    const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+    rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}  สัดส่วน: เก็บ${wA}%:สอบ${wE}%`);
+    const hdr=['เลขที่','ชื่อ','นามสกุล'];
+    asgs.forEach(a=>hdr.push(`${a.name}(/${a.maxScore})`));
+    hdr.push(`คะแนนเก็บ%(${wA}%)`,`กลางภาค(/${midMax})`,`ปลายภาค(/${finMax})`,`คะแนนสอบ%(${wE}%)`,`รวม%`,`เกรด`);
+    rows.push(csvRow(hdr));
+    stus.forEach(s=>{
+      const row=[s.no,s.firstName,s.lastName];
+      asgs.forEach(a=>{const v=scMap(cid,sub.id,a.id)[s.id];row.push(v!==undefined&&v!==''?v:'');});
+      const t=calcTotal(cid,sub.id,s.id);
+      row.push(t.assignPct+'%',t.midRaw!==null?t.midRaw:'',t.finRaw!==null?t.finRaw:'',t.examPct+'%',t.totalPct+'%',t.grade.g);
+      rows.push(csvRow(row));
+    });
+    rows.push('');
+  });
+  dlCSV(`คะแนน_${cls.name}_${todayStr()}.csv`,rows);showToast('ดาวน์โหลดแล้ว ✓');
+}
+
+function exportAttendance(){
+  const cid=document.getElementById('ex-at-cls')?.value;
+  const subVal=document.getElementById('ex-at-sub')?.value;
+  const mode=document.getElementById('ex-at-mode')?.value||'daily';
+  if(!cid){showToast('เลือกห้องเรียนก่อน');return;}
+  const cls=getCls(cid),stus=stuList(cid);
+  const targetSubs=subVal==='__all__'?subList(cid):subList(cid).filter(s=>s.id===subVal);
+  if(!stus.length){showToast('ไม่มีนักเรียน');return;}
+  const rows=[];
+  targetSubs.forEach(sub=>{
+    const dates=Object.keys(((db.attendance[tk(c.id)]||{})[sub.id])||{}).sort();
+    rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}`);
+    if(mode==='daily'){
+      const hdr=['เลขที่','ชื่อ','นามสกุล'];dates.forEach(d=>hdr.push(thDate(d)));hdr.push('รวมมา','รวมขาด','วันเรียนทั้งหมด','%มาเรียน');
+      rows.push(csvRow(hdr));
+      stus.forEach(s=>{
+        const row=[s.no,s.firstName,s.lastName];let ma=0,kh=0,tot=0;
+        dates.forEach(d=>{const st=attRec(cid,sub.id,d)[s.id]||'';row.push(st);if(st==='มา'||st==='สาย')ma++;if(st==='ขาด')kh++;if(st)tot++;});
+        const pct=tot?Math.round(ma/tot*100):0;row.push(ma,kh,tot,pct+'%');rows.push(csvRow(row));
+      });
+    }else{
+      rows.push(csvRow(['เลขที่','ชื่อ','นามสกุล','มา','มาสาย','ลา','ขาด','รวมมา','รวมขาด','ทั้งหมด','%มาเรียน']));
+      stus.forEach(s=>{
+        let ma=0,say=0,la=0,kh=0,tot=0;
+        dates.forEach(d=>{const st=attRec(cid,sub.id,d)[s.id];if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;if(st)tot++;});
+        const pct=tot?Math.round((ma+say)/tot*100):0;rows.push(csvRow([s.no,s.firstName,s.lastName,ma,say,la,kh,ma+say,kh,tot,pct+'%']));
+      });
+    }
+    rows.push('');
+  });
+  dlCSV(`เวลาเรียน_${mode==='daily'?'รายวัน':'สรุป'}_${cls.name}_${todayStr()}.csv`,rows);showToast('ดาวน์โหลดแล้ว ✓');
+}
+
+/* ════════════════════════════════════════════
+   PASSWORD MANAGEMENT (TEACHER SIDE)
+════════════════════════════════════════════ */
+function openPwManager(cid){
+  const stus=stuList(cid);
+  const cls=getCls(cid);
+  let rows='';
+  stus.forEach(s=>{
+    const pw=(db.studentPasswords||{})[s.id]||'';
+    const hasPw=!!pw;
+    rows+=`<tr>
+      <td style="font-weight:700;color:var(--mu)">${s.no}</td>
+      <td>${s.firstName} ${s.lastName}</td>
+      <td id="pw-cell-${s.id}">
+        ${hasPw
+          ? `<span class="pw-badge-set">ตั้งแล้ว</span>`
+          : `<span class="pw-badge-none">ยังไม่มีรหัส</span>`}
+      </td>
+      <td id="pw-show-${s.id}" style="min-width:100px">
+        ${hasPw
+          ? `<button class="pw-reveal-btn" onclick="revealPw('${s.id}')"><i class="ti ti-eye"></i> ดูรหัส</button>`
+          : '<span class="pw-empty">—</span>'}
+      </td>
+      <td>
+        <div class="f g8">
+          <button class="btn btn-xs btn-o" onclick="openResetPwSingle('${cid}','${s.id}')"><i class="ti ti-key"></i> รีเซ็ต</button>
+          ${hasPw?`<button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="clearPw('${cid}','${s.id}')"><i class="ti ti-x"></i> ลบ</button>`:''}
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  showMD(`<div class="mt"><i class="ti ti-key"></i> จัดการรหัสผ่าน — ${cls.name}</div>
+    <div style="background:var(--aml);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--am);margin-bottom:14px">
+      <i class="ti ti-alert-triangle"></i> <b>คำเตือน:</b> รหัสผ่านถูกเก็บแบบ plaintext เพื่อให้ครูดูได้ ควรแจ้งนักเรียนไม่ให้ใช้รหัสผ่านเดียวกับที่อื่น
+    </div>
+    <div class="f g8 mb14">
+      <button class="btn btn-sm btn-o" onclick="resetAllPw('${cid}')"><i class="ti ti-refresh"></i> รีเซ็ตทุกคนพร้อมกัน</button>
+    </div>
+    <div class="tw"><table class="pw-table">
+      <thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>สถานะ</th><th>รหัสผ่าน</th><th>จัดการ</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:14px"><button class="btn" onclick="closeMD()">ปิด</button></div>`);
+}
+
+function revealPw(sid){
+  const pw=(db.studentPasswords||{})[sid]||'';
+  const el=document.getElementById('pw-show-'+sid);
+  if(!el)return;
+  if(el.dataset.revealed==='1'){
+    el.innerHTML=`<button class="pw-reveal-btn" onclick="revealPw('${sid}')"><i class="ti ti-eye"></i> ดูรหัส</button>`;
+    el.dataset.revealed='0';
+  } else {
+    el.innerHTML=`<span class="pw-show">${pw||'(ว่าง)'}</span> <button class="pw-reveal-btn" onclick="revealPw('${sid}')"><i class="ti ti-eye-off"></i></button>`;
+    el.dataset.revealed='1';
+  }
+}
+
+function openResetPwSingle(cid,sid){
+  const s=stuList(cid).find(x=>x.id===sid);
+  showMD(`<div class="mt"><i class="ti ti-key"></i> รีเซ็ตรหัสผ่าน — ${s?.firstName} ${s?.lastName}</div>
+    <div class="fg"><label class="fl">รหัสผ่านใหม่</label>
+    <input type="text" id="newPwInput" placeholder="กรอกรหัสผ่านใหม่" autofocus></div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:14px">ทิ้งว่างเพื่อให้นักเรียนตั้งรหัสเองครั้งถัดไป</div>
+    <div class="f g8" style="justify-content:flex-end">
+      <button class="btn" onclick="openPwManager('${cid}')">ยกเลิก</button>
+      <button class="btn btn-o" onclick="doResetPwSingle('${cid}','${sid}')"><i class="ti ti-check"></i> บันทึก</button>
+    </div>`);
+}
+
+function doResetPwSingle(cid,sid){
+  const pw=val('newPwInput');
+  if(!db.studentPasswords)db.studentPasswords={};
+  if(pw) db.studentPasswords[sid]=pw;
+  else delete db.studentPasswords[sid];
+  save();showToast('รีเซ็ตรหัสผ่านแล้ว ✓');
+  openPwManager(cid);
+}
+
+function clearPw(cid,sid){
+  if(!confirm('ลบรหัสผ่านนักเรียนคนนี้?
+นักเรียนจะต้องตั้งรหัสผ่านใหม่ตอนเข้าระบบครั้งต่อไป'))return;
+  if(db.studentPasswords)delete db.studentPasswords[sid];
+  save();showToast('ลบรหัสผ่านแล้ว ✓');
+  openPwManager(cid);
+}
+
+function resetAllPw(cid){
+  showMD(`<div class="mt"><i class="ti ti-refresh"></i> รีเซ็ตรหัสผ่านทุกคน</div>
+    <div class="fg"><label class="fl">รหัสผ่านใหม่สำหรับทุกคน</label>
+    <input type="text" id="allPwInput" placeholder="เช่น 1234, วันเกิด, เลขที่" autofocus></div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:6px">ทิ้งว่างเพื่อล้างรหัสผ่านทุกคน (ต้องตั้งใหม่เอง)</div>
+    <div style="background:var(--rdl);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--rd);margin-bottom:14px">
+      <i class="ti ti-alert-circle"></i> การกระทำนี้จะเขียนทับรหัสผ่านของนักเรียนทุกคนในห้องนี้
+    </div>
+    <div class="f g8" style="justify-content:flex-end">
+      <button class="btn" onclick="openPwManager('${cid}')">ยกเลิก</button>
+      <button class="btn btn-o" onclick="doResetAllPw('${cid}')"><i class="ti ti-refresh"></i> รีเซ็ตทุกคน</button>
+    </div>`);
+}
+
+function doResetAllPw(cid){
+  const pw=val('allPwInput');
+  if(!db.studentPasswords)db.studentPasswords={};
+  stuList(cid).forEach(s=>{
+    if(pw) db.studentPasswords[s.id]=pw;
+    else delete db.studentPasswords[s.id];
+  });
+  save();showToast(pw?`ตั้งรหัส "${pw}" ให้ทุกคนแล้ว ✓`:'ล้างรหัสผ่านทุกคนแล้ว');
+  openPwManager(cid);
+}
+
+/* ════════════════════════════════════════════
+   MODALS
+════════════════════════════════════════════ */
+function showMD(html){document.getElementById('MC').innerHTML=html;document.getElementById('MO').classList.add('open');}
+function closeMD(){document.getElementById('MO').classList.remove('open');}
+
+function openAddClass(){showMD(`<div class="mt"><i class="ti ti-door-enter"></i> เพิ่มห้องเรียน</div><div class="fg"><label class="fl">ชื่อห้องเรียน</label><input type="text" id="mCN" placeholder="เช่น ม.1/1, ป.4/2" autofocus></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddClass()">เพิ่ม</button></div>`);}
+function submitAddClass(){const name=val('mCN');if(!name)return;const id=uid();db.classes.push({id,name,termId:currentTermId});db.students[tk(id)]=[];sortClasses();save();closeMD();Object.keys(P).forEach(p=>{if(P[p].cls===undefined)return;if(!P[p].cls)P[p].cls=id;});renderPage(curPage());showToast(`เพิ่มห้อง "${name}" แล้ว`);}
+function openEditCls(cid){const c=getCls(cid);showMD(`<div class="mt">แก้ไขห้องเรียน</div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mCN2" value="${c.name}"></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditCls('${cid}')">บันทึก</button></div>`);}
+function submitEditCls(cid){const name=val('mCN2');if(!name)return;const c=getCls(cid);if(c)c.name=name;sortClasses();save();closeMD();renderStudents();}
+function deleteCls(cid){const c=getCls(cid);if(!confirm(`ลบห้อง "${c?.name}"?\nข้อมูลทั้งหมดจะหายไป`))return;db.classes=db.classes.filter(x=>x.id!==cid);const _tk=tk(cid);['students','subjects','attendance','assignments','scores','examScores'].forEach(k=>{delete db[k][_tk];});Object.keys(P).forEach(p=>{if(P[p].cls===cid){P[p].cls=db.classes[0]?.id||null;if(P[p].sub!==undefined)P[p].sub=null;}});save();renderStudents();showToast('ลบห้องเรียนแล้ว');}
+
+function openAddSubject(cid,page){
+  showMD(`<div class="mt"><i class="ti ti-book-plus"></i> เพิ่มวิชา — ${getCls(cid).name}</div>
+    <div class="g2"><div class="fg" style="grid-column:span 2"><label class="fl">ชื่อวิชา</label><input type="text" id="mSN" placeholder="คณิตศาสตร์, ภาษาไทย" autofocus></div><div class="fg"><label class="fl">รหัสวิชา (ถ้ามี)</label><input type="text" id="mSC" placeholder="MA101"></div><div></div></div>
+    <div class="prop-box" style="margin-top:4px">
+      <div class="prop-title">สัดส่วนคะแนน (%)</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA" value="70" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar()"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><input type="number" id="mWE" value="30" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar()"> %</div>
+      <div class="prop-bar" id="propBar"><div class="prop-seg" id="pBA" style="width:70%;background:var(--bl)">70% เก็บ</div><div class="prop-seg" id="pBE" style="width:30%;background:var(--tl)">30% สอบ</div></div>
+      <div style="font-size:12px;color:var(--mu);margin-top:6px"><b>สัดส่วนคะแนนสอบ:</b></div>
+      <div class="prop-row" style="margin-top:4px"><label style="min-width:120px;font-size:13px">กลางภาค</label><input type="number" id="mWM" value="50" min="0" max="100" style="width:70px;font-size:14px"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">ปลายภาค</label><input type="number" id="mWF" value="50" min="0" max="100" style="width:70px;font-size:14px"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-t" onclick="submitAddSubject('${cid}','${page}')">เพิ่มวิชา</button></div>`);
+}
+function updPropBar(){
+  const wA=parseInt(document.getElementById('mWA')?.value)||0;
+  const wE=100-wA;
+  const ba=document.getElementById('pBA'),be=document.getElementById('pBE');
+  if(ba)ba.style.width=wA+'%',ba.textContent=wA+'% เก็บ';
+  if(be)be.style.width=wE+'%',be.textContent=wE+'% สอบ';
+  const mWE=document.getElementById('mWE');if(mWE)mWE.value=wE;
+}
+function submitAddSubject(cid,page){
+  const name=val('mSN');if(!name)return;
+  const wA=parseInt(val('mWA'))||70,wM=parseInt(val('mWM'))||50;
+  const sub={id:uid(),name,code:val('mSC'),wAssign:wA,wExam:100-wA,wMid:wM,wFinal:100-wM,midMax:parseInt(val('mMM'))||100,finalMax:parseInt(val('mFM'))||100};
+  if(!db.subjects[tk(cid)])db.subjects[tk(cid)]=[];
+  db.subjects[tk(cid)].push(sub);save();closeMD();renderPage(page||'subjects');showToast('เพิ่มวิชาแล้ว');
+}
+function openEditSubject(cid,subid){
+  const sub=getSub(cid,subid);
+  const wA=sub.wAssign??70,wM=sub.wMid??50;
+  showMD(`<div class="mt">แก้ไขวิชา — ${sub.name}</div>
+    <div class="g2"><div class="fg" style="grid-column:span 2"><label class="fl">ชื่อวิชา</label><input type="text" id="mSN2" value="${sub.name}"></div><div class="fg"><label class="fl">รหัสวิชา</label><input type="text" id="mSC2" value="${sub.code||''}"></div><div></div></div>
+    <div class="prop-box">
+      <div class="prop-title">สัดส่วนคะแนน</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA2" value="${wA}" min="0" max="100" style="width:70px;font-size:14px"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><span style="font-size:14px;font-weight:700">${100-wA}%</span></div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">กลางภาค</label><input type="number" id="mWM2" value="${wM}" min="0" max="100" style="width:70px;font-size:14px"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">ปลายภาค</label><span style="font-size:14px;font-weight:700">${100-wM}%</span></div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM2" value="${sub.midMax||100}" style="width:70px;font-size:14px"></div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM2" value="${sub.finalMax||100}" style="width:70px;font-size:14px"></div>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-t" onclick="submitEditSubject('${cid}','${subid}')">บันทึก</button></div>`);
+}
+function submitEditSubject(cid,subid){
+  const sub=getSub(cid,subid);if(!sub)return;
+  const wA=parseInt(val('mWA2'))||70,wM=parseInt(val('mWM2'))||50;
+  sub.name=val('mSN2')||sub.name;sub.code=val('mSC2');
+  sub.wAssign=wA;sub.wExam=100-wA;sub.wMid=wM;sub.wFinal=100-wM;
+  sub.midMax=parseInt(val('mMM2'))||100;sub.finalMax=parseInt(val('mFM2'))||100;
+  save();closeMD();renderSubjects();
+}
+function deleteSubject(cid,subid){
+  const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป`))return;
+  db.subjects[tk(cid)]=(db.subjects[tk(cid)]||[]).filter(s=>s.id!==subid);
+  const _attk=tk(cid);if(db.attendance[_attk])delete db.attendance[_attk][subid];
+  if(db.assignments[cid])delete db.assignments[cid][subid];
+  if(db.scores[cid])delete db.scores[cid][subid];
+  if(db.examScores[cid])delete db.examScores[cid][subid];
+  Object.keys(P).forEach(p=>{if(P[p].sub===subid)P[p].sub=null;});
+  save();renderSubjects();showToast('ลบวิชาแล้ว');
+}
+function openAddStu(cid){
+  showMD(`<div class="mt"><i class="ti ti-user-plus"></i> เพิ่มนักเรียน — ${getCls(cid).name}</div>
+    <div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="mSno" min="1" placeholder="1"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mSfn" placeholder="ชื่อ"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="mSln" placeholder="นามสกุล"></div></div>
+    <div class="fg"><label class="fl">เพิ่มหลายคนพร้อมกัน (เลขที่ ชื่อ นามสกุล)</label><textarea id="mSbulk" rows="5" placeholder="1 สมชาย ใจดี&#10;2 สมหญิง มีสุข"></textarea></div>
+    <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddStu('${cid}')">เพิ่ม</button></div>`);
+}
+function submitAddStu(cid){
+  if(!db.students[tk(cid)])db.students[tk(cid)]=[];
+  const bulk=document.getElementById('mSbulk')?.value?.trim();
+  if(bulk){bulk.split('\n').filter(l=>l.trim()).forEach(line=>{const p=line.trim().split(/\s+/);if(p.length>=2)db.students[tk(cid)].push({id:uid(),no:parseInt(p[0])||db.students[cid].length+1,firstName:p[1],lastName:p.slice(2).join(' ')||''});});}
+  else{const no=parseInt(document.getElementById('mSno')?.value)||db.students[cid].length+1,fn=val('mSfn');if(!fn)return;db.students[tk(cid)].push({id:uid(),no,firstName:fn,lastName:val('mSln')});}
+  save();closeMD();renderStudents();showToast('เพิ่มนักเรียนแล้ว');
+}
+function openEditStu(cid,sid){const s=(db.students[cid]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
+function submitEditStu(cid,sid){const s=(db.students[cid]||[]).find(x=>x.id===sid);if(!s)return;s.no=parseInt(document.getElementById('eSno')?.value)||s.no;s.firstName=val('eSfn')||s.firstName;s.lastName=val('eSln');save();closeMD();renderStudents();}
+function delStu(cid,sid){if(!confirm('ลบนักเรียนคนนี้?'))return;db.students[tk(cid)]=(db.students[tk(cid)]||[]).filter(x=>x.id!==sid);save();renderStudents();showToast('ลบนักเรียนแล้ว');}
+
+/* ── INIT DB ── */
+function _initDB(){
+  if(!db.school)db.school={name:'',subdistrict:'',district:'',province:'',logo:''};
+  if(!db.terms)db.terms=[];
+  if(!db.examScores)db.examScores={};
+  if(!db.studentPasswords)db.studentPasswords={};
+  if(!db.terms.length){
+    const now=new Date(),thYear=now.getFullYear()+543;
+    const sem=(now.getMonth()<4)?2:1;
+    const id=uid();
+    db.terms.push({id,year:thYear,semester:sem,label:thYear+' ภาค '+sem,isCurrent:true});
+    save();
+  }
+  const cur=db.terms.find(t=>t.isCurrent);
+  currentTermId=cur?cur.id:(db.terms[0]?.id||null);
+}
+
+/* ── INIT ── */
+load().then(()=>{renderSchool();renderDash();});
+</script>
+</body>
+</html>
