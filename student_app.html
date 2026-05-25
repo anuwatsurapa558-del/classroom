@@ -574,7 +574,16 @@ function renderHome(){
   if(subs.length){
     html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">สรุปรายวิชา</div></div>`;
     subs.forEach(sub=>{
-      const t=calcTotal(cid,sub.id,sid);
+      // นับการส่งงาน (ไม่โชว์คะแนน)
+      const asgs=(asgBlock(cid)[sub.id])||[];
+      let sent=0;
+      asgs.forEach(a=>{
+        const v=((scBlock(cid)[sub.id]||{})[a.id]||{})[sid];
+        const isSent=(a.type==='track')?(v==='ส่ง'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+        if(isSent)sent++;
+      });
+      const asgPct=asgs.length?Math.round(sent/asgs.length*100):0;
+      // มาเรียน
       const dates=Object.keys((attBlock(cid)[sub.id])||{});
       let ma=0,tot=0;dates.forEach(d=>{const st=((attBlock(cid)[sub.id]||{})[d]||{})[sid];if(st==='มา'||st==='สาย')ma++;if(st)tot++;});
       const attPct=tot?Math.round(ma/tot*100):0;
@@ -582,13 +591,13 @@ function renderHome(){
       html+=`<div class="card-bd" style="border-bottom:1px solid var(--bd)">
         <div class="f" style="justify-content:space-between;align-items:center;margin-bottom:6px">
           <div><b>${sub.name}</b>${sub.code?` <span style="font-size:11px;color:var(--mu)">${sub.code}</span>`:''}</div>
-          <span class="grade ${t.grade.cls}">${t.grade.g}</span>
+          <span class="badge ${asgPct>=80?'bg':asgPct>=50?'ba':'br'}">ส่งงาน ${sent}/${asgs.length}</span>
         </div>
         <div class="f" style="gap:14px;font-size:12.5px;color:var(--mu)">
-          <span>คะแนนรวม <b style="color:var(--tx)">${t.totalPct}%</b></span>
+          <span>ส่งงาน <b style="color:var(--tx)">${asgPct}%</b></span>
           <span>มาเรียน <b style="color:${attCol}">${attPct}%</b></span>
         </div>
-        <div class="prog"><div class="pf" style="width:${t.totalPct}%;background:${t.totalPct>=80?'var(--gn)':t.totalPct>=60?'var(--am)':'var(--rd)'}"></div></div>
+        <div class="prog"><div class="pf" style="width:${asgPct}%;background:${asgPct>=80?'var(--gn)':asgPct>=50?'var(--am)':'var(--rd)'}"></div></div>
       </div>`;
     });
     html+=`</div>`;
@@ -663,51 +672,44 @@ function renderScores(){
   if(!currentSubject){document.getElementById('mainContent').innerHTML=html+`<div class="card"><div class="empty"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชา</div></div></div>`;return;}
 
   const sub=subs.find(s=>s.id===currentSubject);
-  const t=calcTotal(cid,currentSubject,sid);
-  const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+  const allAsgs=(asgBlock(cid)[currentSubject])||[];
 
+  // นับสถานะการส่งงานทั้งหมด (ทั้งงานเก็บคะแนนและงานติดตาม)
+  let sent=0,total=allAsgs.length;
+  allAsgs.forEach(a=>{
+    const v=((scBlock(cid)[currentSubject]||{})[a.id]||{})[sid];
+    const isSent=(a.type==='track')?(v==='ส่ง'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+    if(isSent)sent++;
+  });
+  const pct=total?Math.round(sent/total*100):0;
+
+  // การ์ดสรุปการส่งงาน (ไม่มีคะแนน)
   html+=`<div class="card" style="margin-bottom:14px"><div class="card-bd">
-    <div class="f" style="justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div><div style="font-size:16px;font-weight:700">${sub.name}</div><div style="font-size:12px;color:var(--mu)">เกณฑ์: เก็บ ${wA}% : สอบ ${wE}%</div></div>
-      <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:${t.totalPct>=80?'var(--gn)':t.totalPct>=60?'var(--am)':'var(--rd)'}">${t.totalPct}%</div><span class="grade ${t.grade.cls}">${t.grade.g}</span></div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px">${sub.name}</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:10px">สถานะการส่งงาน</div>
+    <div class="f" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-weight:600">ส่งแล้ว ${sent} จาก ${total} งาน</span>
+      <span style="font-size:20px;font-weight:800;color:${pct>=80?'var(--gn)':pct>=50?'var(--am)':'var(--rd)'}">${pct}%</span>
     </div>
-    <div class="prog" style="height:10px;margin-bottom:10px"><div class="pf" style="width:${t.totalPct}%;background:${t.totalPct>=80?'var(--gn)':t.totalPct>=60?'var(--am)':'var(--rd)'}"></div></div>
-    <div class="f" style="gap:6px;flex-wrap:wrap">
-      <div style="flex:1;min-width:100px;background:var(--bll);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--bl);font-weight:600">คะแนนเก็บ (${wA}%)</div><div style="font-size:18px;font-weight:800;color:var(--bl)">${t.assignPct}%</div></div>
-      <div style="flex:1;min-width:100px;background:var(--tll);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--tl);font-weight:600">คะแนนสอบ (${wE}%)</div><div style="font-size:18px;font-weight:800;color:var(--tl)">${t.examPct}%</div></div>
-    </div>
+    <div class="prog" style="height:10px"><div class="pf" style="width:${pct}%;background:${pct>=80?'var(--gn)':pct>=50?'var(--am)':'var(--rd)'}"></div></div>
   </div></div>`;
 
-  // exam detail
-  html+=`<div class="card" style="margin-bottom:14px"><div class="card-hd"><div class="card-hd-title">คะแนนสอบ</div></div><div class="card-bd">
-    <div class="f" style="gap:10px">
-      <div style="flex:1;background:var(--pul);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:11px;color:var(--pu);font-weight:600">กลางภาค (${wM}% ของสอบ)</div>
-        <div style="font-size:20px;font-weight:800;color:var(--pu)">${t.midRaw!==null?t.midRaw+'/'+t.midMax:'ยังไม่มีข้อมูล'}</div>
-        ${t.midPct!==null?`<div style="font-size:12px;color:var(--pu)">${Math.round(t.midPct)}%</div>`:''}
-      </div>
-      <div style="flex:1;background:var(--orl);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:11px;color:#EA580C;font-weight:600">ปลายภาค (${wF}% ของสอบ)</div>
-        <div style="font-size:20px;font-weight:800;color:#EA580C">${t.finRaw!==null?t.finRaw+'/'+t.finMax:'ยังไม่มีข้อมูล'}</div>
-        ${t.finPct!==null?`<div style="font-size:12px;color:#EA580C">${Math.round(t.finPct)}%</div>`:''}
-      </div>
-    </div>
-  </div></div>`;
-
-  // assign scores
-  const asgs=(asgBlock(cid)[currentSubject])||[];
-  html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">คะแนนเก็บ (${asgs.length} งาน)</div></div>`;
-  if(!asgs.length)html+=`<div class="empty" style="padding:20px"><i class="ti ti-clipboard-list"></i><div>ยังไม่มีงาน</div></div>`;
+  // รายการงานทั้งหมด แสดงแค่สถานะ
+  html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">รายการงาน (${total} งาน)</div></div>`;
+  if(!allAsgs.length)html+=`<div class="empty" style="padding:20px"><i class="ti ti-clipboard-list"></i><div>ยังไม่มีงาน</div></div>`;
   else{
-    html+=`<div class="tw"><table><thead><tr><th>ชื่องาน</th><th>คะแนนเต็ม</th><th>ได้</th><th>%</th></tr></thead><tbody>`;
-    asgs.forEach(a=>{
+    html+=`<div class="card-bd" style="padding-top:6px;padding-bottom:6px">`;
+    allAsgs.forEach(a=>{
       const v=((scBlock(cid)[currentSubject]||{})[a.id]||{})[sid];
-      const has=v!==undefined&&v!=='';
-      const pct=has?Math.round(v/a.maxScore*100):null;
-      const bc=!has?'br':pct>=80?'bg':pct>=60?'ba':'br';
-      html+=`<tr><td>${a.name}</td><td style="text-align:center">${a.maxScore}</td><td style="text-align:center">${has?`<span class="badge ${bc}">${v}</span>`:`<span class="badge br">ยังไม่มี</span>`}</td><td style="text-align:center;font-weight:700">${pct!==null?pct+'%':'-'}</td></tr>`;
+      const isSent=(a.type==='track')?(v==='ส่ง'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+      const hasRecord=(v!==undefined&&v!=='');
+      const typeLabel=(a.type==='track')?'<span style="font-size:10px;color:var(--or);background:var(--orl);padding:1px 6px;border-radius:8px;margin-left:6px">ติดตาม</span>':'';
+      html+=`<div class="att-row">
+        <div class="att-date">${a.name}${typeLabel}</div>
+        <div>${isSent?'<span class="badge bg"><i class="ti ti-check"></i> ส่งแล้ว</span>':(hasRecord?'<span class="badge br">ยังไม่ส่ง</span>':'<span class="badge bx">ยังไม่ส่ง</span>')}</div>
+      </div>`;
     });
-    html+=`</tbody></table></div>`;
+    html+=`</div>`;
   }
   html+=`</div>`;
   document.getElementById('mainContent').innerHTML=html;
@@ -732,8 +734,8 @@ function renderAssignments(){
   let submitted=[],notSub=[];
   asgs.forEach(a=>{
     const v=((scBlock(cid)[currentSubject]||{})[a.id]||{})[sid];
-    const has=v!==undefined&&v!=='';
-    if(has)submitted.push({a,v:parseFloat(v)});
+    const isSent=(a.type==='track')?(v==='ส่ง'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+    if(isSent)submitted.push(a);
     else notSub.push(a);
   });
 
@@ -745,18 +747,20 @@ function renderAssignments(){
 
   if(notSub.length){
     html+=`<div class="card" style="margin-bottom:14px"><div class="card-hd" style="background:var(--rdl)"><div class="card-hd-title" style="color:var(--rd)"><i class="ti ti-alert-circle"></i> งานที่ยังไม่ส่ง (${notSub.length} ชิ้น)</div></div><div class="card-bd" style="padding:0">`;
-    notSub.forEach(a=>{html+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div>${a.name}</div><span class="badge br">ยังไม่ส่ง • /${a.maxScore}</span></div>`;});
+    notSub.forEach(a=>{
+      const tag=(a.type==='track')?'<span style="font-size:10px;color:var(--or);background:var(--orl);padding:1px 6px;border-radius:8px;margin-left:6px">ติดตาม</span>':'';
+      html+=`<div style="padding:11px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div>${a.name}${tag}</div><span class="badge br">ยังไม่ส่ง</span></div>`;
+    });
     html+=`</div></div>`;
   }
 
   if(submitted.length){
-    html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">งานที่ส่งแล้ว (${submitted.length} ชิ้น)</div></div><div class="tw"><table><thead><tr><th>ชื่องาน</th><th>เต็ม</th><th>ได้</th><th>%</th></tr></thead><tbody>`;
-    submitted.forEach(({a,v})=>{
-      const p=Math.round(v/a.maxScore*100);
-      const c=p>=80?'bg':p>=60?'ba':'br';
-      html+=`<tr><td>${a.name}</td><td style="text-align:center">${a.maxScore}</td><td><span class="badge ${c}">${v}</span></td><td style="font-weight:700;color:${p>=80?'var(--gn)':p>=60?'var(--am)':'var(--rd)'}">${p}%</td></tr>`;
+    html+=`<div class="card"><div class="card-hd"><div class="card-hd-title"><i class="ti ti-circle-check"></i> งานที่ส่งแล้ว (${submitted.length} ชิ้น)</div></div><div class="card-bd" style="padding:0">`;
+    submitted.forEach(a=>{
+      const tag=(a.type==='track')?'<span style="font-size:10px;color:var(--or);background:var(--orl);padding:1px 6px;border-radius:8px;margin-left:6px">ติดตาม</span>':'';
+      html+=`<div style="padding:11px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div>${a.name}${tag}</div><span class="badge bg"><i class="ti ti-check"></i> ส่งแล้ว</span></div>`;
     });
-    html+=`</tbody></table></div></div>`;
+    html+=`</div></div>`;
   }
 
   if(!asgs.length)html+=`<div class="card"><div class="empty"><i class="ti ti-clipboard-list"></i><div>ยังไม่มีงาน</div><p>รอครูสั่งงาน</p></div></div>`;

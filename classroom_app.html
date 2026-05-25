@@ -428,6 +428,7 @@ let attSubtab='check',scSubtab='entry';
 let attDate=todayStr();
 let attEditDate=todayStr();
 let selStu=null,selAsg=null;
+let asgType='score'; // 'score'=คิดคะแนน 'track'=ติดตามการส่ง
 
 /* ── HELPERS ── */
 function uid(){return Math.random().toString(36).slice(2,10);}
@@ -493,8 +494,9 @@ function calcTotal(cid,subid,stuId){
   const asgs=asgList(cid,subid);
   let assignRaw=0,assignMax=0;
   asgs.forEach(a=>{
+    if(a.type==='track')return; // ข้ามงานติดตาม ไม่คิดคะแนน
     const v=scMap(cid,subid,a.id)[stuId];
-    if(v!==undefined&&v!==''){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
+    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
   });
   const assignPct=assignMax?assignRaw/assignMax*100:0;
   // exam score
@@ -1034,25 +1036,77 @@ function renderScEntry(){
     <div class="prop-bar"><div class="prop-seg" style="width:${wA}%;background:var(--bl)">${wA}% เก็บ</div><div class="prop-seg" style="width:${100-wA}%;background:var(--tl)">${100-wA}% สอบ</div></div>
     <div style="font-size:12px;color:var(--mu)">คะแนนเก็บ = ${wA}% | คะแนนสอบ = ${100-wA}% &nbsp;·&nbsp; <a href="#" onclick="gotoPage('subjects');return false" style="color:var(--bl)">แก้ไขสัดส่วน</a></div>
   </div>
-  <div class="card cp mb14"><div class="stitle">เพิ่มงาน</div><div class="f g8 fw"><div style="flex:2;min-width:150px"><input type="text" id="asgName" placeholder="ชื่องาน เช่น งานชิ้นที่ 1"></div><div style="width:100px"><input type="number" id="asgMax" placeholder="คะแนนเต็ม" min="1"></div><button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่ม</button></div></div>`;
+  <div class="card cp mb14"><div class="stitle">เพิ่มงาน</div>
+    <div class="score-type-bar" style="margin-bottom:12px">
+      <button class="score-type-btn active" id="atype-score" onclick="setAsgType('score')"><i class="ti ti-star"></i> งานเก็บคะแนน</button>
+      <button class="score-type-btn" id="atype-track" onclick="setAsgType('track')"><i class="ti ti-checklist"></i> งานติดตามการส่ง</button>
+    </div>
+    <div class="f g8 fw">
+      <div style="flex:2;min-width:150px"><input type="text" id="asgName" placeholder="ชื่องาน เช่น งานชิ้นที่ 1"></div>
+      <div style="width:110px" id="asgMaxWrap"><input type="number" id="asgMax" placeholder="คะแนนเต็ม" min="1"></div>
+      <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่ม</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--mu);margin-top:6px" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด | งานติดตาม = แค่เช็คว่าส่งหรือยัง ไม่คิดคะแนน</div>
+  </div>`;
   if(!asgs.length){html+=noData('clipboard-list','ยังไม่มีงาน','กรอกข้อมูลด้านบนเพื่อเพิ่ม');el.innerHTML=html;return;}
   html+=`<div class="card cp mb14"><div class="stitle">เลือกงาน</div><div class="f fw" style="gap:5px">`;
-  asgs.forEach(a=>{html+=`<div class="f ic" style="gap:3px"><button class="btn${a.id===selAsg?' btn-p':''}" onclick="selAsg='${a.id}';renderScEntry()">${a.name} <span style="opacity:.6;font-size:11px">(/${a.maxScore})</span></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}')"><i class="ti ti-x"></i></button></div>`;});
+  asgs.forEach(a=>{
+    const isTrack=a.type==='track';
+    const badge=isTrack?'<span style="opacity:.7;font-size:10px;background:var(--orl);color:var(--or);padding:1px 5px;border-radius:8px;margin-left:3px">ติดตาม</span>':`<span style="opacity:.6;font-size:11px">(/${a.maxScore})</span>`;
+    html+=`<div class="f ic" style="gap:3px"><button class="btn${a.id===selAsg?' btn-p':''}" onclick="selAsg='${a.id}';renderScEntry()">${a.name} ${badge}</button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}')"><i class="ti ti-x"></i></button></div>`;
+  });
   html+=`</div></div>`;
-  if(!selAsg||!asgs.find(a=>a.id===selAsg)){html+=noData('hand-click','เลือกงานด้านบนเพื่อบันทึกคะแนน');el.innerHTML=html;return;}
+  if(!selAsg||!asgs.find(a=>a.id===selAsg)){html+=noData('hand-click','เลือกงานด้านบนเพื่อบันทึก');el.innerHTML=html;return;}
   const asg=asgs.find(a=>a.id===selAsg),sc=scMap(cid,subid,selAsg);
-  html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${asg.name}</b> <span class="badge bx">/${asg.maxScore}</span></div><button class="btn btn-g btn-sm" onclick="saveSc('${cid}','${subid}','${selAsg}',${asg.maxScore})"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
-  <div class="tw"><table><thead><tr><th style="width:40px">ที่</th><th>ชื่อ-สกุล</th><th style="width:90px">คะแนน</th><th>สถานะ</th></tr></thead><tbody>`;
-  stus.forEach(s=>{const v=sc[s.id],has=v!==undefined&&v!=='';html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td><input type="number" class="sc-inp" id="sc-${s.id}" value="${has?v:''}" min="0" max="${asg.maxScore}" placeholder="—"></td><td>${has?`<span class="badge bg">${v}/${asg.maxScore}</span>`:`<span class="badge bx">ยังไม่ส่ง</span>`}</td></tr>`;});
-  html+=`</tbody></table></div></div>`;
+  const isTrack=asg.type==='track';
+
+  if(isTrack){
+    // ── งานติดตามการส่ง: ปุ่มส่งแล้ว/ยังไม่ส่ง ──
+    html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${asg.name}</b> <span class="badge bo">งานติดตามการส่ง</span></div><button class="btn btn-g btn-sm" onclick="saveTrack('${cid}','${subid}','${selAsg}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
+    <div class="cp" style="padding-top:6px;padding-bottom:6px">`;
+    stus.forEach(s=>{
+      const v=sc[s.id];const sent=(v==='ส่ง'||v===1||v==='1'||v===true);
+      html+=`<div class="atr"><div class="anum">${s.no}</div><div class="aname">${s.firstName} ${s.lastName}</div><div class="abtns" id="trk-${s.id}">
+        <button class="ab${sent?' s-ma':''}" data-v="1" onclick="pickTrack(this)">ส่งแล้ว</button>
+        <button class="ab${(v!==undefined&&!sent)?' s-kh':''}" data-v="0" onclick="pickTrack(this)">ยังไม่ส่ง</button>
+      </div></div>`;
+    });
+    html+=`</div></div>`;
+  } else {
+    // ── งานเก็บคะแนน ──
+    html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${asg.name}</b> <span class="badge bx">/${asg.maxScore}</span></div><button class="btn btn-g btn-sm" onclick="saveSc('${cid}','${subid}','${selAsg}',${asg.maxScore})"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
+    <div class="tw"><table><thead><tr><th style="width:40px">ที่</th><th>ชื่อ-สกุล</th><th style="width:90px">คะแนน</th><th>สถานะ</th></tr></thead><tbody>`;
+    stus.forEach(s=>{const v=sc[s.id],has=v!==undefined&&v!=='';html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td><input type="number" class="sc-inp" id="sc-${s.id}" value="${has?v:''}" min="0" max="${asg.maxScore}" placeholder="—"></td><td>${has?`<span class="badge bg">${v}/${asg.maxScore}</span>`:`<span class="badge bx">ยังไม่ส่ง</span>`}</td></tr>`;});
+    html+=`</tbody></table></div></div>`;
+  }
   el.innerHTML=html;
 }
+function setAsgType(t){
+  asgType=t;
+  document.getElementById('atype-score')?.classList.toggle('active',t==='score');
+  document.getElementById('atype-track')?.classList.toggle('active',t==='track');
+  // ซ่อน/แสดงช่องคะแนนเต็ม
+  const w=document.getElementById('asgMaxWrap');
+  if(w)w.style.display=(t==='track')?'none':'block';
+  const hint=document.getElementById('asgTypeHint');
+  if(hint)hint.innerHTML=(t==='track')
+    ?'<i class="ti ti-info-circle"></i> งานติดตาม: บันทึกแค่ "ส่งแล้ว / ยังไม่ส่ง" ไม่นำไปคิดคะแนนหรือเกรด'
+    :'<i class="ti ti-info-circle"></i> งานเก็บคะแนน: นำไปคำนวณเกรดตามสัดส่วนคะแนนเก็บ';
+}
 function addAsg(cid,subid){
-  const name=val('asgName'),max=parseInt(val('asgMax'));
-  if(!name||!max||max<1){showToast('กรุณากรอกชื่องานและคะแนนเต็ม');return;}
+  const name=val('asgName');
+  if(!name){showToast('กรุณากรอกชื่องาน');return;}
   if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
   if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
-  const id=uid();db.assignments[tk(cid)][subid].push({id,name,maxScore:max});
+  const id=uid();
+  if(asgType==='track'){
+    // งานติดตาม ไม่มีคะแนนเต็ม
+    db.assignments[tk(cid)][subid].push({id,name,type:'track'});
+  }else{
+    const max=parseInt(val('asgMax'));
+    if(!max||max<1){showToast('กรุณากรอกคะแนนเต็ม');return;}
+    db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score'});
+  }
   selAsg=id;save();renderScEntry();
 }
 function delAsg(cid,subid,aid){
@@ -1060,6 +1114,22 @@ function delAsg(cid,subid,aid){
   db.assignments[tk(cid)][subid]=(db.assignments[tk(cid)][subid]||[]).filter(a=>a.id!==aid);
   if((db.scores[tk(cid)]||{})[subid])delete db.scores[tk(cid)][subid][aid];
   if(selAsg===aid)selAsg=null;save();renderScEntry();
+}
+function pickTrack(btn){
+  const g=btn.closest('.abtns');
+  g.querySelectorAll('.ab').forEach(b=>b.className='ab');
+  btn.className='ab '+(btn.dataset.v==='1'?'s-ma':'s-kh');
+}
+function saveTrack(cid,subid,aid){
+  if(!db.scores[tk(cid)])db.scores[tk(cid)]={};
+  if(!db.scores[tk(cid)][subid])db.scores[tk(cid)][subid]={};
+  if(!db.scores[tk(cid)][subid][aid])db.scores[tk(cid)][subid][aid]={};
+  stuList(cid).forEach(s=>{
+    const g=document.getElementById('trk-'+s.id);if(!g)return;
+    const sel=g.querySelector('[class*="s-"]');
+    if(sel){db.scores[tk(cid)][subid][aid][s.id]=(sel.dataset.v==='1')?'ส่ง':'ไม่ส่ง';}
+  });
+  save();showToast('บันทึกการส่งงานเรียบร้อย ✓');
 }
 function saveSc(cid,subid,aid,maxScore){
   if(!db.scores[tk(cid)])db.scores[tk(cid)]={};if(!db.scores[tk(cid)][subid])db.scores[tk(cid)][subid]={};if(!db.scores[tk(cid)][subid][aid])db.scores[tk(cid)][subid][aid]={};
@@ -1113,7 +1183,10 @@ function saveExam(cid,subid){
 function renderScAll(){
   const el=document.getElementById('sc-all');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
-  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
+  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid);
+  const allAsgs=asgList(cid,subid);
+  const asgs=allAsgs.filter(a=>a.type!=='track'); // เฉพาะงานเก็บคะแนน
+  const trackAsgs=allAsgs.filter(a=>a.type==='track'); // งานติดตาม
   const wA=sub.wAssign??70,wE=sub.wExam??30;
   let html=`<div class="prop-box"><div class="f ic g8"><span class="badge bb">คะแนนเก็บ ${wA}%</span><span class="badge bt">คะแนนสอบ ${wE}%</span><span style="font-size:12px;color:var(--mu)">คะแนนรวม = ${wA}% × เก็บ + ${wE}% × สอบ</span></div></div>
   <div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr><th class="fc1">#</th><th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
@@ -1136,6 +1209,25 @@ function renderScAll(){
       <td style="text-align:center"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td></tr>`;
   });
   html+=`</tbody></table></div></div>`;
+
+  // ── ตารางงานติดตามการส่ง (ไม่คิดคะแนน) ──
+  if(trackAsgs.length){
+    html+=`<div class="card mt14" style="overflow:hidden"><div class="cp" style="border-bottom:1px solid var(--bd)"><b><i class="ti ti-checklist"></i> งานติดตามการส่ง</b> <span style="font-size:12px;color:var(--mu)">(ไม่นำมาคิดคะแนน)</span></div><div class="tw"><table class="score-table"><thead><tr><th class="fc1">#</th><th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
+    trackAsgs.forEach(a=>{html+=`<th style="min-width:80px">${a.name}</th>`;});
+    html+=`<th style="min-width:70px">ส่งแล้ว</th></tr></thead><tbody>`;
+    stus.forEach(s=>{
+      html+=`<tr><td class="fc1" style="font-weight:700;color:var(--mu)">${s.no}</td><td class="fc2">${s.firstName} ${s.lastName}</td>`;
+      let sent=0;
+      trackAsgs.forEach(a=>{
+        const v=scMap(cid,subid,a.id)[s.id];
+        const isSent=(v==='ส่ง');
+        if(isSent)sent++;
+        html+=`<td style="text-align:center">${v!==undefined?(isSent?'<span class="badge bg">ส่ง</span>':'<span class="badge br">ยังไม่ส่ง</span>'):'<span class="badge bx">—</span>'}</td>`;
+      });
+      html+=`<td style="text-align:center;font-weight:700">${sent}/${trackAsgs.length}</td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  }
   el.innerHTML=html;
 }
 
