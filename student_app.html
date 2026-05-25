@@ -289,8 +289,37 @@ function scBlock(cid){return db.scores[tk(cid)]||db.scores[cid]||{};}
 function exBlock(cid){return db.examScores[tk(cid)]||db.examScores[cid]||{};}
 
 /* ── SAVE STUDENT SELF-REGISTRATION ── */
-async function saveStudentInfo(cid,stuId){
-  // just save to cloud (teacher db owns the data)
+async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
+  // ป้องกันข้อมูลหาย: โหลดล่าสุดจาก cloud ก่อน แล้ว merge เฉพาะข้อมูลตัวเอง
+  // (กันกรณีหลายคนลงทะเบียนพร้อมกัน — race condition)
+  try{
+    const r=await fetch(GAS_URL+'?action=load');
+    const fresh=JSON.parse(await r.text());
+    if(fresh&&fresh.classes){
+      // ใช้ db ล่าสุดจาก cloud เป็นฐาน
+      db=fresh;
+      _normalizeDB();
+    }
+  }catch(e){/* โหลดไม่ได้ ใช้ db ในเครื่องต่อ */}
+
+  // หา key ที่ถูกต้องของห้องนี้
+  const cls2=db.classes.find(x=>x.id===cid);
+  const tkey=(cls2&&cls2.termId)?cls2.termId+'__'+cid:(window._currentTermId?window._currentTermId+'__'+cid:cid);
+
+  // เพิ่ม/อัปเดตนักเรียนของตัวเองเข้าไปใน db ล่าสุด
+  if(studentObj){
+    if(!db.students[tkey])db.students[tkey]=[];
+    const existing=db.students[tkey].findIndex(s=>s.id===stuId);
+    if(existing>=0) db.students[tkey][existing]=studentObj; // อัปเดต
+    else db.students[tkey].push(studentObj); // เพิ่มใหม่
+  }
+  // เพิ่มรหัสผ่านของตัวเอง
+  if(pwPlain!==undefined&&pwPlain!==null){
+    if(!db.studentPasswords)db.studentPasswords={};
+    db.studentPasswords[stuId]=pwPlain;
+  }
+
+  // บันทึก db ที่ merge แล้วขึ้น cloud
   try{
     await fetch(GAS_URL,{method:'POST',body:JSON.stringify(db),headers:{'Content-Type':'text/plain'}});
     setSync('ok');
@@ -477,16 +506,12 @@ async function doRegister(){
   if(!cid||!no||!fn){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณากรอกข้อมูลให้ครบ</div>`;return;}
   if(pw.length<4){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร</div>`;return;}
   if(pw!==pw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
-  // ใช้ termId ของห้องที่เลือก เพื่อให้ key ตรงกับระบบครู
-  const cls2=db.classes.find(x=>x.id===cid);
-  const tkey=(cls2&&cls2.termId)?cls2.termId+'__'+cid:(window._currentTermId?window._currentTermId+'__'+cid:cid);
-  if(!db.students[tkey])db.students[tkey]=[];
   const id=uid();
-  db.students[tkey].push({id,no,firstName:fn,lastName:ln});
-  await setPwHash(id,pw);
+  const studentObj={id,no,firstName:fn,lastName:ln};
   me={classId:cid,studentId:id};
   showToast('ลงทะเบียนสำเร็จ กำลังบันทึก...');
-  await saveStudentInfo(cid,id);
+  // ส่ง studentObj + รหัสผ่าน ให้ saveStudentInfo merge กับข้อมูลล่าสุดบน cloud
+  await saveStudentInfo(cid,id,studentObj,pw);
   saveSession();renderApp();
 }
 
@@ -831,10 +856,11 @@ async function doSetPassword(cid,sid,isChange){
   }
   if(newPw.length<4){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร</div>`;return;}
   if(newPw!==newPw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
-  await setPwHash(sid,newPw); // บันทึก plaintext
   me={classId:cid,studentId:sid};
   showToast('ตั้งรหัสผ่านสำเร็จ กำลังบันทึก...');
-  await saveStudentInfo(cid,sid);
+  // ส่งรหัสผ่านให้ merge (หานักเรียนเดิมเพื่อส่ง object ด้วย)
+  const stuObj=stuArr(cid).find(s=>s.id===sid)||null;
+  await saveStudentInfo(cid,sid,stuObj,newPw);
   saveSession();renderApp();
 }
 
@@ -860,9 +886,10 @@ async function saveMyInfo(){
   const no=parseInt(document.getElementById('editNo')?.value)||stu.no;
   const fn=(document.getElementById('editFn')?.value||'').trim()||stu.firstName;
   const ln=(document.getElementById('editLn')?.value||'').trim();
-  stu.no=no;stu.firstName=fn;stu.lastName=ln;
+  const updatedObj={id:me.studentId,no,firstName:fn,lastName:ln};
   showToast('กำลังบันทึก...');
-  await saveStudentInfo(me.classId,me.studentId);
+  // ส่ง object ที่แก้แล้วให้ merge กับ cloud
+  await saveStudentInfo(me.classId,me.studentId,updatedObj,null);
   showToast('บันทึกเรียบร้อย ✓');
   switchTab('home');
 }

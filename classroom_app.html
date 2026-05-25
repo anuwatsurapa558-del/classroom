@@ -441,7 +441,13 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 function noData(icon,msg,sub=''){return`<div class="card cp"><div class="empty"><i class="ti ti-${icon}"></i><div>${msg}</div>${sub?`<p>${sub}</p>`:''}</div></div>`;}
 
 /* term key helpers */
-function tk(cid){return currentTermId?currentTermId+'__'+cid:cid;}
+function tk(cid){
+  // อิง termId ของห้องเป็นหลัก (ตรงกับที่นักเรียนบันทึก) แล้วค่อย fallback currentTermId
+  const cls2=db.classes.find(c=>c.id===cid);
+  if(cls2&&cls2.termId) return cls2.termId+'__'+cid;
+  if(currentTermId) return currentTermId+'__'+cid;
+  return cid;
+}
 function curTerm(){return db.terms.find(t=>t.id===currentTermId)||db.terms[0]||null;}
 function termClasses(){return currentTermId?db.classes.filter(c=>c.termId===currentTermId):db.classes;}
 function termLabel(){const t=curTerm();return t?'ปีการศึกษา '+t.year+' ภาคเรียนที่ '+t.semester:'ยังไม่ได้เลือกภาคเรียน';}
@@ -773,7 +779,7 @@ function renderDash(){
   html+=`</div>`;
   html+=`<div class="chbox"><div class="chtitle">นักเรียนต่อห้อง</div><div class="barchart">`;
   const mx=Math.max(...curCls.map(c2=>(db.students[tk(c2.id)]||[]).length),1);
-  curCls.forEach(c=>{const n=(db.students[c.id]||[]).length,h=Math.round(n/mx*100);html+=`<div class="bw"><div class="bval">${n}</div><div class="bout"><div class="bin" style="height:${h}%;background:var(--bl)"></div></div><div class="blbl">${c.name}</div></div>`;});
+  curCls.forEach(c=>{const n=(db.students[tk(c.id)]||[]).length,h=Math.round(n/mx*100);html+=`<div class="bw"><div class="bval">${n}</div><div class="bout"><div class="bin" style="height:${h}%;background:var(--bl)"></div></div><div class="blbl">${c.name}</div></div>`;});
   html+=`</div></div></div>`;
   // summary table
   html+=`<div class="card"><div class="tw"><table><thead><tr><th>ห้อง</th><th>วิชา</th><th>สัดส่วน</th><th>นักเรียน</th><th>วันเช็ค</th><th>มา%</th><th>งาน</th></tr></thead><tbody>`;
@@ -781,7 +787,7 @@ function renderDash(){
     const subs=subList(c.id),stus=stuList(c.id);
     if(!subs.length){html+=`<tr><td><b>${c.name}</b></td><td colspan="6" style="color:var(--hn);font-size:12px">ยังไม่มีวิชา</td></tr>`;return;}
     subs.forEach((sub,si)=>{
-      const dates=Object.keys(((db.attendance[c.id]||{})[sub.id])||{});
+      const dates=Object.keys(((db.attendance[tk(c.id)]||{})[sub.id])||{});
       let ma=0,tot=0;dates.forEach(d=>Object.values(attRec(c.id,sub.id,d)).forEach(s=>{if(s==='มา'||s==='สาย')ma++;if(s)tot++;}));
       const r2=tot?Math.round(ma/tot*100):0,col=r2>=80?'var(--gn)':r2>=60?'var(--am)':'var(--rd)';
       const wA=sub.wAssign??70,wE=sub.wExam??30;
@@ -1451,9 +1457,9 @@ function deleteSubject(cid,subid){
   const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป`))return;
   db.subjects[tk(cid)]=(db.subjects[tk(cid)]||[]).filter(s=>s.id!==subid);
   const _attk=tk(cid);if(db.attendance[_attk])delete db.attendance[_attk][subid];
-  if(db.assignments[cid])delete db.assignments[cid][subid];
-  if(db.scores[cid])delete db.scores[cid][subid];
-  if(db.examScores[cid])delete db.examScores[cid][subid];
+  if(db.assignments[tk(cid)])delete db.assignments[tk(cid)][subid];
+  if(db.scores[tk(cid)])delete db.scores[tk(cid)][subid];
+  if(db.examScores[tk(cid)])delete db.examScores[tk(cid)][subid];
   Object.keys(P).forEach(p=>{if(P[p].sub===subid)P[p].sub=null;});
   save();renderSubjects();showToast('ลบวิชาแล้ว');
 }
@@ -1466,12 +1472,12 @@ function openAddStu(cid){
 function submitAddStu(cid){
   if(!db.students[tk(cid)])db.students[tk(cid)]=[];
   const bulk=document.getElementById('mSbulk')?.value?.trim();
-  if(bulk){bulk.split('\n').filter(l=>l.trim()).forEach(line=>{const p=line.trim().split(/\s+/);if(p.length>=2)db.students[tk(cid)].push({id:uid(),no:parseInt(p[0])||db.students[cid].length+1,firstName:p[1],lastName:p.slice(2).join(' ')||''});});}
-  else{const no=parseInt(document.getElementById('mSno')?.value)||db.students[cid].length+1,fn=val('mSfn');if(!fn)return;db.students[tk(cid)].push({id:uid(),no,firstName:fn,lastName:val('mSln')});}
+  if(bulk){bulk.split('\n').filter(l=>l.trim()).forEach(line=>{const p=line.trim().split(/\s+/);if(p.length>=2)db.students[tk(cid)].push({id:uid(),no:parseInt(p[0])||db.students[tk(cid)].length+1,firstName:p[1],lastName:p.slice(2).join(' ')||''});});}
+  else{const no=parseInt(document.getElementById('mSno')?.value)||db.students[tk(cid)].length+1,fn=val('mSfn');if(!fn)return;db.students[tk(cid)].push({id:uid(),no,firstName:fn,lastName:val('mSln')});}
   save();closeMD();renderStudents();showToast('เพิ่มนักเรียนแล้ว');
 }
-function openEditStu(cid,sid){const s=(db.students[cid]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
-function submitEditStu(cid,sid){const s=(db.students[cid]||[]).find(x=>x.id===sid);if(!s)return;s.no=parseInt(document.getElementById('eSno')?.value)||s.no;s.firstName=val('eSfn')||s.firstName;s.lastName=val('eSln');save();closeMD();renderStudents();}
+function openEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
+function submitEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;s.no=parseInt(document.getElementById('eSno')?.value)||s.no;s.firstName=val('eSfn')||s.firstName;s.lastName=val('eSln');save();closeMD();renderStudents();}
 function delStu(cid,sid){if(!confirm('ลบนักเรียนคนนี้?'))return;db.students[tk(cid)]=(db.students[tk(cid)]||[]).filter(x=>x.id!==sid);save();renderStudents();showToast('ลบนักเรียนแล้ว');}
 
 /* ── INIT DB ── */
