@@ -1452,7 +1452,7 @@ function exportAttendance(){
   if(!stus.length){showToast('ไม่มีนักเรียน');return;}
   const rows=[];
   targetSubs.forEach(sub=>{
-    const dates=Object.keys(((db.attendance[tk(c.id)]||{})[sub.id])||{}).sort();
+    const dates=Object.keys(((db.attendance[tk(cls.id)]||{})[sub.id])||{}).sort();
     rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}`);
     if(mode==='daily'){
       const hdr=['เลขที่','ชื่อ','นามสกุล'];dates.forEach(d=>hdr.push(thDate(d)));hdr.push('รวมมา','รวมขาด','วันเรียนทั้งหมด','%มาเรียน');
