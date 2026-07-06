@@ -430,8 +430,14 @@ let db={school:{name:'',subdistrict:'',district:'',province:'',logo:''},terms:[]
 let currentTermId=null;
 
 const P={
-  students:{cls:null},subjects:{cls:null},
-  attendance:{cls:null,sub:null},scores:{cls:null,sub:null},
+  dashboard:{cls:null,sub:null},
+  school:{cls:null},
+  classroom:{cls:null,sub:null,tab:'students'},
+  overview:{cls:null,sub:'all',filter:'all'},
+  students:{cls:null},
+  subjects:{cls:null,sub:null},
+  attendance:{cls:null,sub:null},
+  scores:{cls:null,sub:null},
   export:{cls:null,sub:null}
 };
 let attSubtab='check',scSubtab='entry';
