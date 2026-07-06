@@ -476,6 +476,14 @@ function subList(cid){return db.subjects[tk(cid)]||[];}
 function getSub(cid,sid){return subList(cid).find(s=>s.id===sid);}
 function asgList(cid,sid){return((db.assignments[tk(cid)]||{})[sid])||[];}
 function attRec(cid,sid,date){return(((db.attendance[tk(cid)]||{})[sid])||{})[date]||{};}
+function attDates(cid,subid){
+  // คืนรายการวันที่ที่มีการเช็คชื่อจริง (มี status อย่างน้อย 1 คน)
+  const rawDates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{});
+  return rawDates.filter(d=>{
+    const rec=attRec(cid,subid,d);
+    return Object.keys(rec).length>0;
+  });
+}
 function scMap(cid,sid,aid){return((((db.scores[tk(cid)]||{})[sid])||{})[aid])||{};}
 function examMap(cid,sid){return((db.examScores[tk(cid)]||{})[sid])||{};}
 
@@ -1192,9 +1200,13 @@ function renderDash(){
   const totalSub=curCls.reduce((s,c2)=>s+(db.subjects[tk(c2.id)]||[]).length,0);
   const sch=db.school||{};
   let allMa=0,allSay=0,allLa=0,allKh=0,allTot=0;
-  Object.values(db.attendance).forEach(bS=>Object.values(bS).forEach(bD=>Object.values(bD).forEach(rec=>Object.values(rec).forEach(st=>{
-    if(st==='มา')allMa++;else if(st==='สาย')allSay++;else if(st==='ลา')allLa++;else if(st==='ขาด')allKh++;allTot++;
-  }))));
+  // นับเฉพาะเช็คชื่อของภาคเรียนปัจจุบัน (curCls) ไม่รวมภาคเก่า
+  curCls.forEach(c2=>{
+    const bS=db.attendance[tk(c2.id)]||{};
+    Object.values(bS).forEach(bD=>Object.values(bD).forEach(rec=>Object.values(rec).forEach(st=>{
+      if(st==='มา')allMa++;else if(st==='สาย')allSay++;else if(st==='ลา')allLa++;else if(st==='ขาด')allKh++;allTot++;
+    })));
+  });
   const rate=allTot?Math.round((allMa+allSay)/allTot*100):0;
   let html=`<div class="sg">
     <div class="sc-stat"><div class="sl">ห้อง</div><div class="sv" style="color:var(--bl)">${db.classes.length}</div></div>
@@ -1362,7 +1374,7 @@ function renderAttEdit(){
   if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;
   const stus=stuList(cid);
-  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort().reverse();
+  const dates=attDates(cid,subid).sort().reverse();
   if(!dates.length){el.innerHTML=noData('calendar-off','ยังไม่มีข้อมูลการมาเรียน','ไปเช็คชื่อที่แท็บ "เช็คชื่อ" ก่อน');return;}
   const rec=attRec(cid,subid,attEditDate);
   const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
@@ -1412,7 +1424,7 @@ function saveAttEdit(cid,subid){
   // ถ้าวันนี้ไม่มีสถานะเหลือเลย ให้ลบ key วันออก (ไม่ให้สถิติค้าง)
   if(Object.keys(db.attendance[tk(cid)][subid][attEditDate]).length===0){
     delete db.attendance[tk(cid)][subid][attEditDate];
-    const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort().reverse();
+    const dates=attDates(cid,subid).sort().reverse();
     attEditDate=dates[0]||todayStr();
   }
   save();showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');renderAtt();
@@ -1422,7 +1434,7 @@ function renderAttSummary(){
   const el=document.getElementById('att-summary');
   const cs=needCS('attendance');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs,stus=stuList(cid),sub=getSub(cid,subid);
-  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort();
+  const dates=attDates(cid,subid).sort();
   if(!dates.length){el.innerHTML=noData('calendar-off','ยังไม่มีข้อมูล');return;}
   let tMa=0,tSay=0,tLa=0,tKh=0,tot=0;
   stus.forEach(s=>dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา')tMa++;else if(st==='สาย')tSay++;else if(st==='ลา')tLa++;else if(st==='ขาด')tKh++;if(st)tot++;}));
@@ -1480,7 +1492,7 @@ function renderAttInd(){
   const el=document.getElementById('att-individual');
   const cs=needCS('attendance');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs,stus=stuList(cid),sub=getSub(cid,subid);
-  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort();
+  const dates=attDates(cid,subid).sort();
   let html=`<div class="card mb14"><div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>รวมมา</th><th>%มา</th></tr></thead><tbody>`;
   stus.forEach(s=>{
     let ma=0,say=0,la=0,kh=0,tot=0;
@@ -1497,7 +1509,7 @@ function renderAttInd(){
 function renderAttIndDetail(cid,subid){
   const el=document.getElementById('att-ind-detail');if(!el||!selStu)return;
   const s=stuList(cid).find(x=>x.id===selStu);if(!s)return;
-  const dates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{}).sort();
+  const dates=attDates(cid,subid).sort();
   let rows='';
   dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id]||'—';const bc=st==='มา'?'bg':st==='ขาด'?'br':st==='สาย'?'ba':st==='ลา'?'bb':'bx';rows+=`<tr><td>${thDate(d)}</td><td><span class="badge ${bc}">${st}</span></td></tr>`;});
   el.innerHTML=rows?`<div class="tw"><table style="max-width:320px"><thead><tr><th>วันที่</th><th>สถานะ</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<p style="color:var(--mu);font-size:13px">ยังไม่มีข้อมูล</p>`;
@@ -1848,7 +1860,7 @@ function exportAttendance(){
   if(!stus.length){showToast('ไม่มีนักเรียน');return;}
   const rows=[];
   targetSubs.forEach(sub=>{
-    const dates=Object.keys(((db.attendance[tk(c.id)]||{})[sub.id])||{}).sort();
+    const dates=attDates(cid,sub.id).sort();
     rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}`);
     if(mode==='daily'){
       const hdr=['เลขที่','ชื่อ','นามสกุล'];dates.forEach(d=>hdr.push(thDate(d)));hdr.push('รวมมา','รวมขาด','วันเรียนทั้งหมด','%มาเรียน');
