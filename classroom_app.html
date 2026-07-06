@@ -662,6 +662,27 @@ function updateSidebarLogo(){
       :'<span style="font-size:20px">📚</span>';
   }
 }
+function clearAllData(){
+  const size=Math.round(JSON.stringify(db).length/1024);
+  const msg='⚠️ ⚠️ ⚠️ ลบข้อมูลทั้งหมด?\n\n'
+    +'จะลบทุกอย่างในระบบ:\n'
+    +'• '+db.terms.length+' ภาคเรียน\n'
+    +'• '+db.classes.length+' ห้องเรียน\n'
+    +'• ข้อมูลนักเรียน คะแนน เช็คชื่อ ทั้งหมด\n'
+    +'• รวม '+size+' KB\n\n'
+    +'ข้อมูลจะหายถาวร ไม่สามารถกู้คืนได้\n'
+    +'แนะนำให้ส่งออก CSV เก็บไว้ก่อน\n\n'
+    +'พิมพ์ "ลบทั้งหมด" เพื่อยืนยัน';
+  const ans=prompt(msg);
+  if(ans!=='ลบทั้งหมด'){showToast('ยกเลิกการลบ');return;}
+  const school=db.school; // เก็บข้อมูลโรงเรียน
+  db={school:school||{name:'',subdistrict:'',district:'',province:'',logo:''},terms:[],classes:[],students:{},subjects:{},attendance:{},assignments:{},scores:{},examScores:{},studentPasswords:{},submitStatus:{}};
+  currentTermId=null;
+  _initDB();
+  save();updateSidebarLogo();renderSchool();renderDash();
+  showToast('ล้างข้อมูลทั้งหมดแล้ว (คงข้อมูลโรงเรียนไว้)');
+}
+
 function renderSchool(){
   const el=document.getElementById('school-content');if(!el)return;
   const sch=db.school||{};
@@ -717,6 +738,72 @@ function renderSchool(){
     </tr>`;
   });
   html+=`</tbody></table></div></div>`;
+
+  // ── การ์ดจัดการข้อมูล & พื้นที่จัดเก็บ ──
+  const dbSize=JSON.stringify(db).length;
+  const dbKB=Math.round(dbSize/1024);
+  const dbMB=(dbKB/1024).toFixed(2);
+  const maxKB=20000; // 20 MB max (500 chunks × 40KB)
+  const pctUsed=Math.min(100,Math.round(dbSize/maxKB/1024*100));
+  const barCol=pctUsed<25?'var(--gn)':pctUsed<70?'var(--am)':'var(--rd)';
+  const barMsg=pctUsed<25?'✓ ปกติ ใช้งานได้อีกหลายปี':pctUsed<70?'ควรพิจารณาลบข้อมูลเก่าเพื่อเร็วขึ้น':'⚠️ ใกล้เต็ม กรุณาลบข้อมูลเก่าออก';
+  html+=`<div class="card cp">
+    <div class="stitle"><i class="ti ti-database"></i> จัดการข้อมูล & พื้นที่จัดเก็บ</div>
+    <div style="background:var(--sf2);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div class="f jb" style="margin-bottom:6px"><span style="font-size:13px;color:var(--mu)">ขนาดข้อมูลปัจจุบัน</span><b style="color:${barCol}">${dbKB<1024?dbKB+' KB':dbMB+' MB'} / 20 MB (${pctUsed}%)</b></div>
+      <div class="prog" style="height:10px;background:var(--s2);border-radius:5px;overflow:hidden"><div style="width:${pctUsed}%;height:100%;background:${barCol};transition:.3s"></div></div>
+      <div style="font-size:11.5px;color:var(--mu);margin-top:6px"><i class="ti ti-info-circle"></i> ${barMsg}</div>
+    </div>
+
+    <div style="background:var(--pul);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--tld);margin-bottom:12px">
+      <b><i class="ti ti-bulb"></i> เคล็ดลับใช้งานยาว:</b>
+      <ul style="margin:6px 0 0 20px;padding:0;line-height:1.7">
+        <li>ระบบรองรับข้อมูลได้ประมาณ <b>10 ปีการศึกษา</b> (20 ภาคเรียน)</li>
+        <li>ส่งออก CSV เก็บไว้ก่อนลบภาคเก่า (เมนู "ส่งออกข้อมูล")</li>
+        <li>ตราโรงเรียนใช้รูปเรียบง่าย (ระบบบีบอัดเหลือ 10-30KB)</li>
+        <li>ถ้าใช้ >70% ระบบจะช้าลง แนะนำลบภาคเก่าเก็บไว้เป็น CSV แทน</li>
+      </ul>
+    </div>
+
+    <div class="stitle" style="margin-top:8px;font-size:14px">ลบข้อมูลตามภาคเรียน</div>`;
+
+  // ตารางแต่ละภาค พร้อมปุ่มลบ + ขนาดที่จะประหยัด
+  if(!terms.length){
+    html+=`<div class="empty" style="padding:14px"><i class="ti ti-calendar-off"></i><div>ยังไม่มีภาคเรียน</div></div>`;
+  } else {
+    html+=`<div class="tw"><table><thead><tr><th>ภาคเรียน</th><th>ห้อง</th><th>นักเรียน</th><th>ขนาด</th><th>สถานะ</th><th></th></tr></thead><tbody>`;
+    terms.slice().sort((a,b)=>b.year-a.year||b.semester-a.semester).forEach(t=>{
+      const tCls=db.classes.filter(c2=>c2.termId===t.id);
+      let tStu=0,tSize=0;
+      tCls.forEach(c2=>{
+        const tkey=t.id+'__'+c2.id;
+        tStu+=(db.students[tkey]||[]).length;
+        // ประมาณขนาดของภาคนี้
+        ['students','subjects','attendance','assignments','scores','examScores'].forEach(k=>{
+          if(db[k]&&db[k][tkey])tSize+=JSON.stringify(db[k][tkey]).length;
+        });
+      });
+      const tKB=Math.round(tSize/1024);
+      const isOld=(new Date().getFullYear()+543)-t.year>=2;
+      html+=`<tr${isOld?' style="background:var(--rdl)"':''}>
+        <td><b>${t.year}/${t.semester}</b>${isOld?' <span class="badge br" style="font-size:9px">เก่า</span>':''}</td>
+        <td>${tCls.length}</td>
+        <td>${tStu} คน</td>
+        <td style="font-weight:700">${tKB} KB</td>
+        <td>${t.isCurrent?'<span class="badge bg">ปัจจุบัน</span>':t.id===currentTermId?'<span class="badge bb">กำลังดู</span>':'<span class="badge bx">—</span>'}</td>
+        <td><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteTerm('${t.id}')"><i class="ti ti-trash"></i> ลบภาคนี้</button></td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+
+  // ปุ่ม danger zone
+  html+=`<div style="background:var(--rdl);border:1px solid var(--rd);border-radius:8px;padding:12px 14px;margin-top:14px">
+    <div style="font-weight:700;color:var(--rd);margin-bottom:6px"><i class="ti ti-alert-octagon"></i> พื้นที่อันตราย</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:10px">ลบข้อมูลทั้งหมดในระบบ (คืนค่าเป็นเริ่มต้น)</div>
+    <button class="btn btn-sm" style="color:var(--rd);border-color:var(--rd);background:#fff" onclick="clearAllData()"><i class="ti ti-trash-x"></i> ล้างข้อมูลทั้งหมด</button>
+  </div>
+  </div>`;
   el.innerHTML=html;
 }
 function uploadLogo(input){
@@ -801,15 +888,38 @@ function setCurrentTerm(id){
 }
 function deleteTerm(id){
   const t=db.terms.find(x=>x.id===id);
-  if(!confirm('ลบภาคเรียน "'+t?.label+'"?\nข้อมูลทุกอย่างของภาคนี้จะหายทั้งหมด'))return;
-  db.classes.filter(c2=>c2.termId===id).forEach(c2=>{
+  if(!t)return;
+  // คำนวณจำนวนข้อมูลก่อนลบ
+  const cls=db.classes.filter(c2=>c2.termId===id);
+  const stuIds=[];
+  let stuCount=0,subCount=0;
+  cls.forEach(c2=>{
     const tkey=id+'__'+c2.id;
-    ['students','subjects','attendance','assignments','scores','examScores'].forEach(k=>{delete db[k][tkey];});
+    (db.students[tkey]||[]).forEach(s=>{stuIds.push(s.id);stuCount++;});
+    subCount+=(db.subjects[tkey]||[]).length;
   });
+  const sizeBefore=JSON.stringify(db).length;
+  const msg='⚠️ ยืนยันลบภาคเรียน "'+t.label+'"?\n\n'
+    +'จะลบข้อมูลต่อไปนี้ถาวร:\n'
+    +'• '+cls.length+' ห้องเรียน\n'
+    +'• '+stuCount+' นักเรียน (รวมรหัสผ่าน)\n'
+    +'• '+subCount+' วิชา\n'
+    +'• คะแนน + เช็คชื่อทั้งหมดของภาคนี้\n\n'
+    +'การกระทำนี้ย้อนกลับไม่ได้';
+  if(!confirm(msg))return;
+  cls.forEach(c2=>{
+    const tkey=id+'__'+c2.id;
+    ['students','subjects','attendance','assignments','scores','examScores','submitStatus'].forEach(k=>{if(db[k])delete db[k][tkey];});
+  });
+  // ลบรหัสผ่านของนักเรียนในภาคนี้
+  if(db.studentPasswords){stuIds.forEach(sid=>{delete db.studentPasswords[sid];});}
   db.classes=db.classes.filter(c2=>c2.termId!==id);
   db.terms=db.terms.filter(x=>x.id!==id);
   if(currentTermId===id)currentTermId=db.terms[0]?.id||null;
-  save();renderSchool();showToast('ลบภาคเรียนแล้ว');
+  const sizeAfter=JSON.stringify(db).length;
+  const savedKB=Math.round((sizeBefore-sizeAfter)/1024);
+  save();renderSchool();
+  showToast('ลบภาคเรียนแล้ว ประหยัด '+savedKB+' KB');
 }
 
 /* ════════════════════════════════════════════
