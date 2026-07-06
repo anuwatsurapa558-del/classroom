@@ -324,8 +324,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <div class="nl" style="margin-top:6px">ภาพรวม</div>
     <button class="ni active" onclick="gotoPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>แดชบอร์ด</span></button>
     <div class="nl" style="margin-top:6px">จัดการ</div>
-    <button class="ni" onclick="gotoPage('students',this)"><i class="ti ti-users"></i><span>ข้อมูลนักเรียน</span></button>
-    <button class="ni" onclick="gotoPage('subjects',this)"><i class="ti ti-book"></i><span>จัดการวิชา</span></button>
+    <button class="ni" onclick="gotoPage('classroom',this)"><i class="ti ti-school"></i><span>จัดการชั้นเรียน</span></button>
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
     <div class="nl" style="margin-top:6px">รายงาน</div>
@@ -347,6 +346,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   <div class="page active" id="page-dashboard"><div id="db-content"></div></div>
 
   <div class="page" id="page-school"><div id="school-content"></div></div>
+
+  <div class="page" id="page-classroom">
+    <div id="cr-selbar"></div>
+    <div id="cr-content"></div>
+  </div>
 
   <div class="page" id="page-students">
     <div id="stu-selbar"></div><div id="stu-content"></div>
@@ -395,7 +399,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="bn-item active" id="bn-dashboard" onclick="gotoPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>หน้าหลัก</span></button>
     <button class="bn-item" id="bn-attendance" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="bn-item" id="bn-scores" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>คะแนน</span></button>
-    <button class="bn-item" id="bn-students" onclick="gotoPage('students',this)"><i class="ti ti-users"></i><span>นักเรียน</span></button>
+    <button class="bn-item" id="bn-classroom" onclick="gotoPage('classroom',this)"><i class="ti ti-school"></i><span>ชั้นเรียน</span></button>
     <button class="bn-item" id="bn-school" onclick="gotoPage('school',this)"><i class="ti ti-building-bank"></i><span>โรงเรียน</span></button>
   </div>
 </nav>
@@ -407,7 +411,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 <div class="toast" id="toast"></div>
 
 <script>
-const GAS_URL='https://script.google.com/macros/s/AKfycby73U_-tNfHjYxl8VWTypaD-okmCQL1_WrodI62_ggxgI4IgD2dd7HrZg47C0pz0LFq/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbwgcRrBT5FMAYFJciIvN1aO-znkgAf7l8U3ZwZhdxy0Xf7vcvgqlj51dhmc6DQ8R0rQ/exec';
 
 /* ════ DATA ════
   db.classes   [{id,name}]
@@ -466,7 +470,7 @@ function attRec(cid,sid,date){return(((db.attendance[tk(cid)]||{})[sid])||{})[da
 function scMap(cid,sid,aid){return((((db.scores[tk(cid)]||{})[sid])||{})[aid])||{};}
 function examMap(cid,sid){return((db.examScores[tk(cid)]||{})[sid])||{};}
 
-function ensureCls(page){if(!P[page].cls&&db.classes.length)P[page].cls=db.classes[0].id;return P[page].cls;}
+function ensureCls(page){const tCls=termClasses();if(P[page].cls&&!tCls.find(c=>c.id===P[page].cls))P[page].cls=null;if(!P[page].cls&&tCls.length)P[page].cls=tCls[0].id;return P[page].cls;}
 function ensureSub(page){
   const cid=P[page].cls; if(!cid)return null;
   const subs=subList(cid);
@@ -528,12 +532,24 @@ async function _cloudSave(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
-    const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify(db),headers:{'Content-Type':'text/plain'}});
+    const payload=JSON.stringify(db);
+    const sizeKB=Math.round(payload.length/1024);
+    const r=await fetch(GAS_URL,{method:'POST',body:payload,headers:{'Content-Type':'text/plain'}});
     const j=await r.json();
-    if(j.status==='ok'){if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}}
+    if(j.status==='ok'){
+      if(s){s.textContent='✅ บันทึกแล้ว ('+sizeKB+'KB)';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+      return true;
+    }
+    if(j.error){
+      if(s){s.textContent='❌ '+j.error.slice(0,40);s.style.color='var(--rd)';}
+      alert('บันทึกไม่สำเร็จ:\n'+j.error+'\n\nขนาดข้อมูล: '+sizeKB+'KB');
+      return false;
+    }
   }catch(e){
     if(s){s.textContent='⚠️ ออฟไลน์';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},4000);}
+    return false;
   }
+  return false;
 }
 async function load(){
   const s=document.getElementById('sync-status');
@@ -564,8 +580,8 @@ function gotoPage(p,btn){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('.ni').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+p+"'"))b.classList.add('active');});
   const bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
-  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
-  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
+  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
+  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
   document.getElementById('ttitle').textContent=T[p]||p;
   document.getElementById('tsub').textContent=S[p]||'';
   if(window.innerWidth<768)closeSB();
@@ -574,6 +590,7 @@ function gotoPage(p,btn){
 function renderPage(p){
   if(p==='dashboard')renderDash();
   else if(p==='school')renderSchool();
+  else if(p==='classroom')renderClassroom();
   else if(p==='students')renderStudents();
   else if(p==='subjects')renderSubjects();
   else if(p==='attendance')renderAtt();
@@ -783,6 +800,108 @@ function deleteTerm(id){
   db.terms=db.terms.filter(x=>x.id!==id);
   if(currentTermId===id)currentTermId=db.terms[0]?.id||null;
   save();renderSchool();showToast('ลบภาคเรียนแล้ว');
+}
+
+/* ════════════════════════════════════════════
+   จัดการชั้นเรียน (Classroom Manager)
+   รวมห้อง + วิชา + นักเรียน ในหน้าเดียว
+════════════════════════════════════════════ */
+function renderClassroom(){
+  selBar('cr-selbar','classroom',false);
+  const el=document.getElementById('cr-content');
+  if(!termClasses().length){el.innerHTML=noData('school','ยังไม่มีห้องเรียน','ไปที่ข้อมูลพื้นฐาน เพื่อสร้างภาคเรียน หรือกดปุ่ม + เพื่อเพิ่มห้อง');return;}
+  const cid=ensureCls('classroom');if(!cid)return;
+  const cls=getCls(cid);
+  const stus=stuList(cid),subs=subList(cid);
+  const tab=P.classroom.tab||'students';
+
+  // ── หัวการ์ดของห้อง + ปุ่มจัดการห้อง ──
+  let html=`<div class="card mb14"><div class="cp"><div class="f ic jb fw g8">
+    <div><span style="font-weight:700;font-size:17px">${cls.name}</span>
+      <span class="badge bb" style="margin-left:8px"><i class="ti ti-users"></i> ${stus.length} คน</span>
+      <span class="badge bt" style="margin-left:4px"><i class="ti ti-book"></i> ${subs.length} วิชา</span>
+    </div>
+    <div class="f g8 fw">
+      <button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button>
+      <button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i>แก้ชื่อ</button>
+      <button class="btn btn-sm" style="color:var(--rd);border-color:var(--rd)" onclick="deleteCls('${cid}')"><i class="ti ti-trash"></i>ลบห้อง</button>
+    </div>
+  </div></div></div>`;
+
+  // ── แท็บย่อย: นักเรียน / วิชา ──
+  html+=`<div class="score-type-bar" style="margin-bottom:14px">
+    <button class="score-type-btn${tab==='students'?' active':''}" onclick="switchCrTab('students')"><i class="ti ti-users"></i> นักเรียน (${stus.length})</button>
+    <button class="score-type-btn${tab==='subjects'?' active':''}" onclick="switchCrTab('subjects')"><i class="ti ti-book"></i> วิชา (${subs.length})</button>
+  </div>`;
+
+  if(tab==='students'){
+    html+=renderCrStudentsTab(cid,cls,stus);
+  } else {
+    html+=renderCrSubjectsTab(cid,cls,subs);
+  }
+  el.innerHTML=html;
+}
+
+function switchCrTab(t){P.classroom.tab=t;renderClassroom();}
+
+/* ── แท็บนักเรียน ── */
+function renderCrStudentsTab(cid,cls,stus){
+  let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)">
+    <div class="f ic jb fw g8">
+      <b>รายชื่อนักเรียน</b>
+      <button class="btn btn-p btn-sm" onclick="openAddStu('${cid}')"><i class="ti ti-user-plus"></i>เพิ่มนักเรียน</button>
+    </div>
+  </div>`;
+  if(!stus.length){
+    html+=`<div class="empty" style="padding:24px"><i class="ti ti-users-off"></i><div>ยังไม่มีนักเรียนในห้องนี้</div><p>กดปุ่ม + เพิ่มนักเรียน หรือให้นักเรียนลงทะเบียนเอง</p></div>`;
+  } else {
+    html+=`<div class="tw"><table><thead><tr><th style="width:40px">ที่</th><th>ชื่อ</th><th>นามสกุล</th><th style="width:100px"></th></tr></thead><tbody>`;
+    stus.forEach(s=>{
+      html+=`<tr>
+        <td style="font-weight:700;color:var(--mu)">${s.no}</td>
+        <td>${s.firstName}</td>
+        <td>${s.lastName}</td>
+        <td><div class="f g8">
+          <button class="btn btn-xs" onclick="openEditStu('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delStu('${cid}','${s.id}')"><i class="ti ti-trash"></i></button>
+        </div></td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+
+/* ── แท็บวิชา ── */
+function renderCrSubjectsTab(cid,cls,subs){
+  let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)">
+    <div class="f ic jb fw g8">
+      <b>รายวิชาในห้องนี้</b>
+      <button class="btn btn-p btn-sm" onclick="openAddSub('${cid}')"><i class="ti ti-book-upload"></i>เพิ่มวิชา</button>
+    </div>
+  </div>`;
+  if(!subs.length){
+    html+=`<div class="empty" style="padding:24px"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชาในห้องนี้</div><p>กดปุ่ม + เพิ่มวิชา</p></div>`;
+  } else {
+    html+=`<div class="tw"><table><thead><tr><th>วิชา</th><th>รหัส</th><th>สัดส่วน เก็บ:สอบ</th><th>กลาง:ปลาย</th><th style="width:100px"></th></tr></thead><tbody>`;
+    subs.forEach(s=>{
+      const wA=s.wAssign??70,wE=s.wExam??30,wM=s.wMid??50,wF=s.wFinal??50;
+      html+=`<tr>
+        <td><b>${s.name}</b></td>
+        <td>${s.code||'—'}</td>
+        <td>${wA}% : ${wE}%</td>
+        <td>${wM}% : ${wF}%</td>
+        <td><div class="f g8">
+          <button class="btn btn-xs" onclick="openEditSub('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${s.id}')"><i class="ti ti-trash"></i></button>
+        </div></td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+  html+=`</div>`;
+  return html;
 }
 
 /* ════════════════════════════════════════════
@@ -1452,7 +1571,7 @@ function exportAttendance(){
   if(!stus.length){showToast('ไม่มีนักเรียน');return;}
   const rows=[];
   targetSubs.forEach(sub=>{
-    const dates=Object.keys(((db.attendance[tk(cls.id)]||{})[sub.id])||{}).sort();
+    const dates=Object.keys(((db.attendance[tk(c.id)]||{})[sub.id])||{}).sort();
     rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}`);
     if(mode==='daily'){
       const hdr=['เลขที่','ชื่อ','นามสกุล'];dates.forEach(d=>hdr.push(thDate(d)));hdr.push('รวมมา','รวมขาด','วันเรียนทั้งหมด','%มาเรียน');
