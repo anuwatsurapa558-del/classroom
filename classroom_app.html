@@ -325,6 +325,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="ni active" onclick="gotoPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>แดชบอร์ด</span></button>
     <div class="nl" style="margin-top:6px">จัดการ</div>
     <button class="ni" onclick="gotoPage('classroom',this)"><i class="ti ti-school"></i><span>จัดการชั้นเรียน</span></button>
+    <button class="ni" onclick="gotoPage('overview',this)"><i class="ti ti-report-analytics"></i><span>ภาพรวมงาน</span></button>
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
     <div class="nl" style="margin-top:6px">รายงาน</div>
@@ -359,6 +360,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   <div class="page" id="page-subjects">
     <div id="sub-selbar"></div><div id="sub-content"></div>
   </div>
+
+  <div class="page" id="page-overview"><div id="ov-selbar"></div><div id="ov-content"></div></div>
 
   <div class="page" id="page-attendance">
     <div id="att-selbar"></div>
@@ -580,8 +583,8 @@ function gotoPage(p,btn){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('.ni').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+p+"'"))b.classList.add('active');});
   const bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
-  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
-  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
+  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',overview:'ภาพรวมงาน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
+  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',overview:'ตารางงานทั้งหมดของนักเรียนแต่ละคน',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
   document.getElementById('ttitle').textContent=T[p]||p;
   document.getElementById('tsub').textContent=S[p]||'';
   if(window.innerWidth<768)closeSB();
@@ -591,6 +594,7 @@ function renderPage(p){
   if(p==='dashboard')renderDash();
   else if(p==='school')renderSchool();
   else if(p==='classroom')renderClassroom();
+  else if(p==='overview')renderOverview();
   else if(p==='students')renderStudents();
   else if(p==='subjects')renderSubjects();
   else if(p==='attendance')renderAtt();
@@ -902,6 +906,163 @@ function renderCrSubjectsTab(cid,cls,subs){
   }
   html+=`</div>`;
   return html;
+}
+
+/* ════════════════════════════════════════════
+   ภาพรวมงานทั้งหมด (Overview)
+   ตารางนักเรียนเป็นแถว งานเป็นคอลัมน์
+════════════════════════════════════════════ */
+function renderOverview(){
+  selBar('ov-selbar','overview',false);
+  const el=document.getElementById('ov-content');
+  if(!termClasses().length){el.innerHTML=noData('school','ยังไม่มีห้องเรียน');return;}
+  const cid=ensureCls('overview');if(!cid){el.innerHTML=noData('door','เลือกห้องด้านบน');return;}
+
+  const stus=stuList(cid),subs=subList(cid);
+  if(!subs.length){el.innerHTML=noData('book','ยังไม่มีวิชาในห้องนี้','ไปที่จัดการชั้นเรียน เพื่อเพิ่มวิชา');return;}
+
+  // เลือกวิชา (ทุกวิชา / วิชาเดียว)
+  const selectedSub=P.overview.sub||'all';
+  const selectedFilter=P.overview.filter||'all';
+
+  let html=`<div class="card cp mb14">
+    <div class="f g8 fw ic">
+      <div style="flex:1;min-width:200px">
+        <label class="fl">วิชา</label>
+        <select id="ovSubSel" onchange="P.overview.sub=this.value;renderOverview()">
+          <option value="all"${selectedSub==='all'?' selected':''}>ทุกวิชา</option>
+          ${subs.map(s=>`<option value="${s.id}"${s.id===selectedSub?' selected':''}>${s.name}${s.code?' ('+s.code+')':''}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <label class="fl">กรองนักเรียน</label>
+        <select id="ovFilter" onchange="P.overview.filter=this.value;renderOverview()">
+          <option value="all"${selectedFilter==='all'?' selected':''}>ทั้งหมด</option>
+          <option value="incomplete"${selectedFilter==='incomplete'?' selected':''}>เฉพาะที่มีงานยังไม่ส่ง</option>
+          <option value="late"${selectedFilter==='late'?' selected':''}>เฉพาะที่มีงานส่งช้า</option>
+        </select>
+      </div>
+    </div>
+  </div>`;
+
+  // รวมงานจากวิชาที่เลือก
+  let allAsgs=[]; // {sub, asg}
+  if(selectedSub==='all'){
+    subs.forEach(sub=>{(asgList(cid,sub.id)||[]).forEach(a=>allAsgs.push({sub,asg:a}));});
+  } else {
+    const sub=getSub(cid,selectedSub);
+    if(sub)(asgList(cid,selectedSub)||[]).forEach(a=>allAsgs.push({sub,asg:a}));
+  }
+
+  if(!allAsgs.length){
+    html+=noData('clipboard-list','ยังไม่มีงานในวิชาที่เลือก');
+    el.innerHTML=html;return;
+  }
+
+  // หาสถานะงานของนักเรียนแต่ละคน
+  function statusOf(sub,asg,stuId){
+    const v=scMap(cid,sub.id,asg.id)[stuId];
+    if(asg.type==='track'){
+      if(v==='ตรงเวลา')return{s:'ontime',t:'ตรง',v:''};
+      if(v==='ส่งช้า')return{s:'late',t:'ช้า',v:''};
+      return{s:'none',t:'ไม่ส่ง',v:''};
+    } else {
+      if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
+        return{s:'ontime',t:'',v:v+'/'+asg.maxScore};
+      }
+      return{s:'none',t:'ไม่ส่ง',v:''};
+    }
+  }
+
+  // กรองนักเรียน
+  const filteredStus=stus.filter(s=>{
+    if(selectedFilter==='all')return true;
+    for(const {sub,asg} of allAsgs){
+      const st=statusOf(sub,asg,s.id);
+      if(selectedFilter==='incomplete'&&st.s==='none')return true;
+      if(selectedFilter==='late'&&st.s==='late')return true;
+    }
+    return false;
+  });
+
+  if(!filteredStus.length){
+    html+=noData('check','นักเรียนทุกคนส่งงานครบแล้ว','เยี่ยม!');
+    el.innerHTML=html;return;
+  }
+
+  // นับสรุป
+  let totOntime=0,totLate=0,totNone=0;
+  filteredStus.forEach(s=>{
+    allAsgs.forEach(({sub,asg})=>{
+      const st=statusOf(sub,asg,s.id);
+      if(st.s==='ontime')totOntime++;
+      else if(st.s==='late')totLate++;
+      else totNone++;
+    });
+  });
+  const tot=totOntime+totLate+totNone;
+  html+=`<div class="sg mb14">
+    <div class="sc-stat"><div class="sl">งานทั้งหมด</div><div class="sv" style="color:var(--bl)">${tot}</div></div>
+    <div class="sc-stat"><div class="sl">ส่งตรงเวลา</div><div class="sv" style="color:var(--gn)">${totOntime}</div></div>
+    <div class="sc-stat"><div class="sl">ส่งช้า</div><div class="sv" style="color:var(--or)">${totLate}</div></div>
+    <div class="sc-stat"><div class="sl">ยังไม่ส่ง</div><div class="sv" style="color:var(--rd)">${totNone}</div></div>
+  </div>`;
+
+  // ตาราง
+  html+=`<div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr>
+    <th class="fc1">#</th>
+    <th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
+
+  // หัวคอลัมน์งาน — group ตามวิชา (ถ้าเลือกทุกวิชา)
+  if(selectedSub==='all'){
+    let lastSub='';
+    allAsgs.forEach(({sub,asg})=>{
+      const showSub=(sub.id!==lastSub);
+      lastSub=sub.id;
+      const subLabel=showSub?`<div style="font-size:9px;color:var(--bl);font-weight:700;margin-bottom:1px">${sub.name}</div>`:'';
+      const typeIcon=asg.type==='track'?'<i class="ti ti-checklist" style="font-size:10px;color:var(--or)"></i> ':'';
+      const dueTag=asg.dueDate?`<div style="font-size:9px;color:var(--mu);font-weight:400">${thDate(asg.dueDate)}</div>`:'';
+      html+=`<th style="min-width:80px">${subLabel}${typeIcon}${asg.name}${dueTag}</th>`;
+    });
+  } else {
+    allAsgs.forEach(({asg})=>{
+      const typeIcon=asg.type==='track'?'<i class="ti ti-checklist" style="font-size:10px;color:var(--or)"></i> ':'';
+      const maxLabel=asg.type==='track'?'ติดตาม':'/'+asg.maxScore;
+      const dueTag=asg.dueDate?`<div style="font-size:9px;color:var(--mu);font-weight:400">${thDate(asg.dueDate)}</div>`:'';
+      html+=`<th style="min-width:80px">${typeIcon}${asg.name}<br><span style="font-size:10px;font-weight:400;color:var(--mu)">${maxLabel}</span>${dueTag}</th>`;
+    });
+  }
+  html+=`<th style="min-width:80px">สรุป</th></tr></thead><tbody>`;
+
+  filteredStus.forEach(s=>{
+    html+=`<tr><td class="fc1" style="font-weight:700;color:var(--mu)">${s.no}</td><td class="fc2">${s.firstName} ${s.lastName}</td>`;
+    let sOn=0,sLa=0,sNo=0;
+    allAsgs.forEach(({sub,asg})=>{
+      const st=statusOf(sub,asg,s.id);
+      let cell,bg='';
+      if(st.s==='ontime'){
+        cell=st.v?`<b>${st.v}</b>`:'<span class="badge bg" style="padding:2px 6px;font-size:10px">ตรง</span>';
+        bg='background:rgba(34,197,94,0.08)';
+        sOn++;
+      } else if(st.s==='late'){
+        cell='<span class="badge bo" style="padding:2px 6px;font-size:10px">ช้า</span>';
+        bg='background:rgba(249,115,22,0.08)';
+        sLa++;
+      } else {
+        cell='<span class="badge br" style="padding:2px 6px;font-size:10px">—</span>';
+        bg='background:rgba(239,68,68,0.05)';
+        sNo++;
+      }
+      html+=`<td style="text-align:center;${bg}">${cell}</td>`;
+    });
+    const total=sOn+sLa+sNo;
+    const pct=total?Math.round((sOn+sLa)/total*100):0;
+    const pctCol=pct>=80?'var(--gn)':pct>=50?'var(--am)':'var(--rd)';
+    html+=`<td style="text-align:center"><div style="font-weight:800;color:${pctCol}">${sOn+sLa}/${total}</div><div style="font-size:10px;color:var(--mu)">${pct}%</div></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+
+  el.innerHTML=html;
 }
 
 /* ════════════════════════════════════════════
