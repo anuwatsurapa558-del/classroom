@@ -882,7 +882,7 @@ function renderCrSubjectsTab(cid,cls,subs){
   let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)">
     <div class="f ic jb fw g8">
       <b>รายวิชาในห้องนี้</b>
-      <button class="btn btn-p btn-sm" onclick="openAddSub('${cid}')"><i class="ti ti-book-upload"></i>เพิ่มวิชา</button>
+      <button class="btn btn-p btn-sm" onclick="openAddSubject('${cid}','classroom')"><i class="ti ti-book-upload"></i>เพิ่มวิชา</button>
     </div>
   </div>`;
   if(!subs.length){
@@ -897,7 +897,7 @@ function renderCrSubjectsTab(cid,cls,subs){
         <td>${wA}% : ${wE}%</td>
         <td>${wM}% : ${wF}%</td>
         <td><div class="f g8">
-          <button class="btn btn-xs" onclick="openEditSub('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-xs" onclick="openEditSubject('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
           <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${s.id}')"><i class="ti ti-trash"></i></button>
         </div></td>
       </tr>`;
