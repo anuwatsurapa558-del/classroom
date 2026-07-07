@@ -244,6 +244,14 @@ function calcTotal(cid,subid,stuId){
 }
 
 /* ── LOAD DATA ── */
+const DAYS_TH=['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์','อาทิตย์'];
+const DAY_COLORS=['#FEF3C7','#FCE7F3','#DBEAFE','#FED7AA','#DCFCE7','#E9D5FF','#FEE2E2'];
+function ttGet(cid){
+  const cls2=db.classes.find(c=>c.id===cid);
+  const tkey=(cls2&&cls2.termId)?cls2.termId+'__'+cid:cid;
+  return (db.timetable&&db.timetable[tkey])||[];
+}
+
 function updateHeaderSchool(){
   const sch=db.school||{};
   const nameEl=document.getElementById('hdrName');
@@ -582,6 +590,35 @@ function renderHome(){
     <div class="sc"><div class="sl">ครั้งมา</div><div class="sv" style="color:var(--gn)">${allMa}</div></div>
     <div class="sc"><div class="sl">ครั้งเรียน</div><div class="sv" style="color:var(--mu)">${allTot}</div></div>
   </div>`;
+
+  // ── ตารางเรียนวันนี้ ──
+  const tt=ttGet(cid);
+  if(tt.length){
+    const now=new Date();
+    const jsDay=now.getDay();
+    const day=jsDay===0?6:jsDay-1;
+    const todayItems=tt.filter(t=>t.day===day).sort((a,b)=>a.start.localeCompare(b.start));
+    if(todayItems.length){
+      const curTime=(now.getHours()+'').padStart(2,'0')+':'+(now.getMinutes()+'').padStart(2,'0');
+      html+=`<div class="card" style="margin-bottom:14px"><div class="card-hd"><div class="card-hd-title"><i class="ti ti-calendar-time"></i> วันนี้ (${DAYS_TH[day]}) — ${todayItems.length} คาบ</div></div><div class="card-bd" style="padding:0">`;
+      todayItems.forEach(item=>{
+        const sub=subs.find(s=>s.id===item.subId);
+        const isNow=(curTime>=item.start&&curTime<item.end);
+        const isPast=(curTime>=item.end);
+        const bg=isNow?'var(--gnl)':isPast?'var(--sf2)':'#fff';
+        const bcol=isNow?'var(--gn)':isPast?'var(--mu)':'var(--tl)';
+        const tag=isNow?'<span class="badge bg" style="margin-left:6px">กำลังเรียน</span>':isPast?'<span class="badge bx" style="margin-left:6px">จบแล้ว</span>':'';
+        html+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bd);background:${bg};border-left:3px solid ${bcol};display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;color:${isPast?'var(--mu)':'var(--tx)'}">${sub?sub.name:'—'}${tag}</div>
+            ${item.note?`<div style="font-size:11px;color:var(--mu)">${item.note}</div>`:''}
+          </div>
+          <div style="font-size:12px;color:var(--mu);text-align:right">${item.start.slice(0,5)}<br>${item.end.slice(0,5)}</div>
+        </div>`;
+      });
+      html+=`</div></div>`;
+    }
+  }
 
   // ── งานใกล้กำหนดส่ง ──
   const today=new Date();today.setHours(0,0,0,0);
