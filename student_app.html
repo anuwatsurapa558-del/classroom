@@ -602,15 +602,15 @@ function renderHome(){
       const curTime=(now.getHours()+'').padStart(2,'0')+':'+(now.getMinutes()+'').padStart(2,'0');
       html+=`<div class="card" style="margin-bottom:14px"><div class="card-hd"><div class="card-hd-title"><i class="ti ti-calendar-time"></i> วันนี้ (${DAYS_TH[day]}) — ${todayItems.length} คาบ</div></div><div class="card-bd" style="padding:0">`;
       todayItems.forEach(item=>{
-        const sub=subs.find(s=>s.id===item.subId);
+        const name=item.isActivity?item.activityName:(subs.find(s=>s.id===item.subId)?.name||'—');
         const isNow=(curTime>=item.start&&curTime<item.end);
         const isPast=(curTime>=item.end);
-        const bg=isNow?'var(--gnl)':isPast?'var(--sf2)':'#fff';
-        const bcol=isNow?'var(--gn)':isPast?'var(--mu)':'var(--tl)';
+        const bg=isNow?'var(--gnl)':isPast?'var(--sf2)':item.isActivity?'#FEF3C7':'#fff';
+        const bcol=isNow?'var(--gn)':isPast?'var(--mu)':item.isActivity?'#F59E0B':'var(--tl)';
         const tag=isNow?'<span class="badge bg" style="margin-left:6px">กำลังเรียน</span>':isPast?'<span class="badge bx" style="margin-left:6px">จบแล้ว</span>':'';
         html+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bd);background:${bg};border-left:3px solid ${bcol};display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-weight:700;color:${isPast?'var(--mu)':'var(--tx)'}">${sub?sub.name:'—'}${tag}</div>
+            <div style="font-weight:700;color:${isPast?'var(--mu)':'var(--tx)'}">${item.isActivity?'★ ':''}${name}${tag}</div>
             ${item.note?`<div style="font-size:11px;color:var(--mu)">${item.note}</div>`:''}
           </div>
           <div style="font-size:12px;color:var(--mu);text-align:right">${item.start.slice(0,5)}<br>${item.end.slice(0,5)}</div>
