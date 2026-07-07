@@ -230,6 +230,31 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 .prop-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;transition:width .4s;}
 
 
+/* PRINT — รายงานผู้ปกครอง */
+@media print{
+  body{background:#fff;}
+  .sb,.bn,.tb,.tools,#tools{display:none!important;}
+  .main{margin:0!important;padding:0!important;}
+  .tb{display:none!important;}
+  .report-page{page-break-after:always;}
+  .report-page:last-child{page-break-after:auto;}
+  .no-print{display:none!important;}
+}
+.report-page{background:#fff;padding:30px;margin:15px auto;max-width:780px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-radius:8px;color:#1a1a1a;}
+.report-hd{text-align:center;border-bottom:2px solid #2563EB;padding-bottom:14px;margin-bottom:20px;}
+.report-hd h2{margin:6px 0 2px;font-size:20px;font-weight:800;}
+.report-hd p{margin:2px 0;font-size:13px;color:#555;}
+.report-hd img{width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:8px;}
+.report-title{background:#2563EB;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;font-size:15px;margin:16px 0 10px;}
+.report-info{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:#f8fafc;padding:14px;border-radius:8px;margin-bottom:14px;}
+.report-info-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #d1d5db;font-size:13px;}
+.report-info-item b{color:#111;}
+.report-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;}
+.report-tbl th,.report-tbl td{padding:6px 8px;border:1px solid #d1d5db;text-align:left;}
+.report-tbl th{background:#eff6ff;font-weight:700;color:#1e3a8a;}
+.report-signature{margin-top:30px;display:flex;justify-content:space-around;font-size:12px;color:#555;text-align:center;}
+.report-signature > div{padding:0 20px;}
+
 /* SCHOOL INFO PAGE */
 .school-card{background:linear-gradient(135deg,#1e3a5f,#2563EB);color:#fff;border-radius:var(--rl);padding:24px;margin-bottom:14px;box-shadow:0 4px 20px rgba(37,99,235,0.3);text-align:center;}
 .school-logo-area{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.15);border:3px solid rgba(255,255,255,0.3);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:all .2s;}
@@ -670,6 +695,199 @@ function updateSidebarLogo(){
       :'<span style="font-size:20px">📚</span>';
   }
 }
+function openQrCode(cid){
+  const cls=getCls(cid);
+  const sch=db.school?.name||'ClassRoom';
+  // สร้าง URL ของฝั่งนักเรียน พร้อม parameter ห้อง (ให้ auto-select)
+  const currentUrl=location.href.split('/');
+  currentUrl.pop();
+  const baseUrl=currentUrl.join('/');
+  const studentUrl=`${baseUrl}/student_app.html`;
+  const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(studentUrl)}`;
+  showMD(`<div class="mt"><i class="ti ti-qrcode"></i> QR Code สำหรับนักเรียน — ${cls.name}</div>
+    <div style="text-align:center;padding:14px 0">
+      <div style="background:#fff;padding:16px;border-radius:12px;display:inline-block;border:1px solid var(--bd)">
+        <img id="qrImg" src="${qrUrl}" alt="QR Code" style="width:280px;height:280px;display:block" onerror="this.style.display='none';document.getElementById('qrErr').style.display='block'">
+      </div>
+      <div id="qrErr" style="display:none;color:var(--rd);padding:20px">โหลด QR ไม่ได้ กรุณาลองใหม่</div>
+      <div style="margin-top:12px">
+        <div style="font-size:13px;color:var(--mu);margin-bottom:4px">${sch}</div>
+        <div style="font-weight:700;font-size:16px;color:var(--tl)">${cls.name}</div>
+        <div style="font-size:11px;color:var(--mu);word-break:break-all;margin-top:8px">${studentUrl}</div>
+      </div>
+      <div style="background:var(--tll);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12.5px;color:var(--tld);text-align:left">
+        <b><i class="ti ti-info-circle"></i> วิธีใช้:</b>
+        <ul style="margin:6px 0 0 20px;padding:0;line-height:1.7">
+          <li>บันทึกภาพ QR (คลิกขวาที่รูป → บันทึกภาพ)</li>
+          <li>พิมพ์แปะที่หน้าห้อง หรือส่งในกลุ่มไลน์</li>
+          <li>นักเรียนแสกน → เข้าระบบได้ทันที</li>
+        </ul>
+      </div>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ปิด</button>
+      <button class="btn btn-p" onclick="printQr('${cls.name}','${sch}','${studentUrl}','${qrUrl}')"><i class="ti ti-printer"></i> พิมพ์</button>
+    </div>`);
+}
+
+function printQr(clsName,schName,url,qrUrl){
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ${clsName}</title>
+    <style>
+      body{font-family:'Sarabun',sans-serif;text-align:center;padding:30px;margin:0}
+      h1{margin:6px 0;font-size:22px}
+      h2{margin:6px 0;font-size:32px;color:#2563EB}
+      img{width:400px;height:400px;margin:20px 0}
+      p{font-size:14px;color:#666;word-break:break-all;margin:6px 0}
+      .btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
+      @media print{.btn{display:none}}
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    </head><body>
+    <button class="btn" onclick="window.print()">พิมพ์</button>
+    <h1>${schName}</h1>
+    <h2>${clsName}</h2>
+    <p style="font-size:16px;margin-top:20px">แสกน QR เพื่อเข้าระบบนักเรียน</p>
+    <img src="${qrUrl}">
+    <p>${url}</p>
+    </body></html>`);
+  w.document.close();
+}
+
+function openReport(cid,sid){
+  const cls=getCls(cid);
+  const stu=stuList(cid).find(x=>x.id===sid);
+  const subs=subList(cid);
+  const sch=db.school||{};
+  const cur=curTerm();
+  if(!stu||!cls)return;
+
+  // คำนวณข้อมูลแต่ละวิชา
+  const rows=subs.map(sub=>{
+    const asgs=asgList(cid,sub.id);
+    const scoreAsgs=asgs.filter(a=>a.type!=='track');
+    const trackAsgs=asgs.filter(a=>a.type==='track');
+    let sent=0,late=0,missed=0;
+    asgs.forEach(a=>{
+      const v=scMap(cid,sub.id,a.id)[sid];
+      if(a.type==='track'){
+        if(v==='ตรงเวลา')sent++;else if(v==='ส่งช้า')late++;else missed++;
+      }else{
+        if(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))sent++;else missed++;
+      }
+    });
+    const dates=attDates(cid,sub.id);
+    let ma=0,say=0,la=0,kh=0,tot=0;
+    dates.forEach(d=>{const st=attRec(cid,sub.id,d)[sid];
+      if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;
+      if(st)tot++;
+    });
+    const attPct=tot?Math.round((ma+say)/tot*100):0;
+    return{sub,asgs:asgs.length,sent,late,missed,ma,say,la,kh,tot,attPct};
+  });
+
+  const logoHtml=sch.logo?`<img src="${sch.logo}">`:'<i class="ti ti-building-bank" style="font-size:36px;color:#2563EB"></i>';
+  const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  let html=`<div class="report-page">
+    <div class="report-hd">
+      ${logoHtml}
+      <h2>${sch.name||'โรงเรียน'}</h2>
+      <p>${[sch.subdistrict,sch.district,sch.province].filter(Boolean).join(' ')}</p>
+      <p style="margin-top:4px"><b>รายงานผลการเรียนสำหรับผู้ปกครอง</b></p>
+      <p>${cur?cur.label:''}</p>
+    </div>
+
+    <div class="report-title"><i class="ti ti-user"></i> ข้อมูลนักเรียน</div>
+    <div class="report-info">
+      <div class="report-info-item"><span>เลขที่</span><b>${stu.no}</b></div>
+      <div class="report-info-item"><span>ห้อง</span><b>${cls.name}</b></div>
+      <div class="report-info-item"><span>ชื่อ-สกุล</span><b>${stu.firstName} ${stu.lastName}</b></div>
+      <div class="report-info-item"><span>วันที่ออกรายงาน</span><b>${today}</b></div>
+    </div>
+
+    <div class="report-title"><i class="ti ti-calendar"></i> เวลาเรียน</div>
+    <table class="report-tbl">
+      <thead><tr><th>วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>วันเรียน</th><th>%มาเรียน</th></tr></thead>
+      <tbody>`;
+  rows.forEach(r=>{
+    const col=r.attPct>=80?'#059669':r.attPct>=60?'#d97706':'#dc2626';
+    html+=`<tr><td><b>${r.sub.name}</b></td><td>${r.ma}</td><td>${r.say}</td><td>${r.la}</td><td>${r.kh}</td><td>${r.tot}</td><td style="color:${col};font-weight:700">${r.attPct}%</td></tr>`;
+  });
+  html+=`</tbody></table>
+
+    <div class="report-title"><i class="ti ti-clipboard-list"></i> การส่งงาน</div>
+    <table class="report-tbl">
+      <thead><tr><th>วิชา</th><th>งานทั้งหมด</th><th>ส่งตรงเวลา</th><th>ส่งช้า</th><th>ยังไม่ส่ง</th><th>สัดส่วน</th></tr></thead>
+      <tbody>`;
+  rows.forEach(r=>{
+    const done=r.sent+r.late;
+    const pct=r.asgs?Math.round(done/r.asgs*100):0;
+    const col=pct>=80?'#059669':pct>=50?'#d97706':'#dc2626';
+    html+=`<tr><td><b>${r.sub.name}</b></td><td>${r.asgs}</td><td style="color:#059669">${r.sent}</td><td style="color:#d97706">${r.late}</td><td style="color:#dc2626">${r.missed}</td><td style="color:${col};font-weight:700">${done}/${r.asgs} (${pct}%)</td></tr>`;
+  });
+  html+=`</tbody></table>
+
+    <div class="report-signature">
+      <div>
+        <div style="border-top:1px solid #333;padding-top:6px;margin-top:40px;min-width:180px">ครูประจำชั้น</div>
+      </div>
+      <div>
+        <div style="border-top:1px solid #333;padding-top:6px;margin-top:40px;min-width:180px">ผู้ปกครอง</div>
+      </div>
+    </div>
+  </div>`;
+
+  // เปิดใน window ใหม่แล้วสั่งพิมพ์
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานผู้ปกครอง ${stu.firstName} ${stu.lastName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/dist/tabler-icons.min.css">
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:'Sarabun',sans-serif;background:#f1f5f9;margin:0;padding:0;}
+      ${document.querySelector('style')?.textContent?.split('/* PRINT — รายงานผู้ปกครอง */')[1]?.split('/* SCHOOL INFO PAGE */')[0]||''}
+      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.3);z-index:100;}
+      .print-btn:hover{background:#1e40af;}
+      @media print{.print-btn{display:none}}
+    </style></head><body>
+    <button class="print-btn no-print" onclick="window.print()"><i class="ti ti-printer"></i> พิมพ์ / บันทึกเป็น PDF</button>
+    ${html}
+    </body></html>`);
+  w.document.close();
+}
+
+function backupData(){
+  const sch=db.school?.name||'classroom';
+  const date=new Date().toISOString().slice(0,10);
+  const filename=`${sch}-backup-${date}.json`.replace(/[/\\?%*:|"<>]/g,'_');
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+  showToast('ดาวน์โหลดไฟล์สำรองแล้ว ✓');
+}
+function restoreData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const newDb=JSON.parse(e.target.result);
+      if(!newDb||typeof newDb!=='object'){throw new Error('ไฟล์ไม่ถูกต้อง');}
+      if(!confirm('⚠️ กู้คืนข้อมูล?\n\nข้อมูลปัจจุบันจะถูกเขียนทับด้วยข้อมูลในไฟล์\nแนะนำให้ดาวน์โหลดสำรองปัจจุบันก่อน\n\nดำเนินการต่อ?'))return;
+      db=newDb;
+      _initDB();
+      save();updateSidebarLogo();renderSchool();renderDash();
+      showToast('กู้คืนข้อมูลสำเร็จ ✓');
+    }catch(err){
+      alert('กู้คืนไม่สำเร็จ:\n'+err.message+'\n\nกรุณาตรวจสอบไฟล์');
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
 function clearAllData(){
   const size=Math.round(JSON.stringify(db).length/1024);
   const msg='⚠️ ⚠️ ⚠️ ลบข้อมูลทั้งหมด?\n\n'
@@ -804,6 +1022,17 @@ function renderSchool(){
     });
     html+=`</tbody></table></div>`;
   }
+
+  // การ์ด Backup / Restore
+  html+=`<div style="background:var(--gnl);border:1px solid var(--gn);border-radius:8px;padding:12px 14px;margin-top:14px">
+    <div style="font-weight:700;color:var(--gn);margin-bottom:6px"><i class="ti ti-cloud-download"></i> สำรอง / กู้คืนข้อมูล</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:10px">ดาวน์โหลดข้อมูลทั้งหมดเก็บไว้ในเครื่อง (แนะนำทำอย่างน้อยเดือนละครั้ง)</div>
+    <div class="f g8 fw">
+      <button class="btn btn-sm btn-g" onclick="backupData()"><i class="ti ti-download"></i> ดาวน์โหลดสำรอง (.json)</button>
+      <button class="btn btn-sm" style="color:var(--tl);border-color:var(--tl)" onclick="document.getElementById('restoreInput').click()"><i class="ti ti-upload"></i> กู้คืนจากไฟล์</button>
+      <input type="file" id="restoreInput" accept=".json,application/json" style="display:none" onchange="restoreData(this)">
+    </div>
+  </div>`;
 
   // ปุ่ม danger zone
   html+=`<div style="background:var(--rdl);border:1px solid var(--rd);border-radius:8px;padding:12px 14px;margin-top:14px">
@@ -951,6 +1180,7 @@ function renderClassroom(){
     </div>
     <div class="f g8 fw">
       <button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button>
+      <button class="btn btn-sm" onclick="openQrCode('${cid}')"><i class="ti ti-qrcode"></i>QR Code</button>
       <button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i>แก้ชื่อ</button>
       <button class="btn btn-sm" style="color:var(--rd);border-color:var(--rd)" onclick="deleteCls('${cid}')"><i class="ti ti-trash"></i>ลบห้อง</button>
     </div>
@@ -990,6 +1220,7 @@ function renderCrStudentsTab(cid,cls,stus){
         <td>${s.firstName}</td>
         <td>${s.lastName}</td>
         <td><div class="f g8">
+          <button class="btn btn-xs" title="รายงานผู้ปกครอง" onclick="openReport('${cid}','${s.id}')"><i class="ti ti-report"></i></button>
           <button class="btn btn-xs" onclick="openEditStu('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
           <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delStu('${cid}','${s.id}')"><i class="ti ti-trash"></i></button>
         </div></td>
@@ -1233,6 +1464,46 @@ function renderDash(){
   curCls.forEach(c=>{const n=(db.students[tk(c.id)]||[]).length,h=Math.round(n/mx*100);html+=`<div class="bw"><div class="bval">${n}</div><div class="bout"><div class="bin" style="height:${h}%;background:var(--bl)"></div></div><div class="blbl">${c.name}</div></div>`;});
   html+=`</div></div></div>`;
   // summary table
+  // ── แจ้งเตือนงานใกล้กำหนดส่ง ──
+  const today=new Date();today.setHours(0,0,0,0);
+  const upcoming=[];
+  curCls.forEach(c2=>{
+    const subs=subList(c2.id);
+    subs.forEach(sub=>{
+      const asgs=asgList(c2.id,sub.id);
+      asgs.forEach(a=>{
+        if(!a.dueDate)return;
+        const due=new Date(a.dueDate);due.setHours(0,0,0,0);
+        const days=Math.round((due-today)/(1000*60*60*24));
+        if(days>=-1&&days<=7){
+          // นับนักเรียนยังไม่ส่ง
+          const stus=stuList(c2.id);
+          let missed=0;
+          stus.forEach(s=>{
+            const v=scMap(c2.id,sub.id,a.id)[s.id];
+            const sent=(a.type==='track')?(v==='ตรงเวลา'||v==='ส่งช้า'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+            if(!sent)missed++;
+          });
+          upcoming.push({cls:c2,sub,asg:a,days,missed,totalStu:stus.length});
+        }
+      });
+    });
+  });
+  upcoming.sort((a,b)=>a.days-b.days);
+  if(upcoming.length){
+    html+=`<div class="card mb14" style="border:2px solid var(--am)"><div class="cp" style="background:var(--aml);border-bottom:1px solid var(--am)"><b style="color:var(--am)"><i class="ti ti-bell-ringing"></i> งานใกล้กำหนดส่ง (${upcoming.length} งาน)</b></div><div class="tw"><table><thead><tr><th>งาน</th><th>ห้อง/วิชา</th><th>กำหนดส่ง</th><th>ยังไม่ส่ง</th></tr></thead><tbody>`;
+    upcoming.forEach(u=>{
+      let dayText,dayCol;
+      if(u.days<0){dayText='เลยกำหนด '+(-u.days)+' วัน';dayCol='var(--rd)';}
+      else if(u.days===0){dayText='ครบกำหนดวันนี้!';dayCol='var(--rd)';}
+      else if(u.days===1){dayText='พรุ่งนี้';dayCol='var(--am)';}
+      else{dayText='อีก '+u.days+' วัน';dayCol='var(--tl)';}
+      const missedPct=u.totalStu?Math.round(u.missed/u.totalStu*100):0;
+      const missedCol=missedPct>=50?'var(--rd)':missedPct>=25?'var(--am)':'var(--gn)';
+      html+=`<tr><td><b>${u.asg.name}</b>${u.asg.type==='track'?' <span class="badge bo" style="font-size:9px">ติดตาม</span>':''}</td><td>${u.cls.name} / ${u.sub.name}</td><td style="color:${dayCol};font-weight:700">${thDate(u.asg.dueDate)}<br><span style="font-size:11px">${dayText}</span></td><td style="color:${missedCol};font-weight:700">${u.missed}/${u.totalStu} คน<br><span style="font-size:11px">${missedPct}%</span></td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  }
   html+=`<div class="card"><div class="tw"><table><thead><tr><th>ห้อง</th><th>วิชา</th><th>สัดส่วน</th><th>นักเรียน</th><th>วันเช็ค</th><th>มา%</th><th>งาน</th></tr></thead><tbody>`;
   curCls.forEach(c=>{
     const subs=subList(c.id),stus=stuList(c.id);
@@ -1329,7 +1600,7 @@ function renderAttCheck(){
   let html=`<div class="dnav"><button onclick="shiftDate(-1)"><i class="ti ti-chevron-left"></i></button><div class="dd">${thDate(attDate)}</div><input type="date" value="${attDate}" onchange="attDate=this.value;renderAttCheck()" style="width:auto;padding:4px 8px;font-size:13px"><button onclick="shiftDate(1)"><i class="ti ti-chevron-right"></i></button></div>
   <div class="card mb14"><div class="cp" style="border-bottom:1px solid var(--bd)">
     <div class="f ic jb fw g8"><div><b>${getCls(cid).name}</b> <span class="badge bt" style="margin:0 6px">${sub.name}</span><span style="font-size:13px;color:var(--mu)">${stus.length} คน</span></div>
-    <div class="f g8"><button class="btn btn-sm" onclick="markAll('${cid}','${subid}','มา')">ทุกคน "มา"</button><button class="btn btn-g btn-sm" onclick="saveAtt('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div>
+    <div class="f g8"><button class="btn btn-sm" style="color:var(--gn);border-color:var(--gn)" title="ตั้งทุกคนเป็นมา" onclick="markAll('${cid}','${subid}','มา')"><i class="ti ti-check-all"></i> ทั้งห้อง=มา</button><button class="btn btn-sm" title="ล้างทั้งหมด" onclick="clearAllAtt('${cid}','${subid}')"><i class="ti ti-eraser"></i></button><button class="btn btn-g btn-sm" onclick="saveAtt('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div>
   </div></div><div class="cp" style="padding-top:6px;padding-bottom:6px">`;
   stus.forEach(s=>{
     const curSt=rec[s.id]||'',curK=km[curSt]||'';
@@ -1345,6 +1616,12 @@ function renderAttCheck(){
   el.innerHTML=html;
 }
 function pickSt(btn){const g=btn.closest('.abtns');g.querySelectorAll('.ab').forEach(b=>b.className='ab');btn.className=`ab s-${btn.dataset.k}`;}
+function clearAllAtt(cid,subid){
+  stuList(cid).forEach(s=>{
+    const g=document.getElementById('abg-'+s.id);if(!g)return;
+    g.querySelectorAll('.ab').forEach(b=>b.className='ab');
+  });
+}
 function markAll(cid,subid,status){
   const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
   stuList(cid).forEach(s=>{const g=document.getElementById('abg-'+s.id);if(!g)return;g.querySelectorAll('.ab').forEach(b=>b.className='ab');const t=g.querySelector(`[data-k="${km[status]}"]`);if(t)t.className=`ab s-${km[status]}`;});

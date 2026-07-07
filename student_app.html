@@ -583,6 +583,54 @@ function renderHome(){
     <div class="sc"><div class="sl">ครั้งเรียน</div><div class="sv" style="color:var(--mu)">${allTot}</div></div>
   </div>`;
 
+  // ── งานใกล้กำหนดส่ง ──
+  const today=new Date();today.setHours(0,0,0,0);
+  const upcoming=[];
+  subs.forEach(sub=>{
+    const asgs=(asgBlock(cid)[sub.id])||[];
+    asgs.forEach(a=>{
+      if(!a.dueDate)return;
+      // เช็คว่ายังไม่ส่ง
+      const v=((scBlock(cid)[sub.id]||{})[a.id]||{})[sid];
+      const sent=(a.type==='track')?(v==='ตรงเวลา'||v==='ส่งช้า'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+      if(sent)return;
+      const due=new Date(a.dueDate);due.setHours(0,0,0,0);
+      const days=Math.round((due-today)/(1000*60*60*24));
+      if(days>=-3&&days<=7)upcoming.push({sub,asg:a,days});
+    });
+  });
+  upcoming.sort((a,b)=>a.days-b.days);
+  if(upcoming.length){
+    // แยก overdue กับ upcoming
+    const overdue=upcoming.filter(u=>u.days<0);
+    const today0=upcoming.filter(u=>u.days===0);
+    const soon=upcoming.filter(u=>u.days>0);
+    let alertHtml='';
+    if(overdue.length){
+      alertHtml+=`<div class="card" style="border:2px solid var(--rd);margin-bottom:14px"><div class="card-hd" style="background:var(--rdl);border-bottom:1px solid var(--rd)"><div class="card-hd-title" style="color:var(--rd)"><i class="ti ti-alert-triangle"></i> เลยกำหนดส่งแล้ว! (${overdue.length} งาน)</div></div><div class="card-bd" style="padding:0">`;
+      overdue.forEach(u=>{
+        alertHtml+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div><b>${u.asg.name}</b><div style="font-size:11.5px;color:var(--mu)">${u.sub.name} • ${thDate(u.asg.dueDate)}</div></div><span class="badge br">เลย ${-u.days} วัน</span></div>`;
+      });
+      alertHtml+=`</div></div>`;
+    }
+    if(today0.length){
+      alertHtml+=`<div class="card" style="border:2px solid var(--am);margin-bottom:14px"><div class="card-hd" style="background:var(--aml);border-bottom:1px solid var(--am)"><div class="card-hd-title" style="color:var(--am)"><i class="ti ti-clock-hour-4"></i> ครบกำหนดวันนี้! (${today0.length} งาน)</div></div><div class="card-bd" style="padding:0">`;
+      today0.forEach(u=>{
+        alertHtml+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div><b>${u.asg.name}</b><div style="font-size:11.5px;color:var(--mu)">${u.sub.name}</div></div><span class="badge ba">วันนี้!</span></div>`;
+      });
+      alertHtml+=`</div></div>`;
+    }
+    if(soon.length){
+      alertHtml+=`<div class="card" style="border:2px solid var(--tl);margin-bottom:14px"><div class="card-hd" style="background:var(--tll);border-bottom:1px solid var(--tl)"><div class="card-hd-title" style="color:var(--tl)"><i class="ti ti-calendar-clock"></i> งานที่ต้องส่งเร็วๆ นี้ (${soon.length} งาน)</div></div><div class="card-bd" style="padding:0">`;
+      soon.forEach(u=>{
+        const dt=u.days===1?'พรุ่งนี้':`อีก ${u.days} วัน`;
+        alertHtml+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><div><b>${u.asg.name}</b><div style="font-size:11.5px;color:var(--mu)">${u.sub.name} • ${thDate(u.asg.dueDate)}</div></div><span class="badge bb">${dt}</span></div>`;
+      });
+      alertHtml+=`</div></div>`;
+    }
+    html+=alertHtml;
+  }
+
   // Summary per subject
   if(subs.length){
     html+=`<div class="card"><div class="card-hd"><div class="card-hd-title">สรุปรายวิชา</div></div>`;
