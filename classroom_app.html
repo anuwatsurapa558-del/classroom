@@ -1277,8 +1277,8 @@ const DAYS_SHORT=['จ.','อ.','พ.','พฤ.','ศ.','ส.','อา.'];
 const DAY_COLORS=['#FEF3C7','#FCE7F3','#DBEAFE','#FED7AA','#DCFCE7','#E9D5FF','#FEE2E2'];
 
 function ttKey(cid){return tk(cid);}
-function ttGet(cid){return db.timetable[ttKey(cid)]||[];}
-function ttSet(cid,arr){db.timetable[ttKey(cid)]=arr;}
+function ttGet(cid){return (db.timetable&&db.timetable[ttKey(cid)])||[];}
+function ttSet(cid,arr){if(!db.timetable)db.timetable={};db.timetable[ttKey(cid)]=arr;}
 
 // คาบเวลามาตรฐาน 8 คาบ
 const PERIODS=[
@@ -2510,7 +2510,7 @@ function doResetPwSingle(cid,sid){
   const pw=val('newPwInput');
   if(!db.studentPasswords)db.studentPasswords={};
   if(!db.submitStatus)db.submitStatus={};
-  if(!db.timetable)db.timetable={}; // {tkey: [{day:0-6, start:'HH:MM', end:'HH:MM', subId, note}]}
+  if(!db.timetable)db.timetable={};
   if(pw) db.studentPasswords[sid]=pw;
   else delete db.studentPasswords[sid];
   save();showToast('รีเซ็ตรหัสผ่านแล้ว ✓');
@@ -2649,6 +2649,8 @@ function _initDB(){
   if(!db.terms)db.terms=[];
   if(!db.examScores)db.examScores={};
   if(!db.studentPasswords)db.studentPasswords={};
+  if(!db.submitStatus)db.submitStatus={};
+  if(!db.timetable)db.timetable={};
   if(!db.terms.length){
     const now=new Date(),thYear=now.getFullYear()+543;
     const sem=(now.getMonth()<4)?2:1;
