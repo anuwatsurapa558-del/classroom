@@ -1296,10 +1296,14 @@ const PERIODS=[
 function renderTimetable(){
   selBar('tt-selbar','timetable',false);
   const el=document.getElementById('tt-content');
-  if(!termClasses().length){el.innerHTML=noData('school','ยังไม่มีห้องเรียน');return;}
-  const cid=ensureCls('timetable');if(!cid){el.innerHTML=noData('door','เลือกห้องด้านบน');return;}
-  const cls=getCls(cid),subs=subList(cid);
-  if(!subs.length){el.innerHTML=noData('book','ยังไม่มีวิชาในห้องนี้','ไปที่จัดการชั้นเรียน เพื่อเพิ่มวิชา');return;}
+  // ตรวจห้อง — ใช้ db.classes ทั้งหมด (selBar จะกรอง termClasses เอง)
+  if(!db.classes.length){el.innerHTML=noData('school','ยังไม่มีห้องเรียน','ไปที่จัดการชั้นเรียน เพื่อเพิ่มห้อง');return;}
+  const cid=P.timetable.cls||ensureCls('timetable');
+  if(!cid){el.innerHTML=noData('door','เลือกห้องด้านบน');return;}
+  const cls=db.classes.find(x=>x.id===cid);
+  if(!cls){el.innerHTML=noData('door','เลือกห้องด้านบน');return;}
+  const subs=subList(cid);
+  if(!subs.length){el.innerHTML=noData('book','ยังไม่มีวิชาในห้อง '+cls.name,'ไปที่ "จัดการชั้นเรียน" → เลือกแท็บวิชา → เพิ่มวิชาก่อน');return;}
 
   const tt=ttGet(cid);
 
@@ -1313,49 +1317,51 @@ function renderTimetable(){
   </div></div>`;
 
   // ตารางแบบ Grid: แถวคือคาบ คอลัมน์คือวัน
-  html+=`<div class="card" style="overflow:auto"><div style="min-width:750px;padding:14px">
-    <table class="tt-grid" style="width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed">
-      <thead><tr>
-        <th style="width:100px;background:var(--sf2);padding:8px;border-radius:6px;font-size:12px">คาบ / เวลา</th>`;
-  for(let d=0;d<5;d++){
-    html+=`<th style="background:${DAY_COLORS[d]};padding:8px;border-radius:6px;font-size:13px;color:#1a1a1a">${DAYS_TH[d]}</th>`;
-  }
-  html+=`</tr></thead><tbody>`;
+  // รวบรวม timeslots ที่มีในตาราง (unique start-end)
+  const slotSet=new Set();
+  tt.forEach(t=>slotSet.add(t.start+'-'+t.end));
+  const timeSlots=[...slotSet].map(s=>{const[st,en]=s.split('-');return{start:st,end:en};}).sort((a,b)=>a.start.localeCompare(b.start));
 
-  PERIODS.forEach((p,pIdx)=>{
-    if(p.isBreak){
-      html+=`<tr><td style="background:var(--sf2);text-align:center;padding:6px;font-size:11px;color:var(--mu)">${p.name}<br>${p.start}</td>
-        <td colspan="5" style="background:var(--sf2);text-align:center;padding:8px;color:var(--mu);border-radius:6px"><i class="ti ti-coffee"></i> พักกลางวัน</td></tr>`;
-      return;
-    }
-    html+=`<tr>
-      <td style="background:var(--sf2);text-align:center;padding:6px;font-size:11px;color:var(--mu);border-radius:6px">
-        <b>${p.name}</b><br>${p.start}<br>${p.end}
-      </td>`;
+  html+=`<div class="card" style="overflow:auto"><div style="min-width:750px;padding:14px">`;
+  if(!timeSlots.length){
+    html+=`<div class="empty" style="padding:30px"><i class="ti ti-calendar-plus"></i><div>ยังไม่มีคาบเรียน</div><p>กดปุ่ม "เพิ่มคาบ" ด้านบนเพื่อเริ่มสร้างตารางสอน</p></div>`;
+  } else {
+    html+=`<table class="tt-grid" style="width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed">
+      <thead><tr>
+        <th style="width:100px;background:var(--sf2);padding:8px;border-radius:6px;font-size:12px">เวลา</th>`;
     for(let d=0;d<5;d++){
-      // หาคาบที่ครอบเวลานี้ในวันนี้
-      const items=tt.filter(t=>t.day===d&&t.start<=p.start&&t.end>=p.end);
-      if(items.length){
-        items.forEach(item=>{
-          const sub=subs.find(s=>s.id===item.subId);
-          const subName=sub?sub.name:'—';
-          html+=`<td style="background:var(--tll);border-left:3px solid var(--tl);padding:6px;border-radius:6px;position:relative">
-            <div style="font-weight:700;font-size:12.5px;color:var(--tld)">${subName}</div>
-            ${item.note?`<div style="font-size:10.5px;color:var(--mu)">${item.note}</div>`:''}
-            <button class="btn btn-xs" style="position:absolute;top:2px;right:2px;padding:1px 4px;font-size:9px;color:var(--rd);border-color:var(--rd)" onclick="delPeriod('${cid}','${item.id}')" title="ลบ"><i class="ti ti-x"></i></button>
-          </td>`;
-        });
-      } else {
-        html+=`<td style="background:var(--sf);padding:6px;border-radius:6px;color:var(--mu);text-align:center;font-size:11px">—</td>`;
-      }
+      html+=`<th style="background:${DAY_COLORS[d]};padding:8px;border-radius:6px;font-size:13px;color:#1a1a1a">${DAYS_TH[d]}</th>`;
     }
-    html+=`</tr>`;
-  });
-  html+=`</tbody></table>
-    <div style="margin-top:14px;font-size:12px;color:var(--mu);text-align:center">
-      <i class="ti ti-info-circle"></i> คลิก ✕ ที่มุมของแต่ละคาบเพื่อลบ · กด "เพิ่มคาบ" เพื่อเพิ่มวิชาใหม่
-    </div>
-  </div></div>`;
+    html+=`</tr></thead><tbody>`;
+    timeSlots.forEach(slot=>{
+      html+=`<tr>
+        <td style="background:var(--sf2);text-align:center;padding:6px;font-size:11px;color:var(--mu);border-radius:6px">
+          <b>${slot.start}</b><br><span style="opacity:.7">-</span><br><b>${slot.end}</b>
+        </td>`;
+      for(let d=0;d<5;d++){
+        const items=tt.filter(t=>t.day===d&&t.start===slot.start&&t.end===slot.end);
+        if(items.length){
+          items.forEach(item=>{
+            const sub=subs.find(s=>s.id===item.subId);
+            const subName=sub?sub.name:'—';
+            html+=`<td style="background:var(--tll);border-left:3px solid var(--tl);padding:6px;border-radius:6px;position:relative;vertical-align:top">
+              <div style="font-weight:700;font-size:12.5px;color:var(--tld);padding-right:18px">${subName}</div>
+              ${item.note?`<div style="font-size:10.5px;color:var(--mu);margin-top:2px">${item.note}</div>`:''}
+              <button class="btn btn-xs" style="position:absolute;top:2px;right:2px;padding:1px 4px;font-size:9px;color:var(--rd);border-color:var(--rd)" onclick="delPeriod('${cid}','${item.id}')" title="ลบ"><i class="ti ti-x"></i></button>
+            </td>`;
+          });
+        } else {
+          html+=`<td style="background:var(--sf);padding:6px;border-radius:6px;color:var(--mu);text-align:center;font-size:11px">—</td>`;
+        }
+      }
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table>
+      <div style="margin-top:14px;font-size:12px;color:var(--mu);text-align:center">
+        <i class="ti ti-info-circle"></i> คลิก ✕ ที่มุมของแต่ละคาบเพื่อลบ · กด "เพิ่มคาบ" เพื่อเพิ่มวิชาใหม่
+      </div>`;
+  }
+  html+=`</div></div>`;
 
   // รายการคาบทั้งหมด (สำหรับดูเป็น list)
   if(tt.length){
@@ -1379,44 +1385,40 @@ function renderTimetable(){
 
 function openAddPeriod(cid){
   const subs=subList(cid);
-  if(!subs.length){showToast('ยังไม่มีวิชา');return;}
+  if(!subs.length){showToast('ยังไม่มีวิชาในห้องนี้');return;}
   const dayOpts=DAYS_TH.slice(0,5).map((d,i)=>`<option value="${i}">${d}</option>`).join('');
   const subOpts=subs.map(s=>`<option value="${s.id}">${s.name}${s.code?' ('+s.code+')':''}</option>`).join('');
-  const periodOpts=PERIODS.filter(p=>!p.isBreak).map(p=>`<option value="${p.start}|${p.end}">${p.name} (${p.start}-${p.end})</option>`).join('');
   showMD(`<div class="mt">เพิ่มคาบเรียน</div>
-    <div class="fg"><label class="fl">วัน</label><select id="ttDay">${dayOpts}</select></div>
-    <div class="fg"><label class="fl">คาบเวลา</label><select id="ttPeriod">${periodOpts}<option value="custom">— กำหนดเอง —</option></select></div>
-    <div id="ttCustomTime" style="display:none">
-      <div class="g2">
-        <div class="fg"><label class="fl">เริ่ม</label><input type="time" id="ttStart" value="08:30"></div>
-        <div class="fg"><label class="fl">สิ้นสุด</label><input type="time" id="ttEnd" value="09:20"></div>
+    <div class="fg"><label class="fl"><i class="ti ti-calendar"></i> วัน</label>
+      <select id="ttDay">${dayOpts}</select>
+    </div>
+    <div class="g2">
+      <div class="fg"><label class="fl"><i class="ti ti-clock"></i> เวลาเริ่ม</label>
+        <input type="time" id="ttStart" value="08:30">
+      </div>
+      <div class="fg"><label class="fl"><i class="ti ti-clock-stop"></i> เวลาสิ้นสุด</label>
+        <input type="time" id="ttEnd" value="09:20">
       </div>
     </div>
-    <div class="fg"><label class="fl">วิชา</label><select id="ttSub">${subOpts}</select></div>
-    <div class="fg"><label class="fl">หมายเหตุ (ถ้ามี)</label><input type="text" id="ttNote" placeholder="เช่น ห้องคอมฯ, กลุ่ม A"></div>
+    <div class="fg"><label class="fl"><i class="ti ti-book"></i> วิชา</label>
+      <select id="ttSub">${subOpts}</select>
+    </div>
+    <div class="fg"><label class="fl"><i class="ti ti-note"></i> หมายเหตุ (ถ้ามี)</label>
+      <input type="text" id="ttNote" placeholder="เช่น ห้องคอมฯ, กลุ่ม A">
+    </div>
     <div class="f g8" style="justify-content:flex-end;margin-top:10px">
       <button class="btn" onclick="closeMD()">ยกเลิก</button>
-      <button class="btn btn-p" onclick="submitAddPeriod('${cid}')"><i class="ti ti-check"></i>เพิ่ม</button>
+      <button class="btn btn-p" onclick="submitAddPeriod('${cid}')"><i class="ti ti-check"></i>เพิ่มคาบ</button>
     </div>
   `);
-  // ผูก event เปลี่ยนคาบ → แสดง/ซ่อน custom
-  document.getElementById('ttPeriod').onchange=function(){
-    document.getElementById('ttCustomTime').style.display=this.value==='custom'?'block':'none';
-  };
 }
 
 function submitAddPeriod(cid){
   const day=parseInt(document.getElementById('ttDay').value);
-  const pval=document.getElementById('ttPeriod').value;
-  let start,end;
-  if(pval==='custom'){
-    start=document.getElementById('ttStart').value;
-    end=document.getElementById('ttEnd').value;
-  } else {
-    [start,end]=pval.split('|');
-  }
+  const start=document.getElementById('ttStart').value;
+  const end=document.getElementById('ttEnd').value;
   const subId=document.getElementById('ttSub').value;
-  const note=document.getElementById('ttNote').value.trim();
+  const note=(document.getElementById('ttNote').value||'').trim();
   if(!start||!end||!subId){showToast('กรุณากรอกข้อมูลให้ครบ');return;}
   if(start>=end){showToast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');return;}
   const tt=ttGet(cid);
@@ -1449,31 +1451,36 @@ function printTimetable(cid){
   const sch=db.school||{};
   const cur=curTerm();
   const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:50px;height:50px;border-radius:50%;object-fit:cover">`:'';
-  let tblHtml='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
-  tblHtml+='<th style="border:1px solid #999;padding:6px;background:#f1f5f9;width:90px">คาบ / เวลา</th>';
-  for(let d=0;d<5;d++)tblHtml+=`<th style="border:1px solid #999;padding:6px;background:${DAY_COLORS[d]};color:#1a1a1a">${DAYS_TH[d]}</th>`;
-  tblHtml+='</tr></thead><tbody>';
-  PERIODS.forEach(p=>{
-    if(p.isBreak){
-      tblHtml+=`<tr><td style="border:1px solid #999;padding:4px;text-align:center;font-size:10px;background:#f8fafc">${p.name}<br>${p.start}</td><td colspan="5" style="border:1px solid #999;padding:6px;text-align:center;background:#f8fafc;color:#666"><i class="ti ti-coffee"></i> พักกลางวัน</td></tr>`;
-      return;
-    }
-    tblHtml+=`<tr><td style="border:1px solid #999;padding:4px;text-align:center;font-size:10px;background:#f8fafc"><b>${p.name}</b><br>${p.start}<br>${p.end}</td>`;
-    for(let d=0;d<5;d++){
-      const items=tt.filter(t=>t.day===d&&t.start<=p.start&&t.end>=p.end);
-      if(items.length){
-        const cellHtml=items.map(item=>{
-          const sub=subs.find(s=>s.id===item.subId);
-          return `<div style="font-weight:700">${sub?sub.name:'—'}</div>${item.note?'<div style="font-size:10px;color:#666">'+item.note+'</div>':''}`;
-        }).join('');
-        tblHtml+=`<td style="border:1px solid #999;padding:6px;vertical-align:top">${cellHtml}</td>`;
-      } else {
-        tblHtml+='<td style="border:1px solid #999;padding:6px;color:#ccc;text-align:center">—</td>';
+  // ใช้ time slots จริงจากข้อมูล
+  const slotSet=new Set();
+  tt.forEach(t=>slotSet.add(t.start+'-'+t.end));
+  const timeSlots=[...slotSet].map(s=>{const[st,en]=s.split('-');return{start:st,end:en};}).sort((a,b)=>a.start.localeCompare(b.start));
+  let tblHtml='';
+  if(!timeSlots.length){
+    tblHtml='<div style="padding:30px;text-align:center;color:#666">ยังไม่มีคาบเรียนในตารางนี้</div>';
+  } else {
+    tblHtml='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
+    tblHtml+='<th style="border:1px solid #999;padding:6px;background:#f1f5f9;width:90px">เวลา</th>';
+    for(let d=0;d<5;d++)tblHtml+=`<th style="border:1px solid #999;padding:6px;background:${DAY_COLORS[d]};color:#1a1a1a">${DAYS_TH[d]}</th>`;
+    tblHtml+='</tr></thead><tbody>';
+    timeSlots.forEach(slot=>{
+      tblHtml+=`<tr><td style="border:1px solid #999;padding:4px;text-align:center;font-size:10px;background:#f8fafc"><b>${slot.start}</b><br>-<br><b>${slot.end}</b></td>`;
+      for(let d=0;d<5;d++){
+        const items=tt.filter(t=>t.day===d&&t.start===slot.start&&t.end===slot.end);
+        if(items.length){
+          const cellHtml=items.map(item=>{
+            const sub=subs.find(s=>s.id===item.subId);
+            return `<div style="font-weight:700">${sub?sub.name:'—'}</div>${item.note?'<div style="font-size:10px;color:#666">'+item.note+'</div>':''}`;
+          }).join('');
+          tblHtml+=`<td style="border:1px solid #999;padding:6px;vertical-align:top">${cellHtml}</td>`;
+        } else {
+          tblHtml+='<td style="border:1px solid #999;padding:6px;color:#ccc;text-align:center">—</td>';
+        }
       }
-    }
-    tblHtml+='</tr>';
-  });
-  tblHtml+='</tbody></table>';
+      tblHtml+='</tr>';
+    });
+    tblHtml+='</tbody></table>';
+  }
 
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ตารางสอน ${cls.name}</title>
