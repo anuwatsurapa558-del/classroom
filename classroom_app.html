@@ -330,6 +330,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   .toast.show{transform:none;}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
@@ -442,7 +443,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 <div class="toast" id="toast"></div>
 
 <script>
-const GAS_URL='https://script.google.com/macros/s/AKfycbwgcRrBT5FMAYFJciIvN1aO-znkgAf7l8U3ZwZhdxy0Xf7vcvgqlj51dhmc6DQ8R0rQ/exec';
+const SUPABASE_URL='https://omloppaqblbpaedjvdzs.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tbG9wcGFxYmxicGFlZGp2ZHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MzAxMjUsImV4cCI6MjA5OTAwNjEyNX0.p15ohyywiVimBHVaslai4LtFEJFqiwUKpyo2JN0r1ug';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const SCHOOL_ID='main';
 
 /* ════ DATA ════
   db.classes   [{id,name}]
@@ -569,47 +573,85 @@ function calcTotal(cid,subid,stuId){
 
 /* ── PERSISTENCE ── */
 let _saveTimer=null;
+let _lastSavedHash='';
+let _dirty=false;
+
+function _hashDB(){
+  // Fast hash โดยไม่ต้อง stringify ทั้งก้อน (ใช้ length เป็นตัวชี้วัดคร่าวๆ)
+  try{return JSON.stringify(db).length+'-'+Date.now();}catch(e){return String(Date.now());}
+}
+
 function save(){
+  _dirty=true;
   try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
   clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(_cloudSave,1500);
+  _saveTimer=setTimeout(()=>{
+    if(!_dirty)return;
+    _dirty=false;
+    _cloudSave();
+  },1500);
 }
+
+// บันทึกทันทีเมื่อออกจากหน้า (กันข้อมูลหาย)
+window.addEventListener('beforeunload',(e)=>{
+  if(_dirty){
+    // Sync save ตอน unload (ไม่รอ response)
+    try{
+      const payload=JSON.stringify({data:db,updated_at:new Date().toISOString()});
+      navigator.sendBeacon(
+        SUPABASE_URL+'/rest/v1/schools?id=eq.'+SCHOOL_ID,
+        new Blob([payload],{type:'application/json'})
+      );
+    }catch(err){}
+  }
+});
+
+// บันทึกเมื่อ tab ถูกซ่อน (มือถือ)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&_dirty){
+    clearTimeout(_saveTimer);
+    _cloudSave();
+    _dirty=false;
+  }
+});
 async function _cloudSave(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
     const payload=JSON.stringify(db);
     const sizeKB=Math.round(payload.length/1024);
-    const r=await fetch(GAS_URL,{method:'POST',body:payload,headers:{'Content-Type':'text/plain'}});
-    const j=await r.json();
-    if(j.status==='ok'){
-      if(s){s.textContent='✅ บันทึกแล้ว ('+sizeKB+'KB)';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-      return true;
-    }
-    if(j.error){
-      if(s){s.textContent='❌ '+j.error.slice(0,40);s.style.color='var(--rd)';}
-      alert('บันทึกไม่สำเร็จ:\n'+j.error+'\n\nขนาดข้อมูล: '+sizeKB+'KB');
+    const {error}=await sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID);
+    if(error){
+      if(s){s.textContent='❌ '+error.message.slice(0,40);s.style.color='var(--rd)';}
+      console.error('Save error:',error);
+      alert('บันทึกไม่สำเร็จ:\n'+error.message+'\n\nขนาดข้อมูล: '+sizeKB+'KB');
       return false;
     }
+    _lastSaveTime=Date.now(); // กัน echo กลับมาที่ตัวเอง
+    if(s){s.textContent='✅ บันทึกแล้ว ('+sizeKB+'KB)';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    return true;
   }catch(e){
     if(s){s.textContent='⚠️ ออฟไลน์';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},4000);}
+    console.error('Network error:',e);
     return false;
   }
-  return false;
 }
 async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    const r=await fetch(GAS_URL+'?action=load');
-    const j=JSON.parse(await r.text());
-    if(j&&(j.classes||j.school||j.terms)){
-      db=j;
+    const {data,error}=await sb.from('schools').select('data').eq('id',SCHOOL_ID).single();
+    if(error){
+      console.error('Load error:',error);
+      throw error;
+    }
+    if(data&&data.data&&(data.data.classes||data.data.school||data.data.terms)){
+      db=data.data;
       _initDB();
       if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
       return;
     }
-  }catch(e){}
+  }catch(e){console.error('Network error:',e);}
   try{const x=localStorage.getItem('crDB4');if(x){db=JSON.parse(x);}}catch(e){}
   _initDB();
   if(s){s.textContent='📱 โหลดจากเครื่อง';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},3000);}
@@ -1184,6 +1226,9 @@ function renderClassroom(){
       <span class="badge bt" style="margin-left:4px"><i class="ti ti-book"></i> ${subs.length} วิชา</span>
     </div>
     <div class="f g8 fw">
+      <button class="btn btn-sm" onclick="toggleShowGrades('${cid}')" style="color:${cls.showGrades?'var(--gn)':'var(--mu)'};border-color:${cls.showGrades?'var(--gn)':'var(--bd)'}" title="${cls.showGrades?'ปิดการแสดงผลการเรียนให้นักเรียน':'เปิดการแสดงผลการเรียนให้นักเรียน'}">
+        <i class="ti ti-${cls.showGrades?'eye':'eye-off'}"></i>${cls.showGrades?'ผลการเรียน: เปิด':'ผลการเรียน: ปิด'}
+      </button>
       <button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button>
       <button class="btn btn-sm" onclick="openQrCode('${cid}')"><i class="ti ti-qrcode"></i>QR Code</button>
       <button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i>แก้ชื่อ</button>
@@ -2827,6 +2872,14 @@ function exportAttendance(){
 /* ════════════════════════════════════════════
    PASSWORD MANAGEMENT (TEACHER SIDE)
 ════════════════════════════════════════════ */
+function toggleShowGrades(cid){
+  const cls=db.classes.find(c=>c.id===cid);
+  if(!cls)return;
+  cls.showGrades=!cls.showGrades;
+  save();renderClassroom();
+  showToast(cls.showGrades?'✓ เปิดให้นักเรียนดูผลการเรียน':'✓ ปิดการแสดงผลการเรียน');
+}
+
 function openPwManager(cid){
   const stus=stuList(cid);
   const cls=getCls(cid);
@@ -3051,8 +3104,59 @@ function _initDB(){
   currentTermId=cur?cur.id:(db.terms[0]?.id||null);
 }
 
+/* ── REAL-TIME SUBSCRIPTION ── */
+let _rtChannel=null;
+let _rtPaused=false;
+let _lastSaveTime=0;
+
+function startRealtime(){
+  if(_rtChannel)return;
+  _rtChannel=sb.channel('school-changes')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'schools',filter:'id=eq.'+SCHOOL_ID},
+      payload=>{
+        if(_rtPaused)return;
+        if(Date.now()-_lastSaveTime<2000)return;
+        const newData=payload.new?.data;
+        if(!newData||typeof newData!=='object')return;
+        db=newData;
+        _initDB();
+        try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+        const active=document.querySelector('.page.active');
+        if(active){
+          const pid=active.id.replace('page-','');
+          renderPage(pid);
+        }
+        updateSidebarLogo();
+        showToast('🔄 มีการอัปเดตจากผู้อื่น');
+      })
+    .subscribe((status)=>{
+      const rt=document.getElementById('rt-indicator');
+      if(!rt)return;
+      if(status==='SUBSCRIBED'){
+        rt.innerHTML='<i class="ti ti-broadcast"></i>';
+        rt.title='Real-time: เชื่อมต่อแล้ว';
+        rt.style.color='var(--gn)';
+      } else {
+        rt.innerHTML='<i class="ti ti-broadcast-off"></i>';
+        rt.title='Real-time: ไม่ได้เชื่อมต่อ';
+        rt.style.color='var(--mu)';
+      }
+    });
+  console.log('Realtime subscribed');
+}
+
+function toggleRealtime(){
+  _rtPaused=!_rtPaused;
+  showToast(_rtPaused?'⏸️ หยุด real-time ชั่วคราว':'▶️ เปิด real-time แล้ว');
+  const btn=document.getElementById('rtBtn');
+  if(btn)btn.innerHTML=_rtPaused?'<i class="ti ti-player-play"></i>':'<i class="ti ti-broadcast"></i>';
+}
+
 /* ── INIT ── */
-load().then(()=>{updateSidebarLogo();renderSchool();renderDash();});
+load().then(()=>{
+  updateSidebarLogo();renderSchool();renderDash();
+  startRealtime();
+});
 </script>
 </body>
 </html>
