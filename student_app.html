@@ -169,7 +169,6 @@ input[type=password]:focus{border-color:var(--tl);}
   .login-box{margin:12px;padding:22px 18px;}
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -202,10 +201,7 @@ input[type=password]:focus{border-color:var(--tl);}
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL='https://omloppaqblbpaedjvdzs.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tbG9wcGFxYmxicGFlZGp2ZHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MzAxMjUsImV4cCI6MjA5OTAwNjEyNX0.p15ohyywiVimBHVaslai4LtFEJFqiwUKpyo2JN0r1ug';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-const SCHOOL_ID='main';
+const GAS_URL='https://script.google.com/macros/s/AKfycbwgcRrBT5FMAYFJciIvN1aO-znkgAf7l8U3ZwZhdxy0Xf7vcvgqlj51dhmc6DQ8R0rQ/exec';
 
 let db={classes:[],students:{},subjects:{},attendance:{},assignments:{},scores:{},examScores:{}};
 let me=null; // {classId, studentId}
@@ -279,14 +275,14 @@ function _normalizeDB(){
 
 async function loadData(){
   try{
-    const {data,error}=await sb.from('schools').select('data').eq('id',SCHOOL_ID).single();
-    if(error){console.error('Load error:',error);throw error;}
-    if(data&&data.data&&(data.data.classes||data.data.school||data.data.terms)){
-      db=data.data;
+    const r=await fetch(GAS_URL+'?action=load');
+    const j=JSON.parse(await r.text());
+    if(j&&(j.classes||j.school||j.terms)){
+      db=j;
       _normalizeDB();
       setSync('ok');return true;
     }
-  }catch(e){setSync('');console.error('Network:',e);}
+  }catch(e){setSync('');}
   try{
     const x=localStorage.getItem('crDB4');
     if(x){db=JSON.parse(x);_normalizeDB();return true;}
@@ -318,13 +314,13 @@ async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
   // ป้องกันข้อมูลหาย: โหลดล่าสุดจาก cloud ก่อน แล้ว merge เฉพาะข้อมูลตัวเอง
   // (กันกรณีหลายคนลงทะเบียนพร้อมกัน — race condition)
   try{
-    const {data,error}=await sb.from('schools').select('data').eq('id',SCHOOL_ID).single();
-    if(error)throw error;
-    if(data&&data.data&&data.data.classes){
-      db=data.data;
+    const r=await fetch(GAS_URL+'?action=load');
+    const fresh=JSON.parse(await r.text());
+    if(fresh&&fresh.classes){
+      db=fresh;
       _normalizeDB();
     }
-  }catch(e){console.error('Load fresh error:',e);/* ใช้ db ในเครื่องต่อ */}
+  }catch(e){/* โหลดไม่ได้ ใช้ db ในเครื่องต่อ */}
 
   // หา key ที่ถูกต้องของห้องนี้
   const cls2=db.classes.find(x=>x.id===cid);
@@ -345,11 +341,9 @@ async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
 
   // บันทึก db ที่ merge แล้วขึ้น cloud
   try{
-    const {error}=await sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID);
-    if(error)throw error;
-    _lastSaveTime=Date.now(); // กัน echo
+    await fetch(GAS_URL,{method:'POST',body:JSON.stringify(db),headers:{'Content-Type':'text/plain'}});
     setSync('ok');
-  }catch(e){setSync('');console.error('Save error:',e);}
+  }catch(e){setSync('');}
   localStorage.setItem('crDB4',JSON.stringify(db));
 }
 
@@ -373,33 +367,6 @@ async function checkPw(sid,pw){
 function hasPw(sid){return !!(db.studentPasswords||{})[sid];}
 
 /* ── INIT ── */
-/* ── REAL-TIME SUBSCRIPTION ── */
-let _rtChannel=null;
-let _lastSaveTime=0;
-
-function startRealtime(){
-  if(_rtChannel)return;
-  _rtChannel=sb.channel('school-changes-student')
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'schools',filter:'id=eq.'+SCHOOL_ID},
-      payload=>{
-        // ถ้าเพิ่งบันทึกไปเอง (ภายใน 2 วิ) ให้ข้าม
-        if(Date.now()-_lastSaveTime<2000)return;
-        const newData=payload.new?.data;
-        if(!newData||typeof newData!=='object')return;
-        db=newData;
-        _normalizeDB();
-        try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-        // Re-render หน้าที่กำลังดู (ถ้า login แล้ว)
-        if(me){
-          // อัปเดตทั้งหน้า (รวม tab visibility ตาม cls.showGrades ใหม่)
-          renderApp();
-        }
-        showToast('🔄 มีการอัปเดตใหม่');
-      })
-    .subscribe();
-  console.log('Realtime subscribed (student)');
-}
-
 async function init(){
   const ok=await loadData();
   const sess=loadSession();
@@ -408,7 +375,6 @@ async function init(){
     if(stu){me=sess;renderApp();return;}
   }
   renderLogin();
-  startRealtime();
 }
 
 /* ── LOGIN / REGISTER ── */
