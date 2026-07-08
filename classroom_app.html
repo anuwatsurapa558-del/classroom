@@ -350,7 +350,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="ni active" onclick="gotoPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>แดชบอร์ด</span></button>
     <div class="nl" style="margin-top:6px">จัดการ</div>
     <button class="ni" onclick="gotoPage('classroom',this)"><i class="ti ti-school"></i><span>จัดการชั้นเรียน</span></button>
-    <button class="ni" onclick="gotoPage('overview',this)"><i class="ti ti-report-analytics"></i><span>ภาพรวมงาน</span></button>
     <button class="ni" onclick="gotoPage('timetable',this)"><i class="ti ti-calendar-time"></i><span>ตารางสอน</span></button>
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
@@ -387,7 +386,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <div id="sub-selbar"></div><div id="sub-content"></div>
   </div>
 
-  <div class="page" id="page-overview"><div id="ov-selbar"></div><div id="ov-content"></div></div>
 
   <div class="page" id="page-timetable"><div id="tt-selbar"></div><div id="tt-content"></div></div>
 
@@ -461,7 +459,6 @@ const P={
   dashboard:{cls:null,sub:null},
   school:{cls:null},
   classroom:{cls:null,sub:null,tab:'students'},
-  overview:{cls:null,sub:'all',filter:'all'},
   timetable:{cls:null,viewAll:false},
   students:{cls:null},
   subjects:{cls:null,sub:null},
@@ -540,31 +537,37 @@ function calcGrade(pct){
 /* TOTAL SCORE for student */
 function calcTotal(cid,subid,stuId){
   const sub=getSub(cid,subid);
-  if(!sub)return{assignPct:0,examPct:0,totalPct:0,grade:{g:'0',cls:'g0'}};
+  if(!sub)return{assignRaw:0,assignMax:0,assignScore:0,examRaw:0,examMax:0,examScore:0,totalScore:0,wA:70,wE:30,midRaw:null,finRaw:null,midMax:0,finMax:0,grade:{g:'0',cls:'g0'}};
   const wA=sub.wAssign??70; const wE=sub.wExam??30;
-  const wMid=sub.wMid??50; const wFin=sub.wFinal??50;
-  // assign score
+  // ── คะแนนเก็บ: รวม raw/max แล้วแปลงเป็นสัดส่วน wA ──
   const asgs=asgList(cid,subid);
   let assignRaw=0,assignMax=0;
   asgs.forEach(a=>{
-    if(a.type==='track')return; // ข้ามงานติดตาม ไม่คิดคะแนน
+    if(a.type==='track')return;
     const v=scMap(cid,subid,a.id)[stuId];
     if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
   });
-  const assignPct=assignMax?assignRaw/assignMax*100:0;
-  // exam score
+  const assignScore=assignMax?assignRaw/assignMax*wA:0;
+  // ── คะแนนสอบ: mid+final รวม raw/max แล้วแปลงเป็นสัดส่วน wE ──
   const ex=examMap(cid,subid)[stuId]||{};
-  const midMax=sub.midMax||100; const finMax=sub.finalMax||100;
-  const midRaw=ex.mid!==undefined?parseFloat(ex.mid):null;
-  const finRaw=ex.final!==undefined?parseFloat(ex.final):null;
-  const midPct=midRaw!==null?midRaw/midMax*100:null;
-  const finPct=finRaw!==null?finRaw/finMax*100:null;
-  let examPct=0;
-  if(midPct!==null&&finPct!==null) examPct=midPct*(wMid/100)+finPct*(wFin/100);
-  else if(midPct!==null) examPct=midPct;
-  else if(finPct!==null) examPct=finPct;
-  const totalPct=assignPct*(wA/100)+examPct*(wE/100);
-  return{assignPct:Math.round(assignPct*10)/10,examPct:Math.round(examPct*10)/10,totalPct:Math.round(totalPct*10)/10,grade:calcGrade(totalPct),midRaw,finRaw,midMax,finMax,midPct,finPct};
+  const midMax=sub.midMax||0; const finMax=sub.finalMax||0;
+  const midRaw=ex.mid!==undefined&&ex.mid!==''&&!isNaN(parseFloat(ex.mid))?parseFloat(ex.mid):null;
+  const finRaw=ex.final!==undefined&&ex.final!==''&&!isNaN(parseFloat(ex.final))?parseFloat(ex.final):null;
+  let examRaw=0, examMax=0;
+  if(midRaw!==null){examRaw+=midRaw; examMax+=midMax;}
+  if(finRaw!==null){examRaw+=finRaw; examMax+=finMax;}
+  const examScore=examMax?examRaw/examMax*wE:0;
+  // ── คะแนนรวม (เต็ม 100) ──
+  const totalScore=assignScore+examScore;
+  return{
+    assignRaw:Math.round(assignRaw*10)/10, assignMax,
+    assignScore:Math.round(assignScore*10)/10,
+    examRaw:Math.round(examRaw*10)/10, examMax,
+    examScore:Math.round(examScore*10)/10,
+    totalScore:Math.round(totalScore*10)/10,
+    wA, wE, midRaw, finRaw, midMax, finMax,
+    grade:calcGrade(totalScore)
+  };
 }
 
 /* ── PERSISTENCE ── */
@@ -626,8 +629,8 @@ function gotoPage(p,btn){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('.ni').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+p+"'"))b.classList.add('active');});
   const bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
-  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',overview:'ภาพรวมงาน',timetable:'ตารางสอน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
-  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',overview:'ตารางงานทั้งหมดของนักเรียนแต่ละคน',timetable:'ตารางเรียนของแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
+  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',timetable:'ตารางสอน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
+  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',timetable:'ตารางเรียนของแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
   document.getElementById('ttitle').textContent=T[p]||p;
   document.getElementById('tsub').textContent=S[p]||'';
   if(window.innerWidth<768)closeSB();
@@ -637,7 +640,6 @@ function renderPage(p){
   if(p==='dashboard')renderDash();
   else if(p==='school')renderSchool();
   else if(p==='classroom')renderClassroom();
-  else if(p==='overview')renderOverview();
   else if(p==='timetable')renderTimetable();
   else if(p==='students')renderStudents();
   else if(p==='subjects')renderSubjects();
@@ -1883,166 +1885,6 @@ function printTimetable(cid){
   w.document.close();
 }
 
-/* ════════════════════════════════════════════
-   ภาพรวมงานทั้งหมด (Overview)
-   ตารางนักเรียนเป็นแถว งานเป็นคอลัมน์
-════════════════════════════════════════════ */
-function renderOverview(){
-  selBar('ov-selbar','overview',false);
-  const el=document.getElementById('ov-content');
-  if(!termClasses().length){el.innerHTML=noData('school','ยังไม่มีห้องเรียน');return;}
-  const cid=ensureCls('overview');if(!cid){el.innerHTML=noData('door','เลือกห้องด้านบน');return;}
-
-  const stus=stuList(cid),subs=subList(cid);
-  if(!subs.length){el.innerHTML=noData('book','ยังไม่มีวิชาในห้องนี้','ไปที่จัดการชั้นเรียน เพื่อเพิ่มวิชา');return;}
-
-  // เลือกวิชา (ทุกวิชา / วิชาเดียว)
-  const selectedSub=P.overview.sub||'all';
-  const selectedFilter=P.overview.filter||'all';
-
-  let html=`<div class="card cp mb14">
-    <div class="f g8 fw ic">
-      <div style="flex:1;min-width:200px">
-        <label class="fl">วิชา</label>
-        <select id="ovSubSel" onchange="P.overview.sub=this.value;renderOverview()">
-          <option value="all"${selectedSub==='all'?' selected':''}>ทุกวิชา</option>
-          ${subs.map(s=>`<option value="${s.id}"${s.id===selectedSub?' selected':''}>${s.name}${s.code?' ('+s.code+')':''}</option>`).join('')}
-        </select>
-      </div>
-      <div style="flex:1;min-width:200px">
-        <label class="fl">กรองนักเรียน</label>
-        <select id="ovFilter" onchange="P.overview.filter=this.value;renderOverview()">
-          <option value="all"${selectedFilter==='all'?' selected':''}>ทั้งหมด</option>
-          <option value="incomplete"${selectedFilter==='incomplete'?' selected':''}>เฉพาะที่มีงานยังไม่ส่ง</option>
-          <option value="late"${selectedFilter==='late'?' selected':''}>เฉพาะที่มีงานส่งช้า</option>
-        </select>
-      </div>
-    </div>
-  </div>`;
-
-  // รวมงานจากวิชาที่เลือก
-  let allAsgs=[]; // {sub, asg}
-  if(selectedSub==='all'){
-    subs.forEach(sub=>{(asgList(cid,sub.id)||[]).forEach(a=>allAsgs.push({sub,asg:a}));});
-  } else {
-    const sub=getSub(cid,selectedSub);
-    if(sub)(asgList(cid,selectedSub)||[]).forEach(a=>allAsgs.push({sub,asg:a}));
-  }
-
-  if(!allAsgs.length){
-    html+=noData('clipboard-list','ยังไม่มีงานในวิชาที่เลือก');
-    el.innerHTML=html;return;
-  }
-
-  // หาสถานะงานของนักเรียนแต่ละคน
-  function statusOf(sub,asg,stuId){
-    const v=scMap(cid,sub.id,asg.id)[stuId];
-    if(asg.type==='track'){
-      if(v==='ตรงเวลา')return{s:'ontime',t:'ตรง',v:''};
-      if(v==='ส่งช้า')return{s:'late',t:'ช้า',v:''};
-      return{s:'none',t:'ไม่ส่ง',v:''};
-    } else {
-      if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
-        return{s:'ontime',t:'',v:v+'/'+asg.maxScore};
-      }
-      return{s:'none',t:'ไม่ส่ง',v:''};
-    }
-  }
-
-  // กรองนักเรียน
-  const filteredStus=stus.filter(s=>{
-    if(selectedFilter==='all')return true;
-    for(const {sub,asg} of allAsgs){
-      const st=statusOf(sub,asg,s.id);
-      if(selectedFilter==='incomplete'&&st.s==='none')return true;
-      if(selectedFilter==='late'&&st.s==='late')return true;
-    }
-    return false;
-  });
-
-  if(!filteredStus.length){
-    html+=noData('check','นักเรียนทุกคนส่งงานครบแล้ว','เยี่ยม!');
-    el.innerHTML=html;return;
-  }
-
-  // นับสรุป
-  let totOntime=0,totLate=0,totNone=0;
-  filteredStus.forEach(s=>{
-    allAsgs.forEach(({sub,asg})=>{
-      const st=statusOf(sub,asg,s.id);
-      if(st.s==='ontime')totOntime++;
-      else if(st.s==='late')totLate++;
-      else totNone++;
-    });
-  });
-  const tot=totOntime+totLate+totNone;
-  html+=`<div class="sg mb14">
-    <div class="sc-stat"><div class="sl">งานทั้งหมด</div><div class="sv" style="color:var(--bl)">${tot}</div></div>
-    <div class="sc-stat"><div class="sl">ส่งตรงเวลา</div><div class="sv" style="color:var(--gn)">${totOntime}</div></div>
-    <div class="sc-stat"><div class="sl">ส่งช้า</div><div class="sv" style="color:var(--or)">${totLate}</div></div>
-    <div class="sc-stat"><div class="sl">ยังไม่ส่ง</div><div class="sv" style="color:var(--rd)">${totNone}</div></div>
-  </div>`;
-
-  // ตาราง
-  html+=`<div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr>
-    <th class="fc1">#</th>
-    <th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
-
-  // หัวคอลัมน์งาน — group ตามวิชา (ถ้าเลือกทุกวิชา)
-  if(selectedSub==='all'){
-    let lastSub='';
-    allAsgs.forEach(({sub,asg})=>{
-      const showSub=(sub.id!==lastSub);
-      lastSub=sub.id;
-      const subLabel=showSub?`<div style="font-size:9px;color:var(--bl);font-weight:700;margin-bottom:1px">${sub.name}</div>`:'';
-      const typeIcon=asg.type==='track'?'<i class="ti ti-checklist" style="font-size:10px;color:var(--or)"></i> ':'';
-      const dueTag=asg.dueDate?`<div style="font-size:9px;color:var(--mu);font-weight:400">${thDate(asg.dueDate)}</div>`:'';
-      html+=`<th style="min-width:80px">${subLabel}${typeIcon}${asg.name}${dueTag}</th>`;
-    });
-  } else {
-    allAsgs.forEach(({asg})=>{
-      const typeIcon=asg.type==='track'?'<i class="ti ti-checklist" style="font-size:10px;color:var(--or)"></i> ':'';
-      const maxLabel=asg.type==='track'?'ติดตาม':'/'+asg.maxScore;
-      const dueTag=asg.dueDate?`<div style="font-size:9px;color:var(--mu);font-weight:400">${thDate(asg.dueDate)}</div>`:'';
-      html+=`<th style="min-width:80px">${typeIcon}${asg.name}<br><span style="font-size:10px;font-weight:400;color:var(--mu)">${maxLabel}</span>${dueTag}</th>`;
-    });
-  }
-  html+=`<th style="min-width:80px">สรุป</th></tr></thead><tbody>`;
-
-  filteredStus.forEach(s=>{
-    html+=`<tr><td class="fc1" style="font-weight:700;color:var(--mu)">${s.no}</td><td class="fc2">${s.firstName} ${s.lastName}</td>`;
-    let sOn=0,sLa=0,sNo=0;
-    allAsgs.forEach(({sub,asg})=>{
-      const st=statusOf(sub,asg,s.id);
-      let cell,bg='';
-      if(st.s==='ontime'){
-        cell=st.v?`<b>${st.v}</b>`:'<span class="badge bg" style="padding:2px 6px;font-size:10px">ตรง</span>';
-        bg='background:rgba(34,197,94,0.08)';
-        sOn++;
-      } else if(st.s==='late'){
-        cell='<span class="badge bo" style="padding:2px 6px;font-size:10px">ช้า</span>';
-        bg='background:rgba(249,115,22,0.08)';
-        sLa++;
-      } else {
-        cell='<span class="badge br" style="padding:2px 6px;font-size:10px">—</span>';
-        bg='background:rgba(239,68,68,0.05)';
-        sNo++;
-      }
-      html+=`<td style="text-align:center;${bg}">${cell}</td>`;
-    });
-    const total=sOn+sLa+sNo;
-    const pct=total?Math.round((sOn+sLa)/total*100):0;
-    const pctCol=pct>=80?'var(--gn)':pct>=50?'var(--am)':'var(--rd)';
-    html+=`<td style="text-align:center"><div style="font-weight:800;color:${pctCol}">${sOn+sLa}/${total}</div><div style="font-size:10px;color:var(--mu)">${pct}%</div></td></tr>`;
-  });
-  html+=`</tbody></table></div></div>`;
-
-  el.innerHTML=html;
-}
-
-/* ════════════════════════════════════════════
-   DASHBOARD
-════════════════════════════════════════════ */
 function renderDash(){
   const el=document.getElementById('db-content');
   const curCls=termClasses();
@@ -2502,40 +2344,176 @@ function renderScEntry(){
     </div>
     <div style="font-size:11.5px;color:var(--mu);margin-top:6px" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด | งานติดตาม = แค่เช็คว่าส่งหรือยัง ไม่คิดคะแนน</div>
   </div>`;
-  if(!asgs.length){html+=noData('clipboard-list','ยังไม่มีงาน','กรอกข้อมูลด้านบนเพื่อเพิ่ม');el.innerHTML=html;return;}
-  html+=`<div class="card cp mb14"><div class="stitle">เลือกงาน</div><div class="f fw" style="gap:5px">`;
-  asgs.forEach(a=>{
-    const isTrack=a.type==='track';
-    const badge=isTrack?'<span style="opacity:.7;font-size:10px;background:var(--orl);color:var(--or);padding:1px 5px;border-radius:8px;margin-left:3px">ติดตาม</span>':`<span style="opacity:.6;font-size:11px">(/${a.maxScore})</span>`;
-    html+=`<div class="f ic" style="gap:3px"><button class="btn${a.id===selAsg?' btn-p':''}" onclick="selAsg='${a.id}';renderScEntry()">${a.name} ${badge}</button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}')"><i class="ti ti-x"></i></button></div>`;
-  });
-  html+=`</div></div>`;
-  if(!selAsg||!asgs.find(a=>a.id===selAsg)){html+=noData('hand-click','เลือกงานด้านบนเพื่อบันทึก');el.innerHTML=html;return;}
-  const asg=asgs.find(a=>a.id===selAsg),sc=scMap(cid,subid,selAsg);
-  const isTrack=asg.type==='track';
+  const scoreAsg=asgs.filter(a=>a.type!=='track');
+  const trackAsg=asgs.filter(a=>a.type==='track');
 
-  if(isTrack){
-    // ── งานติดตามการส่ง: 3 สถานะ ตรงเวลา/ส่งช้า/ยังไม่ส่ง ──
-    const dueTxt=asg.dueDate?` <span class="badge bb"><i class="ti ti-calendar"></i> กำหนด ${thDate(asg.dueDate)}</span>`:'';
-    html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb fw g8"><div><b>${asg.name}</b> <span class="badge bo">งานติดตาม</span>${dueTxt}</div><button class="btn btn-g btn-sm" onclick="saveTrack('${cid}','${subid}','${selAsg}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
-    <div class="cp" style="padding-top:6px;padding-bottom:6px">`;
-    stus.forEach(s=>{
-      const v=sc[s.id];
-      html+=`<div class="atr"><div class="anum">${s.no}</div><div class="aname">${s.firstName} ${s.lastName}</div><div class="abtns" id="trk-${s.id}">
-        <button class="ab${v==='ตรงเวลา'?' s-ma':''}" data-v="ตรงเวลา" onclick="pickTrack(this)">ตรงเวลา</button>
-        <button class="ab${v==='ส่งช้า'?' s-sa':''}" data-v="ส่งช้า" onclick="pickTrack(this)">ส่งช้า</button>
-        <button class="ab${v==='ไม่ส่ง'?' s-kh':''}" data-v="ไม่ส่ง" onclick="pickTrack(this)">ยังไม่ส่ง</button>
-      </div></div>`;
+  // ── ตารางงานเก็บคะแนน (คลิกเซลล์ → popup) ──
+  if(scoreAsg.length){
+    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
+      <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-star"></i> งานเก็บคะแนน · แตะที่ช่องเพื่อกรอกคะแนน</div>
+      <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${300+scoreAsg.length*34}px">
+        <thead><tr style="background:var(--sf2)">
+          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
+          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
+    scoreAsg.forEach(a=>{
+      html+=`<th style="border:1px solid var(--bd);padding:2px;width:34px;height:110px;vertical-align:bottom;background:#EEF2FF;position:relative">
+        <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:88px;margin:0 auto">${a.name}</div>
+        <div style="font-size:9px;color:var(--mu);margin-top:2px">/${a.maxScore}</div>
+        <button class="btn btn-xs" style="position:absolute;top:1px;right:1px;padding:0 3px;color:var(--rd);border:none;background:transparent" onclick="delAsg('${cid}','${subid}','${a.id}')" title="ลบงาน"><i class="ti ti-x"></i></button>
+      </th>`;
     });
-    html+=`</div></div>`;
-  } else {
-    // ── งานเก็บคะแนน ──
-    html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${asg.name}</b> <span class="badge bx">/${asg.maxScore}</span></div><button class="btn btn-g btn-sm" onclick="saveSc('${cid}','${subid}','${selAsg}',${asg.maxScore})"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
-    <div class="tw"><table><thead><tr><th style="width:40px">ที่</th><th>ชื่อ-สกุล</th><th style="width:90px">คะแนน</th><th>สถานะ</th></tr></thead><tbody>`;
-    stus.forEach(s=>{const v=sc[s.id],has=v!==undefined&&v!=='';html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td><input type="number" class="sc-inp" id="sc-${s.id}" value="${has?v:''}" min="0" max="${asg.maxScore}" placeholder="—"></td><td>${has?`<span class="badge bg">${v}/${asg.maxScore}</span>`:`<span class="badge bx">ยังไม่ส่ง</span>`}</td></tr>`;});
+    html+=`</tr></thead><tbody>`;
+    stus.forEach(s=>{
+      html+=`<tr>
+        <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
+        <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
+      scoreAsg.forEach(a=>{
+        const v=scMap(cid,subid,a.id)[s.id];
+        const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;font-size:11.5px;cursor:pointer;${disp!==''?'background:#F0F9FF':''}" onclick="openScorePopup('${cid}','${subid}','${a.id}','${s.id}',${a.maxScore})" title="แตะเพื่อกรอกคะแนน">
+          <div style="padding:5px 3px;min-height:22px">${disp}</div>
+        </td>`;
+      });
+      html+=`</tr>`;
+    });
     html+=`</tbody></table></div></div>`;
+  } else {
+    html+=`<div class="card cp mb14"><div class="empty" style="padding:20px">
+      <i class="ti ti-star-off" style="color:var(--mu)"></i>
+      <div style="font-size:13px">ยังไม่มีงานเก็บคะแนน</div>
+      <p style="font-size:11.5px;color:var(--mu)">กดปุ่ม "งานเก็บคะแนน" ด้านบน + เพิ่มงาน</p>
+    </div></div>`;
   }
+
+  // ── ตารางงานติดตาม (คลิกเซลล์ → popup 3 สถานะ) ──
+  if(trackAsg.length){
+    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
+      <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-checklist"></i> งานติดตามการส่ง · แตะช่องเพื่อเลือกสถานะ</div>
+      <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${300+trackAsg.length*34}px">
+        <thead><tr style="background:var(--sf2)">
+          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
+          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
+    trackAsg.forEach(a=>{
+      html+=`<th style="border:1px solid var(--bd);padding:2px;width:34px;height:110px;vertical-align:bottom;background:#FEF3C7;position:relative">
+        <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:96px;margin:0 auto">${a.name}</div>
+        <button class="btn btn-xs" style="position:absolute;top:1px;right:1px;padding:0 3px;color:var(--rd);border:none;background:transparent" onclick="delAsg('${cid}','${subid}','${a.id}')" title="ลบงาน"><i class="ti ti-x"></i></button>
+      </th>`;
+    });
+    html+=`</tr></thead><tbody>`;
+    stus.forEach(s=>{
+      html+=`<tr>
+        <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
+        <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
+      trackAsg.forEach(a=>{
+        const v=scMap(cid,subid,a.id)[s.id];
+        const ic=v==='ตรงเวลา'?'<i class="ti ti-check" style="color:var(--gn);font-size:15px"></i>':
+                 v==='ส่งช้า'?'<i class="ti ti-check" style="color:var(--am);font-size:15px"></i>':'';
+        const bg=v==='ตรงเวลา'?'#F0FDF4':v==='ส่งช้า'?'#FFFBEB':'';
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;cursor:pointer;${bg?'background:'+bg:''}" onclick="openTrackPopup('${cid}','${subid}','${a.id}','${s.id}')" title="แตะเพื่อเปลี่ยนสถานะ">
+          <div style="padding:4px 3px;min-height:22px">${ic}</div>
+        </td>`;
+      });
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table>
+      <div style="margin-top:6px;font-size:10.5px;color:var(--mu)">
+        <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · 
+        <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง
+      </div>
+    </div></div>`;
+  } else {
+    html+=`<div class="card cp mb14"><div class="empty" style="padding:20px">
+      <i class="ti ti-checklist" style="color:var(--mu)"></i>
+      <div style="font-size:13px">ยังไม่มีงานติดตาม</div>
+      <p style="font-size:11.5px;color:var(--mu)">กดปุ่ม "งานติดตามการส่ง" ด้านบน + เพิ่มงาน</p>
+    </div></div>`;
+  }
+
   el.innerHTML=html;
+}
+
+// ── Popup: กรอกคะแนนงาน ──
+function openScorePopup(cid,subid,aid,stuId,maxScore){
+  const stu=stuList(cid).find(s=>s.id===stuId);
+  const asg=asgList(cid,subid).find(a=>a.id===aid);
+  const v=scMap(cid,subid,aid)[stuId];
+  const cur=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
+  showMD(`<div class="mt">${asg.name}</div>
+    <div style="text-align:center;margin-bottom:12px;font-size:14px">${stu.firstName} ${stu.lastName} <span style="color:var(--mu);font-size:12px">(เลขที่ ${stu.no})</span></div>
+    <div class="fg">
+      <label class="fl"><i class="ti ti-star"></i> คะแนน (เต็ม ${maxScore})</label>
+      <input type="number" id="scVal" value="${cur}" min="0" max="${maxScore}" step="0.5" placeholder="กรอกคะแนน">
+    </div>
+    <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <button class="btn" style="color:var(--rd);border-color:var(--rd)" onclick="clearScore('${cid}','${subid}','${aid}','${stuId}')"><i class="ti ti-trash"></i>ล้าง</button>
+      <div class="f g8">
+        <button class="btn" onclick="closeMD()">ยกเลิก</button>
+        <button class="btn btn-p" onclick="saveScorePopup('${cid}','${subid}','${aid}','${stuId}',${maxScore})"><i class="ti ti-check"></i>บันทึก</button>
+      </div>
+    </div>
+  `);
+  setTimeout(()=>{const el=document.getElementById('scVal');if(el){el.focus();el.select();}},100);
+}
+function saveScorePopup(cid,subid,aid,stuId,maxScore){
+  const v=document.getElementById('scVal').value.trim();
+  const tkey=tk(cid);
+  if(!db.scores[tkey])db.scores[tkey]={};
+  if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
+  if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
+  if(v===''){
+    delete db.scores[tkey][subid][aid][stuId];
+  } else {
+    const n=Math.min(parseFloat(v),maxScore);
+    if(isNaN(n)){showToast('กรุณากรอกตัวเลข');return;}
+    db.scores[tkey][subid][aid][stuId]=n;
+  }
+  save();closeMD();renderScEntry();
+  showToast('✓ บันทึกแล้ว');
+}
+function clearScore(cid,subid,aid,stuId){
+  const tkey=tk(cid);
+  if((((db.scores||{})[tkey]||{})[subid]||{})[aid]){
+    delete db.scores[tkey][subid][aid][stuId];
+    save();closeMD();renderScEntry();
+    showToast('✓ ล้างคะแนนแล้ว');
+  } else { closeMD(); }
+}
+
+// ── Popup: งานติดตาม (3 สถานะ) ──
+function openTrackPopup(cid,subid,aid,stuId){
+  const stu=stuList(cid).find(s=>s.id===stuId);
+  const asg=asgList(cid,subid).find(a=>a.id===aid);
+  const v=scMap(cid,subid,aid)[stuId];
+  showMD(`<div class="mt">${asg.name}</div>
+    <div style="text-align:center;margin-bottom:16px;font-size:14px">${stu.firstName} ${stu.lastName} <span style="color:var(--mu);font-size:12px">(เลขที่ ${stu.no})</span></div>
+    <div class="fg" style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn" style="padding:14px;background:${v==='ตรงเวลา'?'var(--gnl)':'transparent'};border-color:var(--gn);color:var(--gn);font-weight:700" onclick="setTrack('${cid}','${subid}','${aid}','${stuId}','ตรงเวลา')">
+        <i class="ti ti-check"></i> ส่งตรงเวลา
+      </button>
+      <button class="btn" style="padding:14px;background:${v==='ส่งช้า'?'#FFFBEB':'transparent'};border-color:var(--am);color:var(--am);font-weight:700" onclick="setTrack('${cid}','${subid}','${aid}','${stuId}','ส่งช้า')">
+        <i class="ti ti-clock"></i> ส่งช้า
+      </button>
+      <button class="btn" style="padding:14px;background:transparent;border-color:var(--bd);color:var(--mu)" onclick="setTrack('${cid}','${subid}','${aid}','${stuId}','')">
+        <i class="ti ti-minus"></i> ยังไม่ส่ง (ว่าง)
+      </button>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ปิด</button>
+    </div>
+  `);
+}
+function setTrack(cid,subid,aid,stuId,vs){
+  const tkey=tk(cid);
+  if(!db.scores[tkey])db.scores[tkey]={};
+  if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
+  if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
+  if(vs===''){
+    delete db.scores[tkey][subid][aid][stuId];
+  } else {
+    db.scores[tkey][subid][aid][stuId]=vs;
+  }
+  save();closeMD();renderScEntry();
+  showToast('✓ บันทึกแล้ว');
 }
 function setAsgType(t){
   asgType=t;
@@ -2563,37 +2541,15 @@ function addAsg(cid,subid){
     if(!max||max<1){showToast('กรุณากรอกคะแนนเต็ม');return;}
     db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score',dueDate:due});
   }
-  selAsg=id;save();renderScEntry();
+  document.getElementById('asgName').value='';
+  if(document.getElementById('asgMax'))document.getElementById('asgMax').value='';
+  save();renderScEntry();
 }
 function delAsg(cid,subid,aid){
   if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
   db.assignments[tk(cid)][subid]=(db.assignments[tk(cid)][subid]||[]).filter(a=>a.id!==aid);
   if((db.scores[tk(cid)]||{})[subid])delete db.scores[tk(cid)][subid][aid];
-  if(selAsg===aid)selAsg=null;save();renderScEntry();
-}
-function pickTrack(btn){
-  const g=btn.closest('.abtns');
-  g.querySelectorAll('.ab').forEach(b=>b.className='ab');
-  const v=btn.dataset.v;
-  const cls=(v==='ตรงเวลา')?'s-ma':(v==='ส่งช้า')?'s-sa':'s-kh';
-  btn.className='ab '+cls;
-}
-function saveTrack(cid,subid,aid){
-  const tkey=tk(cid);
-  if(!db.scores[tkey])db.scores[tkey]={};
-  if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
-  if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
-  stuList(cid).forEach(s=>{
-    const g=document.getElementById('trk-'+s.id);if(!g)return;
-    const sel=g.querySelector('[class*="s-"]');
-    if(sel){db.scores[tkey][subid][aid][s.id]=sel.dataset.v;}
-  });
-  save();showToast('บันทึกการส่งงานเรียบร้อย ✓');
-}
-function saveSc(cid,subid,aid,maxScore){
-  if(!db.scores[tk(cid)])db.scores[tk(cid)]={};if(!db.scores[tk(cid)][subid])db.scores[tk(cid)][subid]={};if(!db.scores[tk(cid)][subid][aid])db.scores[tk(cid)][subid][aid]={};
-  stuList(cid).forEach(s=>{const inp=document.getElementById('sc-'+s.id);if(!inp)return;const v=inp.value.trim();if(v!=='')db.scores[tk(cid)][subid][aid][s.id]=Math.min(parseFloat(v),maxScore);});
-  save();showToast('บันทึกคะแนนเรียบร้อย ✓');renderScEntry();
+  save();renderScEntry();
 }
 
 /* คะแนนสอบ */
@@ -2660,11 +2616,11 @@ function renderScAll(){
       else html+=`<td style="background:#FEE2E2;color:#B91C1C;text-align:center;font-size:11px">ไม่ส่ง</td>`;
     });
     const sub2=getSub(cid,subid);const midMax=sub2.midMax||100,finMax=sub2.finalMax||100;
-    html+=`<td style="text-align:center;font-weight:700">${Math.round(t.assignPct)}%</td>
+    html+=`<td style="text-align:center;font-weight:700">${t.assignScore.toFixed(1)}</td>
       <td style="text-align:center">${t.midRaw!==null?t.midRaw+'/'+midMax:'-'}</td>
       <td style="text-align:center">${t.finRaw!==null?t.finRaw+'/'+finMax:'-'}</td>
-      <td style="text-align:center;font-weight:700">${Math.round(t.examPct)}%</td>
-      <td style="text-align:center;font-weight:800;color:${t.totalPct>=80?'var(--gn)':t.totalPct>=60?'var(--am)':'var(--rd)'}">${t.totalPct}%</td>
+      <td style="text-align:center;font-weight:700">${t.examScore.toFixed(1)}</td>
+      <td style="text-align:center;font-weight:800;color:${t.totalScore>=80?'var(--gn)':t.totalScore>=60?'var(--am)':'var(--rd)'}">${t.totalScore.toFixed(1)}</td>
       <td style="text-align:center"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td></tr>`;
   });
   html+=`</tbody></table></div></div>`;
@@ -2696,27 +2652,104 @@ function renderScAll(){
 function renderScGrade(){
   const el=document.getElementById('sc-grade');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
-  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid);
+  const{cid,subid}=cs;
+  const sub=getSub(cid,subid),stus=stuList(cid);
+  const allAsg=asgList(cid,subid);
+  const scoreAsg=allAsg.filter(a=>a.type!=='track');
+  const trackAsg=allAsg.filter(a=>a.type==='track');
+  const wA=sub.wAssign??70, wE=sub.wExam??30;
   const gradeDist={4:0,3.5:0,3:0,2.5:0,2:0,1.5:0,1:0,0:0};
-  let html=`<div class="card mb14"><div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>คะแนนเก็บ%</th><th>คะแนนสอบ%</th><th>รวม%</th><th>เกรด</th></tr></thead><tbody>`;
+
+  // ── ตารางคะแนนหลัก (แถวเป็นนักเรียน คอลัมน์เป็นงาน + คะแนนสอบ + รวม + เกรด) ──
+  let html=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
+    <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-table"></i> ตารางคะแนนรวม · เต็ม ${wA}+${wE}=100</div>
+    <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${420+scoreAsg.length*32}px">
+      <thead>
+        <tr style="background:var(--sf2)">
+          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
+          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
+  scoreAsg.forEach(a=>{
+    html+=`<th style="border:1px solid var(--bd);padding:2px;width:30px;height:110px;vertical-align:bottom;background:#EEF2FF">
+      <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:90px;margin:0 auto">${a.name}</div>
+      <div style="font-size:9px;color:var(--mu);margin-top:2px">/${a.maxScore}</div>
+    </th>`;
+  });
+  html+=`
+          <th style="border:1px solid var(--bd);padding:3px;width:44px;background:#DBEAFE;text-align:center;font-size:10px">รวม<br>เก็บ<br>/${wA}</th>
+          <th style="border:1px solid var(--bd);padding:3px;width:32px;background:#FEF3C7;text-align:center;font-size:10px">กลาง<br>/${sub.midMax||'-'}</th>
+          <th style="border:1px solid var(--bd);padding:3px;width:32px;background:#FEF3C7;text-align:center;font-size:10px">ปลาย<br>/${sub.finalMax||'-'}</th>
+          <th style="border:1px solid var(--bd);padding:3px;width:44px;background:#FEF3C7;text-align:center;font-size:10px">รวม<br>สอบ<br>/${wE}</th>
+          <th style="border:1px solid var(--bd);padding:3px;width:46px;background:#DCFCE7;text-align:center;font-size:10.5px">รวม<br>/100</th>
+          <th style="border:1px solid var(--bd);padding:3px;width:36px;background:#DCFCE7;text-align:center">เกรด</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
   stus.forEach(s=>{
     const t=calcTotal(cid,subid,s.id);
     gradeDist[parseFloat(t.grade.g)]=(gradeDist[parseFloat(t.grade.g)]||0)+1;
-    html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td style="text-align:center">${t.assignPct}%</td><td style="text-align:center">${t.examPct}%</td><td style="text-align:center;font-weight:700">${t.totalPct}%</td><td style="text-align:center"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td></tr>`;
+    html+=`<tr>
+      <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
+      <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
+    scoreAsg.forEach(a=>{
+      const v=scMap(cid,subid,a.id)[s.id];
+      const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
+      html+=`<td style="border:1px solid var(--bd);padding:2px;text-align:center;font-size:11px">${disp}</td>`;
+    });
+    const tCol=t.totalScore>=80?'var(--gn)':t.totalScore>=60?'var(--am)':'var(--rd)';
+    html+=`
+      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-weight:700;background:#EFF6FF">${t.assignScore.toFixed(1)}</td>
+      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-size:11px">${t.midRaw!==null?t.midRaw:''}</td>
+      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-size:11px">${t.finRaw!==null?t.finRaw:''}</td>
+      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-weight:700;background:#FEFCE8">${t.examScore.toFixed(1)}</td>
+      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-weight:800;color:${tCol};background:#F0FDF4">${t.totalScore.toFixed(1)}</td>
+      <td style="border:1px solid var(--bd);padding:2px;text-align:center;background:#F0FDF4"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td>
+    </tr>`;
   });
   html+=`</tbody></table></div></div>`;
-  // grade distribution
-  html+=`<div class="card cp"><div class="stitle">การกระจายเกรด</div><div class="sg">`;
+
+  // ── ตารางงานติดตาม (ช่องเล็ก ✓/ว่าง) ──
+  if(trackAsg.length){
+    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
+      <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-checklist"></i> งานติดตาม · <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง</div>
+      <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${300+trackAsg.length*32}px">
+        <thead><tr style="background:var(--sf2)">
+          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
+          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
+    trackAsg.forEach(a=>{
+      html+=`<th style="border:1px solid var(--bd);padding:2px;width:30px;height:110px;vertical-align:bottom;background:#FEF3C7">
+        <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:100px;margin:0 auto">${a.name}</div>
+      </th>`;
+    });
+    html+=`</tr></thead><tbody>`;
+    stus.forEach(s=>{
+      html+=`<tr>
+        <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
+        <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
+      trackAsg.forEach(a=>{
+        const v=scMap(cid,subid,a.id)[s.id];
+        const ic=v==='ตรงเวลา'?'<i class="ti ti-check" style="color:var(--gn);font-size:14px"></i>':
+                 v==='ส่งช้า'?'<i class="ti ti-check" style="color:var(--am);font-size:14px"></i>':'';
+        html+=`<td style="border:1px solid var(--bd);padding:2px;text-align:center">${ic}</td>`;
+      });
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  }
+
+  // ── การกระจายเกรด ──
+  html+=`<div class="card cp mb14"><div class="stitle">การกระจายเกรด</div><div class="sg">`;
   [4,3.5,3,2.5,2,1.5,1,0].forEach(g=>{
     const cnt=gradeDist[g]||0;
     const cls=g>=3.5?'g4':g>=3?'g3':g>=2?'g2':g>=1?'g1':'g0';
     html+=`<div class="sc-stat"><div class="sl">เกรด ${g}</div><div class="sv"><span class="grade ${cls}">${cnt}</span></div><div style="font-size:11px;color:var(--mu)">คน</div></div>`;
   });
   html+=`</div></div>`;
-  // grade legend
-  html+=`<div class="card cp mt14"><div class="stitle">เกณฑ์การตัดเกรด</div><div class="f fw" style="gap:6px">`;
+
+  // ── เกณฑ์เกรด ──
+  html+=`<div class="card cp"><div class="stitle">เกณฑ์การตัดเกรด</div><div class="f fw" style="gap:6px">`;
   [{r:'80-100',g:'4',c:'g4'},{r:'75-79',g:'3.5',c:'g35'},{r:'70-74',g:'3',c:'g3'},{r:'65-69',g:'2.5',c:'g25'},{r:'60-64',g:'2',c:'g2'},{r:'55-59',g:'1.5',c:'g15'},{r:'50-54',g:'1',c:'g1'},{r:'0-49',g:'0',c:'g0'}].forEach(x=>{
-    html+=`<div style="text-align:center;padding:6px 10px;background:var(--s2);border-radius:8px"><div style="font-size:11px;color:var(--mu)">${x.r}%</div><span class="grade ${x.c}">${x.g}</span></div>`;
+    html+=`<div style="text-align:center;padding:6px 10px;background:var(--s2);border-radius:8px"><div style="font-size:11px;color:var(--mu)">${x.r}</div><span class="grade ${x.c}">${x.g}</span></div>`;
   });
   html+=`</div></div>`;
   el.innerHTML=html;
@@ -2786,7 +2819,7 @@ function exportScores(){
       const row=[s.no,s.firstName,s.lastName];
       asgs.forEach(a=>{const v=scMap(cid,sub.id,a.id)[s.id];row.push(v!==undefined&&v!==''?v:'');});
       const t=calcTotal(cid,sub.id,s.id);
-      row.push(t.assignPct+'%',t.midRaw!==null?t.midRaw:'',t.finRaw!==null?t.finRaw:'',t.examPct+'%',t.totalPct+'%',t.grade.g);
+      row.push(t.assignScore.toFixed(1),t.midRaw!==null?t.midRaw:'',t.finRaw!==null?t.finRaw:'',t.examScore.toFixed(1),t.totalScore.toFixed(1),t.grade.g);
       rows.push(csvRow(row));
     });
     rows.push('');
