@@ -2757,13 +2757,37 @@ function updateExamMax(cid,subid,type,v){
   save();
 }
 function saveExam(cid,subid){
-  if(!db.examScores[tk(cid)])db.examScores[tk(cid)]={};if(!db.examScores[tk(cid)][subid])db.examScores[tk(cid)][subid]={};
-  const sub=getSub(cid,subid);const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+  if(!db.examScores[tk(cid)])db.examScores[tk(cid)]={};
+  if(!db.examScores[tk(cid)][subid])db.examScores[tk(cid)][subid]={};
+  const sub=getSub(cid,subid);
+  const midMax=sub.midMax||100, finMax=sub.finalMax||100;
+  const store=db.examScores[tk(cid)][subid];
   stuList(cid).forEach(s=>{
-    if(!db.examScores[tk(cid)][subid][s.id])db.examScores[tk(cid)][subid][s.id]={};
-    const mi=document.getElementById('mid-'+s.id),fi=document.getElementById('fin-'+s.id);
-    if(mi&&mi.value.trim()!=='')db.examScores[tk(cid)][subid][s.id].mid=Math.min(parseFloat(mi.value),midMax);
-    if(fi&&fi.value.trim()!=='')db.examScores[tk(cid)][subid][s.id].final=Math.min(parseFloat(fi.value),finMax);
+    const mi=document.getElementById('mid-'+s.id);
+    const fi=document.getElementById('fin-'+s.id);
+    if(!store[s.id])store[s.id]={};
+    // mid
+    if(mi){
+      const v=mi.value.trim();
+      if(v===''||isNaN(parseFloat(v))){
+        delete store[s.id].mid; // ล้างคะแนน
+      } else {
+        store[s.id].mid=Math.min(parseFloat(v),midMax);
+      }
+    }
+    // final
+    if(fi){
+      const v=fi.value.trim();
+      if(v===''||isNaN(parseFloat(v))){
+        delete store[s.id].final; // ล้างคะแนน
+      } else {
+        store[s.id].final=Math.min(parseFloat(v),finMax);
+      }
+    }
+    // ถ้าไม่มีคะแนนอะไรเลย ลบ record ทิ้ง
+    if(store[s.id].mid===undefined && store[s.id].final===undefined){
+      delete store[s.id];
+    }
   });
   save();showToast('บันทึกคะแนนสอบเรียบร้อย ✓');renderScExam();
 }
