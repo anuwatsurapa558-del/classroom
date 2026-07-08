@@ -1184,9 +1184,6 @@ function renderClassroom(){
       <span class="badge bt" style="margin-left:4px"><i class="ti ti-book"></i> ${subs.length} วิชา</span>
     </div>
     <div class="f g8 fw">
-      <button class="btn btn-sm" onclick="toggleShowGrades('${cid}')" style="color:${cls.showGrades?'var(--gn)':'var(--mu)'};border-color:${cls.showGrades?'var(--gn)':'var(--bd)'}" title="${cls.showGrades?'ปิดการแสดงผลการเรียนให้นักเรียน':'เปิดการแสดงผลการเรียนให้นักเรียน'}">
-        <i class="ti ti-${cls.showGrades?'eye':'eye-off'}"></i>${cls.showGrades?'ผลการเรียน: เปิด':'ผลการเรียน: ปิด'}
-      </button>
       <button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button>
       <button class="btn btn-sm" onclick="openQrCode('${cid}')"><i class="ti ti-qrcode"></i>QR Code</button>
       <button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i>แก้ชื่อ</button>
@@ -2830,14 +2827,6 @@ function exportAttendance(){
 /* ════════════════════════════════════════════
    PASSWORD MANAGEMENT (TEACHER SIDE)
 ════════════════════════════════════════════ */
-function toggleShowGrades(cid){
-  const cls=db.classes.find(c=>c.id===cid);
-  if(!cls)return;
-  cls.showGrades=!cls.showGrades;
-  save();renderClassroom();
-  showToast(cls.showGrades?'✓ เปิดให้นักเรียนดูผลการเรียน':'✓ ปิดการแสดงผลการเรียน');
-}
-
 function openPwManager(cid){
   const stus=stuList(cid);
   const cls=getCls(cid);
