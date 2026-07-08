@@ -38,8 +38,8 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx);font-
 .sync-dot.ok{background:#4ADE80;}
 
 /* TABS */
-.nav-tabs{background:rgba(0,0,0,0.15);display:flex;padding:0 18px;}
-.nav-tab{flex:1;padding:10px 4px;border:none;background:none;color:rgba(255,255,255,0.7);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap;}
+.nav-tabs{background:rgba(0,0,0,0.15);display:flex;padding:0 8px;justify-content:center;gap:4px;}
+.nav-tab{flex:1;padding:10px 6px;border:none;background:none;color:rgba(255,255,255,0.7);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:5px;}
 .nav-tab.active{color:#fff;border-bottom-color:#fff;font-weight:700;}
 
 /* CONTENT */
@@ -201,7 +201,7 @@ input[type=password]:focus{border-color:var(--tl);}
 <div class="toast" id="toast"></div>
 
 <script>
-const GAS_URL='https://script.google.com/macros/s/AKfycbwgcRrBT5FMAYFJciIvN1aO-znkgAf7l8U3ZwZhdxy0Xf7vcvgqlj51dhmc6DQ8R0rQ/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbwrdBS2gm5frwgmTRMcYYciw8UOYWc-X5aITv8L4mzJdIUlScwlpu8w7FeyvreZJVY9/exec';
 
 let db={classes:[],students:{},subjects:{},attendance:{},assignments:{},scores:{},examScores:{}};
 let me=null; // {classId, studentId}

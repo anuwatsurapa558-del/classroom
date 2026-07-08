@@ -440,7 +440,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 <div class="toast" id="toast"></div>
 
 <script>
-const GAS_URL='https://script.google.com/macros/s/AKfycbwgcRrBT5FMAYFJciIvN1aO-znkgAf7l8U3ZwZhdxy0Xf7vcvgqlj51dhmc6DQ8R0rQ/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbwrdBS2gm5frwgmTRMcYYciw8UOYWc-X5aITv8L4mzJdIUlScwlpu8w7FeyvreZJVY9/exec';
 
 /* ════ DATA ════
   db.classes   [{id,name}]
@@ -865,9 +865,7 @@ function openReport(cid,sid){
 }
 
 function backupData(){
-  const sch=db.school?.name||'classroom';
-  const date=new Date().toISOString().slice(0,10);
-  const filename=`${sch}-backup-${date}.json`.replace(/[/\\?%*:|"<>]/g,'_');
+  const filename='classroom.json';
   const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -1575,9 +1573,14 @@ function printTimetableAll(){
 }
 
 function openAddPeriod(cid){
-  const subs=subList(cid);
+  const allCls=termClasses();
   const dayOpts=DAYS_TH.slice(0,5).map((d,i)=>`<option value="${i}">${d}</option>`).join('');
-  const subOpts=subs.length?subs.map(s=>`<option value="${s.id}">${s.name}${s.code?' ('+s.code+')':''}</option>`).join(''):'<option value="">— ยังไม่มีวิชา —</option>';
+  const clsChecks=allCls.map(c2=>`
+    <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;background:var(--sf2);border-radius:6px;cursor:pointer;font-size:12.5px;user-select:none;border:1px solid var(--bd)">
+      <input type="checkbox" class="ttCls" value="${c2.id}" ${c2.id===cid?'checked':''} onchange="onClsChange()"> ${c2.name}
+    </label>`).join('');
+  const stdPeriods=PERIODS.filter(p=>!p.isFixed);
+  const periodOpts=stdPeriods.map((p,i)=>`<option value="${i}">${p.name} (${p.start}-${p.end})</option>`).join('');
   showMD(`<div class="mt">เพิ่มคาบเรียน / กิจกรรม</div>
     <div class="score-type-bar" style="margin-bottom:12px">
       <button class="score-type-btn active" id="ptype-sub" onclick="setPeriodType('sub')"><i class="ti ti-book"></i> วิชาเรียน</button>
@@ -1586,18 +1589,28 @@ function openAddPeriod(cid){
     <div class="fg"><label class="fl"><i class="ti ti-calendar"></i> วัน</label>
       <select id="ttDay">${dayOpts}</select>
     </div>
-    <div class="g2">
-      <div class="fg"><label class="fl"><i class="ti ti-clock"></i> เวลาเริ่ม</label>
-        <input type="time" id="ttStart" value="08:40">
-      </div>
-      <div class="fg"><label class="fl"><i class="ti ti-clock-stop"></i> เวลาสิ้นสุด</label>
-        <input type="time" id="ttEnd" value="09:30">
+    <div class="fg">
+      <label class="fl"><i class="ti ti-door"></i> ห้องเรียน (เลือกได้หลายห้อง)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--sf);border-radius:6px;border:1px solid var(--bd);max-height:160px;overflow-y:auto">${clsChecks}</div>
+      <div style="margin-top:5px">
+        <button type="button" class="btn btn-xs" onclick="ttSelAllCls(true)">เลือกทั้งหมด</button>
+        <button type="button" class="btn btn-xs" onclick="ttSelAllCls(false)">ล้าง</button>
       </div>
     </div>
+    <div class="fg">
+      <label class="fl"><i class="ti ti-clock"></i> คาบเวลา</label>
+      <select id="ttPeriod" onchange="onPeriodChange()">
+        ${periodOpts}
+        <option value="custom">— กำหนดเวลาเอง —</option>
+      </select>
+    </div>
+    <div id="ttCustomTime" class="g2" style="display:none">
+      <div class="fg"><label class="fl">เวลาเริ่ม</label><input type="time" id="ttStart" value="08:40"></div>
+      <div class="fg"><label class="fl">เวลาสิ้นสุด</label><input type="time" id="ttEnd" value="09:30"></div>
+    </div>
     <div id="ttSubWrap" class="fg">
-      <label class="fl"><i class="ti ti-book"></i> วิชา</label>
-      <select id="ttSub">${subOpts}</select>
-      ${!subs.length?'<div style="font-size:11px;color:var(--rd);margin-top:4px">⚠️ ห้องนี้ยังไม่มีวิชา — กดแท็บ "กิจกรรม" เพื่อเพิ่มแบบไม่เชื่อมวิชา</div>':''}
+      <label class="fl"><i class="ti ti-book"></i> วิชา <span style="font-size:11px;color:var(--mu)">(จากห้องแรกที่เลือก)</span></label>
+      <select id="ttSub"><option value="">— เลือกวิชา —</option></select>
     </div>
     <div id="ttActWrap" class="fg" style="display:none">
       <label class="fl"><i class="ti ti-activity"></i> ชื่อกิจกรรม</label>
@@ -1606,12 +1619,36 @@ function openAddPeriod(cid){
     <div class="fg"><label class="fl"><i class="ti ti-note"></i> หมายเหตุ (ถ้ามี)</label>
       <input type="text" id="ttNote" placeholder="เช่น ห้องคอมฯ, ห้องประชุม">
     </div>
-    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
-      <button class="btn" onclick="closeMD()">ยกเลิก</button>
-      <button class="btn btn-p" onclick="submitAddPeriod('${cid}')"><i class="ti ti-check"></i>เพิ่ม</button>
+    <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <button class="btn btn-sm" onclick="openManagePeriods()"><i class="ti ti-adjustments"></i>จัดการคาบ</button>
+      <div class="f g8">
+        <button class="btn" onclick="closeMD()">ยกเลิก</button>
+        <button class="btn btn-p" onclick="submitAddPeriod()"><i class="ti ti-check"></i>เพิ่ม</button>
+      </div>
     </div>
   `);
   window._periodType='sub';
+  onClsChange();
+}
+
+function ttSelAllCls(all){
+  document.querySelectorAll('.ttCls').forEach(cb=>cb.checked=all);
+  onClsChange();
+}
+
+function onClsChange(){
+  const checked=[...document.querySelectorAll('.ttCls:checked')].map(cb=>cb.value);
+  const sel=document.getElementById('ttSub');
+  if(!sel)return;
+  if(!checked.length){sel.innerHTML='<option value="">— เลือกห้องก่อน —</option>';return;}
+  const subs=subList(checked[0]);
+  if(!subs.length){sel.innerHTML='<option value="">— ห้องนี้ยังไม่มีวิชา —</option>';return;}
+  sel.innerHTML='<option value="">— เลือกวิชา —</option>'+subs.map(s=>`<option value="${s.id}">${s.name}${s.code?' ('+s.code+')':''}</option>`).join('');
+}
+
+function onPeriodChange(){
+  const v=document.getElementById('ttPeriod').value;
+  document.getElementById('ttCustomTime').style.display=(v==='custom')?'grid':'none';
 }
 
 function setPeriodType(t){
@@ -1622,34 +1659,142 @@ function setPeriodType(t){
   document.getElementById('ttActWrap').style.display=(t==='act')?'block':'none';
 }
 
-function submitAddPeriod(cid){
+function submitAddPeriod(){
   const day=parseInt(document.getElementById('ttDay').value);
-  const start=document.getElementById('ttStart').value;
-  const end=document.getElementById('ttEnd').value;
+  const clsIds=[...document.querySelectorAll('.ttCls:checked')].map(cb=>cb.value);
+  if(!clsIds.length){showToast('กรุณาเลือกห้องเรียนอย่างน้อย 1 ห้อง');return;}
+  const pv=document.getElementById('ttPeriod').value;
+  let start,end;
+  if(pv==='custom'){
+    start=document.getElementById('ttStart').value;
+    end=document.getElementById('ttEnd').value;
+    if(!start||!end){showToast('กรุณากรอกเวลา');return;}
+    if(start>=end){showToast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');return;}
+  } else {
+    const stdPeriods=PERIODS.filter(p=>!p.isFixed);
+    const p=stdPeriods[parseInt(pv)];
+    if(!p){showToast('กรุณาเลือกคาบ');return;}
+    start=p.start; end=p.end;
+  }
   const note=(document.getElementById('ttNote').value||'').trim();
-  if(!start||!end){showToast('กรุณากรอกเวลาให้ครบ');return;}
-  if(start>=end){showToast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');return;}
   const isAct=(window._periodType==='act');
-  let entry={id:uid(),day,start,end,note};
   if(isAct){
     const actName=(document.getElementById('ttActName').value||'').trim();
     if(!actName){showToast('กรุณากรอกชื่อกิจกรรม');return;}
-    entry.activityName=actName;
-    entry.isActivity=true;
-  } else {
-    const subId=document.getElementById('ttSub').value;
-    if(!subId){showToast('กรุณาเลือกวิชา (หรือเปลี่ยนเป็นแท็บ "กิจกรรม")');return;}
-    entry.subId=subId;
+    clsIds.forEach(clsId=>{
+      const tt=ttGet(clsId);
+      tt.push({id:uid(),day,start,end,note,activityName:actName,isActivity:true});
+      ttSet(clsId,tt);
+    });
+    save();closeMD();renderTimetable();
+    showToast(`เพิ่มกิจกรรมแล้ว ${clsIds.length} ห้อง ✓`);
+    return;
   }
-  const tt=ttGet(cid);
-  const overlap=tt.find(t=>t.day===day&&!(t.end<=start||t.start>=end));
-  if(overlap){
-    if(!confirm('มีคาบอื่นในเวลาเดียวกันแล้ว ต้องการเพิ่มซ้อนกันไหม?'))return;
-  }
-  tt.push(entry);
-  ttSet(cid,tt);
+  const subId=document.getElementById('ttSub').value;
+  if(!subId){showToast('กรุณาเลือกวิชา');return;}
+  const subName=(subList(clsIds[0]).find(s=>s.id===subId)||{}).name;
+  let added=0,skipped=0;
+  clsIds.forEach(clsId=>{
+    const subs=subList(clsId);
+    const match=subs.find(s=>s.id===subId)||subs.find(s=>s.name===subName);
+    if(match){
+      const tt=ttGet(clsId);
+      tt.push({id:uid(),day,start,end,subId:match.id,note});
+      ttSet(clsId,tt);
+      added++;
+    } else {
+      skipped++;
+    }
+  });
   save();closeMD();renderTimetable();
-  showToast(isAct?'เพิ่มกิจกรรมแล้ว ✓':'เพิ่มคาบเรียนแล้ว ✓');
+  showToast(`เพิ่มแล้ว ${added} ห้อง`+(skipped?` (ข้าม ${skipped})`:''));
+}
+
+// ── จัดการคาบเวลามาตรฐาน ──
+function openManagePeriods(){
+  closeMD();
+  const rows=PERIODS.map((p,i)=>{
+    const bg=p.isFixed?(p.color||'#EEE'):'#FFF';
+    return `<tr style="background:${bg}">
+      <td style="border:1px solid var(--bd);padding:6px;text-align:center;font-size:11px">${i+1}</td>
+      <td style="border:1px solid var(--bd);padding:6px;font-size:12px"><b>${p.isFixed?(p.label||p.name):p.name}</b>${p.isFixed?' <span style="font-size:10px;color:var(--mu)">(กิจกรรม)</span>':''}</td>
+      <td style="border:1px solid var(--bd);padding:6px;text-align:center;font-size:11.5px">${p.start} - ${p.end}</td>
+      <td style="border:1px solid var(--bd);padding:6px;text-align:center;white-space:nowrap">
+        <button class="btn btn-xs" onclick="editStdPeriod(${i})"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delStdPeriod(${i})"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+  showMD(`<div class="mt">จัดการคาบเวลา</div>
+    <div style="font-size:12px;color:var(--mu);margin-bottom:8px">
+      กำหนดคาบเวลา + กิจกรรมประจำ (โฮมรูม, พักเที่ยง ฯลฯ)
+    </div>
+    <div style="max-height:340px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--sf2)">
+          <th style="border:1px solid var(--bd);padding:5px;width:30px">#</th>
+          <th style="border:1px solid var(--bd);padding:5px;text-align:left">ชื่อ</th>
+          <th style="border:1px solid var(--bd);padding:5px;width:110px">เวลา</th>
+          <th style="border:1px solid var(--bd);padding:5px;width:80px">จัดการ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <div class="f g8">
+        <button class="btn btn-sm" onclick="editStdPeriod(-1)"><i class="ti ti-plus"></i>คาบเรียน</button>
+        <button class="btn btn-sm" onclick="editStdPeriod(-2)"><i class="ti ti-star"></i>กิจกรรม</button>
+      </div>
+      <button class="btn" onclick="closeMD()">ปิด</button>
+    </div>
+  `);
+}
+
+function editStdPeriod(idx){
+  let p={name:'',start:'08:00',end:'08:50',isFixed:false};
+  const isNew=idx<0;
+  if(idx===-2)p={name:'',start:'08:00',end:'08:30',isFixed:true,label:'',color:'#F0F9FF'};
+  else if(idx>=0)p={...PERIODS[idx]};
+  closeMD();
+  showMD(`<div class="mt">${isNew?'เพิ่ม':'แก้ไข'}${p.isFixed?'กิจกรรม':'คาบเรียน'}</div>
+    <div class="fg"><label class="fl">ชื่อ</label>
+      <input type="text" id="spName" value="${p.isFixed?(p.label||p.name):p.name}" placeholder="${p.isFixed?'เช่น โฮมรูม, พักเที่ยง':'เช่น คาบ 1'}">
+    </div>
+    <div class="g2">
+      <div class="fg"><label class="fl">เวลาเริ่ม</label><input type="time" id="spStart" value="${p.start}"></div>
+      <div class="fg"><label class="fl">เวลาสิ้นสุด</label><input type="time" id="spEnd" value="${p.end}"></div>
+    </div>
+    <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <button class="btn" onclick="openManagePeriods()"><i class="ti ti-arrow-left"></i>กลับ</button>
+      <button class="btn btn-p" onclick="saveStdPeriod(${idx},${p.isFixed})"><i class="ti ti-check"></i>บันทึก</button>
+    </div>
+  `);
+}
+
+function saveStdPeriod(idx,isFixed){
+  const name=(document.getElementById('spName').value||'').trim();
+  const start=document.getElementById('spStart').value;
+  const end=document.getElementById('spEnd').value;
+  if(!name){showToast('กรุณากรอกชื่อ');return;}
+  if(!start||!end){showToast('กรุณากรอกเวลา');return;}
+  if(start>=end){showToast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');return;}
+  const entry=isFixed?{name,start,end,isFixed:true,label:name,color:'#F0F9FF'}:{name,start,end};
+  if(idx<0){
+    PERIODS.push(entry);
+    PERIODS.sort((a,b)=>a.start.localeCompare(b.start));
+  } else {
+    PERIODS[idx]=entry;
+  }
+  db.periods=PERIODS.map(p=>({...p}));
+  save();openManagePeriods();
+  showToast('บันทึกแล้ว ✓');
+}
+
+function delStdPeriod(idx){
+  if(!confirm('ลบคาบนี้?'))return;
+  PERIODS.splice(idx,1);
+  db.periods=PERIODS.map(p=>({...p}));
+  save();openManagePeriods();
 }
 
 function delPeriod(cid,pid){
@@ -1731,84 +1876,6 @@ function printTimetableAll(){
     ${tblHtml}
     </body></html>`);
   w.document.close();
-}
-
-function openAddPeriod(cid){
-  const subs=subList(cid);
-  const dayOpts=DAYS_TH.slice(0,5).map((d,i)=>`<option value="${i}">${d}</option>`).join('');
-  const subOpts=subs.length?subs.map(s=>`<option value="${s.id}">${s.name}${s.code?' ('+s.code+')':''}</option>`).join(''):'<option value="">— ยังไม่มีวิชา —</option>';
-  showMD(`<div class="mt">เพิ่มคาบเรียน / กิจกรรม</div>
-    <div class="score-type-bar" style="margin-bottom:12px">
-      <button class="score-type-btn active" id="ptype-sub" onclick="setPeriodType('sub')"><i class="ti ti-book"></i> วิชาเรียน</button>
-      <button class="score-type-btn" id="ptype-act" onclick="setPeriodType('act')"><i class="ti ti-activity"></i> กิจกรรม/อื่นๆ</button>
-    </div>
-    <div class="fg"><label class="fl"><i class="ti ti-calendar"></i> วัน</label>
-      <select id="ttDay">${dayOpts}</select>
-    </div>
-    <div class="g2">
-      <div class="fg"><label class="fl"><i class="ti ti-clock"></i> เวลาเริ่ม</label>
-        <input type="time" id="ttStart" value="08:40">
-      </div>
-      <div class="fg"><label class="fl"><i class="ti ti-clock-stop"></i> เวลาสิ้นสุด</label>
-        <input type="time" id="ttEnd" value="09:30">
-      </div>
-    </div>
-    <div id="ttSubWrap" class="fg">
-      <label class="fl"><i class="ti ti-book"></i> วิชา</label>
-      <select id="ttSub">${subOpts}</select>
-      ${!subs.length?'<div style="font-size:11px;color:var(--rd);margin-top:4px">⚠️ ห้องนี้ยังไม่มีวิชา — กดแท็บ "กิจกรรม" เพื่อเพิ่มแบบไม่เชื่อมวิชา</div>':''}
-    </div>
-    <div id="ttActWrap" class="fg" style="display:none">
-      <label class="fl"><i class="ti ti-activity"></i> ชื่อกิจกรรม</label>
-      <input type="text" id="ttActName" placeholder="เช่น ชุมนุม, ประชุม, กิจกรรมพิเศษ">
-    </div>
-    <div class="fg"><label class="fl"><i class="ti ti-note"></i> หมายเหตุ (ถ้ามี)</label>
-      <input type="text" id="ttNote" placeholder="เช่น ห้องคอมฯ, ห้องประชุม">
-    </div>
-    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
-      <button class="btn" onclick="closeMD()">ยกเลิก</button>
-      <button class="btn btn-p" onclick="submitAddPeriod('${cid}')"><i class="ti ti-check"></i>เพิ่ม</button>
-    </div>
-  `);
-  window._periodType='sub';
-}
-
-function setPeriodType(t){
-  window._periodType=t;
-  document.getElementById('ptype-sub').classList.toggle('active',t==='sub');
-  document.getElementById('ptype-act').classList.toggle('active',t==='act');
-  document.getElementById('ttSubWrap').style.display=(t==='sub')?'block':'none';
-  document.getElementById('ttActWrap').style.display=(t==='act')?'block':'none';
-}
-
-function submitAddPeriod(cid){
-  const day=parseInt(document.getElementById('ttDay').value);
-  const start=document.getElementById('ttStart').value;
-  const end=document.getElementById('ttEnd').value;
-  const note=(document.getElementById('ttNote').value||'').trim();
-  if(!start||!end){showToast('กรุณากรอกเวลาให้ครบ');return;}
-  if(start>=end){showToast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');return;}
-  const isAct=(window._periodType==='act');
-  let entry={id:uid(),day,start,end,note};
-  if(isAct){
-    const actName=(document.getElementById('ttActName').value||'').trim();
-    if(!actName){showToast('กรุณากรอกชื่อกิจกรรม');return;}
-    entry.activityName=actName;
-    entry.isActivity=true;
-  } else {
-    const subId=document.getElementById('ttSub').value;
-    if(!subId){showToast('กรุณาเลือกวิชา (หรือเปลี่ยนเป็นแท็บ "กิจกรรม")');return;}
-    entry.subId=subId;
-  }
-  const tt=ttGet(cid);
-  const overlap=tt.find(t=>t.day===day&&!(t.end<=start||t.start>=end));
-  if(overlap){
-    if(!confirm('มีคาบอื่นในเวลาเดียวกันแล้ว ต้องการเพิ่มซ้อนกันไหม?'))return;
-  }
-  tt.push(entry);
-  ttSet(cid,tt);
-  save();closeMD();renderTimetable();
-  showToast(isAct?'เพิ่มกิจกรรมแล้ว ✓':'เพิ่มคาบเรียนแล้ว ✓');
 }
 
 function delPeriod(cid,pid){
@@ -2334,102 +2401,209 @@ function renderScEntry(){
       <button class="score-type-btn active" id="atype-score" onclick="setAsgType('score')"><i class="ti ti-star"></i> งานเก็บคะแนน</button>
       <button class="score-type-btn" id="atype-track" onclick="setAsgType('track')"><i class="ti ti-checklist"></i> งานติดตามการส่ง</button>
     </div>
-    <div class="f g8 fw" style="margin-bottom:8px">
-      <div style="flex:2;min-width:150px"><input type="text" id="asgName" placeholder="ชื่องาน เช่น งานชิ้นที่ 1"></div>
-      <div style="width:110px" id="asgMaxWrap"><input type="number" id="asgMax" placeholder="คะแนนเต็ม" min="1"></div>
+    <div class="fg">
+      <label class="fl" style="font-size:11.5px;color:var(--mu)">ชื่องาน</label>
+      <input type="text" id="asgName" placeholder="เช่น งานชิ้นที่ 1, ใบงาน 3.2">
     </div>
-    <div class="f g8 fw ic">
-      <div style="flex:1;min-width:150px"><label style="font-size:12px;color:var(--mu);display:block;margin-bottom:2px">กำหนดส่ง (ถ้ามี)</label><input type="date" id="asgDue"></div>
-      <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')" style="align-self:flex-end"><i class="ti ti-plus"></i>เพิ่มงาน</button>
+    <div class="g2" id="asgMaxWrap">
+      <div class="fg">
+        <label class="fl" style="font-size:11.5px;color:var(--mu)">คะแนนเต็ม</label>
+        <input type="number" id="asgMax" placeholder="เช่น 10" min="1">
+      </div>
+      <div class="fg">
+        <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
+        <input type="date" id="asgDue">
+      </div>
+    </div>
+    <div class="fg" id="asgDueOnlyWrap" style="display:none">
+      <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
+      <input type="date" id="asgDue2">
+    </div>
+    <div class="f g8" style="justify-content:space-between;margin-top:8px">
+      <button class="btn btn-sm" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-adjustments"></i>จัดการงาน</button>
+      <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่มงาน</button>
     </div>
     <div style="font-size:11.5px;color:var(--mu);margin-top:6px" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด | งานติดตาม = แค่เช็คว่าส่งหรือยัง ไม่คิดคะแนน</div>
   </div>`;
   const scoreAsg=asgs.filter(a=>a.type!=='track');
   const trackAsg=asgs.filter(a=>a.type==='track');
 
-  // ── ตารางงานเก็บคะแนน (คลิกเซลล์ → popup) ──
-  if(scoreAsg.length){
-    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
-      <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-star"></i> งานเก็บคะแนน · แตะที่ช่องเพื่อกรอกคะแนน</div>
-      <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${300+scoreAsg.length*34}px">
-        <thead><tr style="background:var(--sf2)">
-          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
-          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
-    scoreAsg.forEach(a=>{
-      html+=`<th style="border:1px solid var(--bd);padding:2px;width:34px;height:110px;vertical-align:bottom;background:#EEF2FF;position:relative">
-        <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:88px;margin:0 auto">${a.name}</div>
-        <div style="font-size:9px;color:var(--mu);margin-top:2px">/${a.maxScore}</div>
-        <button class="btn btn-xs" style="position:absolute;top:1px;right:1px;padding:0 3px;color:var(--rd);border:none;background:transparent" onclick="delAsg('${cid}','${subid}','${a.id}')" title="ลบงาน"><i class="ti ti-x"></i></button>
-      </th>`;
-    });
-    html+=`</tr></thead><tbody>`;
-    stus.forEach(s=>{
-      html+=`<tr>
-        <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
-        <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
-      scoreAsg.forEach(a=>{
-        const v=scMap(cid,subid,a.id)[s.id];
-        const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;font-size:11.5px;cursor:pointer;${disp!==''?'background:#F0F9FF':''}" onclick="openScorePopup('${cid}','${subid}','${a.id}','${s.id}',${a.maxScore})" title="แตะเพื่อกรอกคะแนน">
-          <div style="padding:5px 3px;min-height:22px">${disp}</div>
-        </td>`;
-      });
-      html+=`</tr>`;
-    });
-    html+=`</tbody></table></div></div>`;
-  } else {
-    html+=`<div class="card cp mb14"><div class="empty" style="padding:20px">
-      <i class="ti ti-star-off" style="color:var(--mu)"></i>
-      <div style="font-size:13px">ยังไม่มีงานเก็บคะแนน</div>
-      <p style="font-size:11.5px;color:var(--mu)">กดปุ่ม "งานเก็บคะแนน" ด้านบน + เพิ่มงาน</p>
+  html+=renderAsgTable(cid,subid,stus,scoreAsg,'score');
+  html+=renderAsgTable(cid,subid,stus,trackAsg,'track');
+
+  el.innerHTML=html;
+}
+
+// ── ตารางบันทึกงาน (ใช้ได้ทั้ง score และ track) ──
+function renderAsgTable(cid,subid,stus,asgs,mode){
+  const isScore=(mode==='score');
+  const title=isScore?'งานเก็บคะแนน':'งานติดตามการส่ง';
+  const icon=isScore?'ti-star':'ti-checklist';
+  const hdBg=isScore?'#EEF2FF':'#FEF3C7';
+  const hint=isScore?'แตะที่ช่องเพื่อกรอกคะแนน':'แตะช่องเพื่อเลือกสถานะ';
+
+  if(!asgs.length){
+    return `<div class="card cp mb14"><div class="empty" style="padding:20px">
+      <i class="ti ${isScore?'ti-star-off':'ti-checklist'}" style="color:var(--mu)"></i>
+      <div style="font-size:13px">ยังไม่มี${title}</div>
+      <p style="font-size:11.5px;color:var(--mu)">กดปุ่ม "${title}" ด้านบน + เพิ่มงาน</p>
     </div></div>`;
   }
 
-  // ── ตารางงานติดตาม (คลิกเซลล์ → popup 3 สถานะ) ──
-  if(trackAsg.length){
-    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
-      <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-checklist"></i> งานติดตามการส่ง · แตะช่องเพื่อเลือกสถานะ</div>
-      <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${300+trackAsg.length*34}px">
-        <thead><tr style="background:var(--sf2)">
-          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
-          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
-    trackAsg.forEach(a=>{
-      html+=`<th style="border:1px solid var(--bd);padding:2px;width:34px;height:110px;vertical-align:bottom;background:#FEF3C7;position:relative">
-        <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:96px;margin:0 auto">${a.name}</div>
-        <button class="btn btn-xs" style="position:absolute;top:1px;right:1px;padding:0 3px;color:var(--rd);border:none;background:transparent" onclick="delAsg('${cid}','${subid}','${a.id}')" title="ลบงาน"><i class="ti ti-x"></i></button>
-      </th>`;
-    });
-    html+=`</tr></thead><tbody>`;
-    stus.forEach(s=>{
-      html+=`<tr>
-        <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
-        <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
-      trackAsg.forEach(a=>{
-        const v=scMap(cid,subid,a.id)[s.id];
+  // จัดขนาดคอลัมน์: น้อย = กว้าง, มาก = แคบ
+  const n=asgs.length;
+  let colW;
+  if(n<=3)colW=90; else if(n<=6)colW=64; else if(n<=10)colW=48; else if(n<=15)colW=38; else colW=32;
+  let hdH=Math.max(70,Math.min(140,60+n*3));
+  const maxChar=colW<40?7:colW<55?10:14;
+  const fontSize=colW<40?9.5:colW<55?10.5:11.5;
+
+  let html=`<div class="card mb14" style="overflow:auto"><div style="padding:10px">
+    <div class="f ic jb" style="margin-bottom:8px">
+      <div style="font-size:12.5px;color:var(--mu)"><i class="ti ${icon}"></i> ${title} <span style="font-size:11px">· ${hint}</span></div>
+      <div style="font-size:11px;color:var(--mu)">${n} งาน</div>
+    </div>
+    <table style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:${280+n*colW}px;table-layout:fixed">
+      <colgroup>
+        <col style="width:34px">
+        <col style="width:130px">
+        ${asgs.map(()=>`<col style="width:${colW}px">`).join('')}
+      </colgroup>
+      <thead><tr style="background:var(--sf2)">
+        <th style="border:1px solid var(--bd);padding:5px 3px;text-align:center;font-size:11px">ที่</th>
+        <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;font-size:11.5px">ชื่อ-สกุล</th>`;
+  asgs.forEach(a=>{
+    const nameTrim=a.name.length>maxChar?a.name.slice(0,maxChar)+'…':a.name;
+    html+=`<th style="border:1px solid var(--bd);padding:3px 2px;background:${hdBg};position:relative;vertical-align:middle;text-align:center;height:${hdH}px">
+      <div title="${a.name.replace(/"/g,'&quot;')}" onclick="showFullName('${a.id}','${a.name.replace(/'/g,'\\\'').replace(/"/g,'&quot;')}',${isScore?a.maxScore:0},${isScore})" style="cursor:pointer;font-weight:600;font-size:${fontSize}px;line-height:1.15;padding:2px 0">
+        ${nameTrim}
+      </div>
+      ${isScore?`<div style="font-size:9.5px;color:var(--mu);font-weight:400;margin-top:2px">เต็ม ${a.maxScore}</div>`:''}
+    </th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+  stus.forEach(s=>{
+    html+=`<tr>
+      <td style="border:1px solid var(--bd);padding:2px 3px;text-align:center;color:var(--mu);font-size:11px">${s.no}</td>
+      <td style="border:1px solid var(--bd);padding:3px 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.firstName} ${s.lastName}</td>`;
+    asgs.forEach(a=>{
+      const v=scMap(cid,subid,a.id)[s.id];
+      if(isScore){
+        const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;font-size:11.5px;cursor:pointer;${disp!==''?'background:#F0F9FF':''}" onclick="openScorePopup('${cid}','${subid}','${a.id}','${s.id}',${a.maxScore})">
+          <div style="padding:5px 2px;min-height:22px">${disp}</div>
+        </td>`;
+      } else {
         const ic=v==='ตรงเวลา'?'<i class="ti ti-check" style="color:var(--gn);font-size:15px"></i>':
                  v==='ส่งช้า'?'<i class="ti ti-check" style="color:var(--am);font-size:15px"></i>':'';
         const bg=v==='ตรงเวลา'?'#F0FDF4':v==='ส่งช้า'?'#FFFBEB':'';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;cursor:pointer;${bg?'background:'+bg:''}" onclick="openTrackPopup('${cid}','${subid}','${a.id}','${s.id}')" title="แตะเพื่อเปลี่ยนสถานะ">
-          <div style="padding:4px 3px;min-height:22px">${ic}</div>
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;cursor:pointer;${bg?'background:'+bg:''}" onclick="openTrackPopup('${cid}','${subid}','${a.id}','${s.id}')">
+          <div style="padding:4px 2px;min-height:22px">${ic}</div>
         </td>`;
-      });
-      html+=`</tr>`;
+      }
     });
-    html+=`</tbody></table>
-      <div style="margin-top:6px;font-size:10.5px;color:var(--mu)">
-        <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · 
-        <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง
-      </div>
-    </div></div>`;
-  } else {
-    html+=`<div class="card cp mb14"><div class="empty" style="padding:20px">
-      <i class="ti ti-checklist" style="color:var(--mu)"></i>
-      <div style="font-size:13px">ยังไม่มีงานติดตาม</div>
-      <p style="font-size:11.5px;color:var(--mu)">กดปุ่ม "งานติดตามการส่ง" ด้านบน + เพิ่มงาน</p>
-    </div></div>`;
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table>`;
+  if(!isScore){
+    html+=`<div style="margin-top:6px;font-size:10.5px;color:var(--mu)">
+      <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · 
+      <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง
+    </div>`;
   }
+  html+=`</div></div>`;
+  return html;
+}
 
-  el.innerHTML=html;
+// ── Popup ดูชื่องานเต็ม ──
+function showFullName(aid,name,maxScore,isScore){
+  showMD(`<div class="mt">รายละเอียดงาน</div>
+    <div style="padding:14px;background:var(--sf2);border-radius:8px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--mu);margin-bottom:4px">ชื่องานเต็ม</div>
+      <div style="font-size:15px;font-weight:600">${name}</div>
+      ${isScore?`<div style="font-size:12px;color:var(--mu);margin-top:6px">คะแนนเต็ม: <b>${maxScore}</b></div>`:'<div style="font-size:11.5px;color:var(--mu);margin-top:6px">งานติดตามการส่ง</div>'}
+    </div>
+    <div class="f g8" style="justify-content:flex-end">
+      <button class="btn" onclick="closeMD()">ปิด</button>
+    </div>
+  `);
+}
+
+// ── หน้าจัดการงาน (แก้ชื่อ/คะแนนเต็ม/ลบ) ──
+function openManageAsg(cid,subid){
+  const asgs=asgList(cid,subid);
+  if(!asgs.length){showToast('ยังไม่มีงานให้จัดการ');return;}
+  const rows=asgs.map((a,i)=>{
+    const isTrack=a.type==='track';
+    return `<tr>
+      <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:11px;color:var(--mu)">${i+1}</td>
+      <td style="border:1px solid var(--bd);padding:5px 8px;font-size:12.5px">
+        <b>${a.name}</b>
+        ${isTrack?'<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:8px;margin-left:4px">ติดตาม</span>':`<span style="font-size:11px;color:var(--mu)"> · เต็ม ${a.maxScore}</span>`}
+        ${a.dueDate?`<div style="font-size:10.5px;color:var(--mu);margin-top:2px"><i class="ti ti-calendar"></i> กำหนดส่ง ${a.dueDate}</div>`:''}
+      </td>
+      <td style="border:1px solid var(--bd);padding:5px;text-align:center;white-space:nowrap">
+        <button class="btn btn-xs" onclick="editAsg('${cid}','${subid}','${a.id}')" title="แก้ไข"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}');openManageAsg('${cid}','${subid}')" title="ลบ"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+  showMD(`<div class="mt">จัดการงาน (${asgs.length})</div>
+    <div style="max-height:400px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--sf2);position:sticky;top:0">
+          <th style="border:1px solid var(--bd);padding:5px;width:30px">#</th>
+          <th style="border:1px solid var(--bd);padding:5px;text-align:left">งาน</th>
+          <th style="border:1px solid var(--bd);padding:5px;width:80px">จัดการ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ปิด</button>
+    </div>
+  `);
+}
+
+// ── แก้ชื่อ/คะแนนเต็ม ──
+function editAsg(cid,subid,aid){
+  const asgs=asgList(cid,subid);
+  const a=asgs.find(x=>x.id===aid);
+  if(!a)return;
+  const isTrack=a.type==='track';
+  closeMD();
+  showMD(`<div class="mt">แก้ไขงาน</div>
+    <div class="fg"><label class="fl">ชื่องาน</label>
+      <input type="text" id="edAsgName" value="${(a.name||'').replace(/"/g,'&quot;')}">
+    </div>
+    ${!isTrack?`<div class="fg"><label class="fl">คะแนนเต็ม</label>
+      <input type="number" id="edAsgMax" value="${a.maxScore||10}" min="1">
+    </div>`:''}
+    <div class="fg"><label class="fl">กำหนดส่ง (ถ้ามี)</label>
+      <input type="date" id="edAsgDue" value="${a.dueDate||''}">
+    </div>
+    <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <button class="btn" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-arrow-left"></i>กลับ</button>
+      <button class="btn btn-p" onclick="saveEditAsg('${cid}','${subid}','${aid}',${isTrack})"><i class="ti ti-check"></i>บันทึก</button>
+    </div>
+  `);
+}
+
+function saveEditAsg(cid,subid,aid,isTrack){
+  const asgs=asgList(cid,subid);
+  const a=asgs.find(x=>x.id===aid);
+  if(!a)return;
+  const name=(document.getElementById('edAsgName').value||'').trim();
+  if(!name){showToast('กรุณากรอกชื่องาน');return;}
+  a.name=name;
+  if(!isTrack){
+    const max=parseInt(document.getElementById('edAsgMax').value);
+    if(!max||max<1){showToast('คะแนนเต็มต้องมากกว่า 0');return;}
+    a.maxScore=max;
+  }
+  a.dueDate=document.getElementById('edAsgDue').value||'';
+  save();openManageAsg(cid,subid);
+  showToast('บันทึกแล้ว ✓');
 }
 
 // ── Popup: กรอกคะแนนงาน ──
@@ -2660,27 +2834,45 @@ function renderScGrade(){
   const wA=sub.wAssign??70, wE=sub.wExam??30;
   const gradeDist={4:0,3.5:0,3:0,2.5:0,2:0,1.5:0,1:0,0:0};
 
-  // ── ตารางคะแนนหลัก (แถวเป็นนักเรียน คอลัมน์เป็นงาน + คะแนนสอบ + รวม + เกรด) ──
-  let html=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
-    <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-table"></i> ตารางคะแนนรวม · เต็ม ${wA}+${wE}=100</div>
-    <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${420+scoreAsg.length*32}px">
+  // จัดขนาดคอลัมน์งาน — น้อย=กว้าง มาก=แคบ
+  const n=scoreAsg.length;
+  let colW;
+  if(n<=3)colW=80; else if(n<=6)colW=56; else if(n<=10)colW=44; else if(n<=15)colW=36; else colW=30;
+  const maxChar=colW<40?7:colW<55?10:12;
+  const fontSize=colW<40?9.5:colW<55?10.5:11.5;
+  const hdH=Math.max(70,Math.min(130,60+n*3));
+
+  // ── ตารางคะแนนหลัก ──
+  let html=`<div class="card mb14" style="overflow:auto"><div style="padding:10px">
+    <div class="f ic jb" style="margin-bottom:8px">
+      <div style="font-size:12.5px;color:var(--mu)"><i class="ti ti-table"></i> ตารางคะแนนรวม <span style="font-size:11px">· เต็ม ${wA}+${wE}=100</span></div>
+      <div style="font-size:11px;color:var(--mu)">${n} งาน</div>
+    </div>
+    <table style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:${420+n*colW}px;table-layout:fixed">
+      <colgroup>
+        <col style="width:34px">
+        <col style="width:130px">
+        ${scoreAsg.map(()=>`<col style="width:${colW}px">`).join('')}
+        <col style="width:52px"><col style="width:38px"><col style="width:38px"><col style="width:52px"><col style="width:54px"><col style="width:42px">
+      </colgroup>
       <thead>
         <tr style="background:var(--sf2)">
-          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
-          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
+          <th style="border:1px solid var(--bd);padding:5px 3px;text-align:center;font-size:11px">ที่</th>
+          <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;font-size:11.5px">ชื่อ-สกุล</th>`;
   scoreAsg.forEach(a=>{
-    html+=`<th style="border:1px solid var(--bd);padding:2px;width:30px;height:110px;vertical-align:bottom;background:#EEF2FF">
-      <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:90px;margin:0 auto">${a.name}</div>
-      <div style="font-size:9px;color:var(--mu);margin-top:2px">/${a.maxScore}</div>
+    const nameTrim=a.name.length>maxChar?a.name.slice(0,maxChar)+'…':a.name;
+    html+=`<th style="border:1px solid var(--bd);padding:3px 2px;background:#EEF2FF;text-align:center;vertical-align:middle;height:${hdH}px">
+      <div title="${a.name.replace(/"/g,'&quot;')}" onclick="showFullName('${a.id}','${a.name.replace(/'/g,'\\\'').replace(/"/g,'&quot;')}',${a.maxScore},true)" style="cursor:pointer;font-weight:600;font-size:${fontSize}px;line-height:1.15;padding:2px 0">${nameTrim}</div>
+      <div style="font-size:9.5px;color:var(--mu);font-weight:400;margin-top:2px">เต็ม ${a.maxScore}</div>
     </th>`;
   });
   html+=`
-          <th style="border:1px solid var(--bd);padding:3px;width:44px;background:#DBEAFE;text-align:center;font-size:10px">รวม<br>เก็บ<br>/${wA}</th>
-          <th style="border:1px solid var(--bd);padding:3px;width:32px;background:#FEF3C7;text-align:center;font-size:10px">กลาง<br>/${sub.midMax||'-'}</th>
-          <th style="border:1px solid var(--bd);padding:3px;width:32px;background:#FEF3C7;text-align:center;font-size:10px">ปลาย<br>/${sub.finalMax||'-'}</th>
-          <th style="border:1px solid var(--bd);padding:3px;width:44px;background:#FEF3C7;text-align:center;font-size:10px">รวม<br>สอบ<br>/${wE}</th>
-          <th style="border:1px solid var(--bd);padding:3px;width:46px;background:#DCFCE7;text-align:center;font-size:10.5px">รวม<br>/100</th>
-          <th style="border:1px solid var(--bd);padding:3px;width:36px;background:#DCFCE7;text-align:center">เกรด</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#DBEAFE;text-align:center;font-size:10px">รวม<br>เก็บ<br>/${wA}</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#FEF3C7;text-align:center;font-size:10px">กลาง<br>/${sub.midMax||'-'}</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#FEF3C7;text-align:center;font-size:10px">ปลาย<br>/${sub.finalMax||'-'}</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#FEF3C7;text-align:center;font-size:10px">รวม<br>สอบ<br>/${wE}</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#DCFCE7;text-align:center;font-size:10.5px">รวม<br>/100</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#DCFCE7;text-align:center">เกรด</th>
         </tr>
       </thead>
       <tbody>`;
@@ -2689,48 +2881,64 @@ function renderScGrade(){
     const t=calcTotal(cid,subid,s.id);
     gradeDist[parseFloat(t.grade.g)]=(gradeDist[parseFloat(t.grade.g)]||0)+1;
     html+=`<tr>
-      <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
-      <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
+      <td style="border:1px solid var(--bd);padding:2px 3px;text-align:center;color:var(--mu);font-size:11px">${s.no}</td>
+      <td style="border:1px solid var(--bd);padding:3px 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.firstName} ${s.lastName}</td>`;
     scoreAsg.forEach(a=>{
       const v=scMap(cid,subid,a.id)[s.id];
       const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
-      html+=`<td style="border:1px solid var(--bd);padding:2px;text-align:center;font-size:11px">${disp}</td>`;
+      html+=`<td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-size:${fontSize}px">${disp}</td>`;
     });
     const tCol=t.totalScore>=80?'var(--gn)':t.totalScore>=60?'var(--am)':'var(--rd)';
     html+=`
-      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-weight:700;background:#EFF6FF">${t.assignScore.toFixed(1)}</td>
-      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-size:11px">${t.midRaw!==null?t.midRaw:''}</td>
-      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-size:11px">${t.finRaw!==null?t.finRaw:''}</td>
-      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-weight:700;background:#FEFCE8">${t.examScore.toFixed(1)}</td>
-      <td style="border:1px solid var(--bd);padding:2px;text-align:center;font-weight:800;color:${tCol};background:#F0FDF4">${t.totalScore.toFixed(1)}</td>
-      <td style="border:1px solid var(--bd);padding:2px;text-align:center;background:#F0FDF4"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-weight:700;background:#EFF6FF">${t.assignScore.toFixed(1)}</td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-size:11px">${t.midRaw!==null?t.midRaw:''}</td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-size:11px">${t.finRaw!==null?t.finRaw:''}</td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-weight:700;background:#FEFCE8">${t.examScore.toFixed(1)}</td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-weight:800;color:${tCol};background:#F0FDF4">${t.totalScore.toFixed(1)}</td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;background:#F0FDF4"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td>
     </tr>`;
   });
   html+=`</tbody></table></div></div>`;
 
-  // ── ตารางงานติดตาม (ช่องเล็ก ✓/ว่าง) ──
+  // ── ตารางงานติดตาม ──
   if(trackAsg.length){
-    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:8px">
-      <div style="font-size:12px;color:var(--mu);margin-bottom:8px"><i class="ti ti-checklist"></i> งานติดตาม · <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง</div>
-      <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:${300+trackAsg.length*32}px">
+    const nT=trackAsg.length;
+    let colWT;
+    if(nT<=3)colWT=80; else if(nT<=6)colWT=56; else if(nT<=10)colWT=44; else if(nT<=15)colWT=36; else colWT=30;
+    const maxCharT=colWT<40?7:colWT<55?10:12;
+    const fontSizeT=colWT<40?9.5:colWT<55?10.5:11.5;
+    const hdHT=Math.max(70,Math.min(130,60+nT*3));
+
+    html+=`<div class="card mb14" style="overflow:auto"><div style="padding:10px">
+      <div class="f ic jb" style="margin-bottom:8px">
+        <div style="font-size:12.5px;color:var(--mu)"><i class="ti ti-checklist"></i> งานติดตาม <span style="font-size:11px">· <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง</span></div>
+        <div style="font-size:11px;color:var(--mu)">${nT} งาน</div>
+      </div>
+      <table style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:${280+nT*colWT}px;table-layout:fixed">
+        <colgroup>
+          <col style="width:34px">
+          <col style="width:130px">
+          ${trackAsg.map(()=>`<col style="width:${colWT}px">`).join('')}
+        </colgroup>
         <thead><tr style="background:var(--sf2)">
-          <th style="border:1px solid var(--bd);padding:3px 4px;width:28px;text-align:center">ที่</th>
-          <th style="border:1px solid var(--bd);padding:3px 6px;min-width:120px;text-align:left">ชื่อ-สกุล</th>`;
+          <th style="border:1px solid var(--bd);padding:5px 3px;text-align:center;font-size:11px">ที่</th>
+          <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;font-size:11.5px">ชื่อ-สกุล</th>`;
     trackAsg.forEach(a=>{
-      html+=`<th style="border:1px solid var(--bd);padding:2px;width:30px;height:110px;vertical-align:bottom;background:#FEF3C7">
-        <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;line-height:1.2;max-height:100px;margin:0 auto">${a.name}</div>
+      const nameTrim=a.name.length>maxCharT?a.name.slice(0,maxCharT)+'…':a.name;
+      html+=`<th style="border:1px solid var(--bd);padding:3px 2px;background:#FEF3C7;text-align:center;vertical-align:middle;height:${hdHT}px">
+        <div title="${a.name.replace(/"/g,'&quot;')}" onclick="showFullName('${a.id}','${a.name.replace(/'/g,'\\\'').replace(/"/g,'&quot;')}',0,false)" style="cursor:pointer;font-weight:600;font-size:${fontSizeT}px;line-height:1.15;padding:2px 0">${nameTrim}</div>
       </th>`;
     });
     html+=`</tr></thead><tbody>`;
     stus.forEach(s=>{
       html+=`<tr>
-        <td style="border:1px solid var(--bd);padding:2px 4px;text-align:center;color:var(--mu)">${s.no}</td>
-        <td style="border:1px solid var(--bd);padding:2px 6px;font-size:11.5px">${s.firstName} ${s.lastName}</td>`;
+        <td style="border:1px solid var(--bd);padding:2px 3px;text-align:center;color:var(--mu);font-size:11px">${s.no}</td>
+        <td style="border:1px solid var(--bd);padding:3px 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.firstName} ${s.lastName}</td>`;
       trackAsg.forEach(a=>{
         const v=scMap(cid,subid,a.id)[s.id];
         const ic=v==='ตรงเวลา'?'<i class="ti ti-check" style="color:var(--gn);font-size:14px"></i>':
                  v==='ส่งช้า'?'<i class="ti ti-check" style="color:var(--am);font-size:14px"></i>':'';
-        html+=`<td style="border:1px solid var(--bd);padding:2px;text-align:center">${ic}</td>`;
+        html+=`<td style="border:1px solid var(--bd);padding:4px 2px;text-align:center">${ic}</td>`;
       });
       html+=`</tr>`;
     });
@@ -3084,6 +3292,11 @@ function _initDB(){
   if(!db.studentPasswords)db.studentPasswords={};
   if(!db.submitStatus)db.submitStatus={};
   if(!db.timetable)db.timetable={};
+  // ถ้ามี db.periods เก็บไว้ ให้ใช้แทน PERIODS default
+  if(db.periods&&Array.isArray(db.periods)&&db.periods.length){
+    PERIODS.length=0;
+    db.periods.forEach(p=>PERIODS.push({...p}));
+  }
   if(!db.terms.length){
     const now=new Date(),thYear=now.getFullYear()+543;
     const sem=(now.getMonth()<4)?2:1;
