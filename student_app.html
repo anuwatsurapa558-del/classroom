@@ -225,12 +225,19 @@ function calcGrade(pct){
   if(pct>=50)return{g:'1',cls:'g1'};return{g:'0',cls:'g0'};
 }
 function calcTotal(cid,subid,stuId){
-  const sub=subArr(cid).find(s=>s.id===subid);if(!sub)return{assignPct:0,examPct:0,totalPct:0,grade:{g:'0',cls:'g0'}};
+  const sub=subArr(cid).find(s=>s.id===subid);
+  if(!sub)return{assignPct:0,examPct:0,totalPct:0,grade:{g:'0',cls:'g0'}};
   const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+  // assign score — ข้ามงานติดตาม (type='track') และกัน NaN
   const asgs=(asgBlock(cid)[subid])||[];
-  let raw=0,max=0;
-  asgs.forEach(a=>{const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];if(v!==undefined&&v!==''){raw+=parseFloat(v);max+=a.maxScore;}});
-  const assignPct=max?raw/max*100:0;
+  let assignRaw=0,assignMax=0;
+  asgs.forEach(a=>{
+    if(a.type==='track')return; // ข้ามงานติดตาม ไม่คิดคะแนน
+    const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];
+    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
+  });
+  const assignPct=assignMax?assignRaw/assignMax*100:0;
+  // exam score
   const ex=((exBlock(cid)[subid])||{})[stuId]||{};
   const midMax=sub.midMax||100,finMax=sub.finalMax||100;
   const midRaw=ex.mid!==undefined?parseFloat(ex.mid):null;
@@ -239,7 +246,8 @@ function calcTotal(cid,subid,stuId){
   const finPct=finRaw!==null?finRaw/finMax*100:null;
   let examPct=0;
   if(midPct!==null&&finPct!==null)examPct=midPct*(wM/100)+finPct*(wF/100);
-  else if(midPct!==null)examPct=midPct;else if(finPct!==null)examPct=finPct;
+  else if(midPct!==null)examPct=midPct;
+  else if(finPct!==null)examPct=finPct;
   const totalPct=assignPct*(wA/100)+examPct*(wE/100);
   return{assignPct:Math.round(assignPct*10)/10,examPct:Math.round(examPct*10)/10,totalPct:Math.round(totalPct*10)/10,grade:calcGrade(totalPct),midRaw,finRaw,midPct,finPct,midMax,finMax};
 }
@@ -844,37 +852,16 @@ function renderGrades(){
     return;
   }
 
-  // Debug: ดูข้อมูลใน console (F12)
-  console.log('=== ผลการเรียน Debug ===');
-  console.log('cid:',cid,'sid:',sid);
-  console.log('tk(cid):',tk(cid));
-  console.log('db.assignments keys:',Object.keys(db.assignments||{}));
-  console.log('db.scores keys:',Object.keys(db.scores||{}));
-  console.log('db.examScores keys:',Object.keys(db.examScores||{}));
-  console.log('asgBlock:',asgBlock(cid));
-  console.log('scBlock:',scBlock(cid));
-  console.log('exBlock:',exBlock(cid));
-
-  // คำนวณคะแนนรวมทั้งหมด (ค่าเฉลี่ยทุกวิชา)
-  let totalGrade=0,count=0;
+  // คำนวณผลการเรียนแต่ละวิชา
   const rows=subs.map(sub=>{
     const t=calcTotal(cid,sub.id,sid);
-    console.log('วิชา '+sub.name+':',t);
-    totalGrade+=parseFloat(t.grade.g);count++;
     return{sub,total:t};
   });
-  const gpa=count?(totalGrade/count).toFixed(2):'0.00';
-  const gpaCol=gpa>=3.5?'var(--gn)':gpa>=2.5?'var(--tl)':gpa>=1.5?'var(--am)':'var(--rd)';
-
   let html=`
     <div class="profile-card" style="text-align:center">
       <div style="font-size:12px;opacity:.85;margin-bottom:4px"><i class="ti ti-award"></i> ผลการเรียน</div>
       <div style="font-weight:700;font-size:16px;margin-bottom:2px">${stu.firstName} ${stu.lastName}</div>
       <div style="font-size:12px;opacity:.85">${cls.name}</div>
-      <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.2)">
-        <div style="font-size:12px;opacity:.85;margin-bottom:4px">เกรดเฉลี่ย (GPA)</div>
-        <div style="font-size:36px;font-weight:800">${gpa}</div>
-      </div>
     </div>
 
     <div class="card">
