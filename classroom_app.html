@@ -459,7 +459,7 @@ const P={
   dashboard:{cls:null,sub:null},
   school:{cls:null},
   classroom:{cls:null,sub:null,tab:'students'},
-  timetable:{cls:null,viewAll:false},
+  timetable:{cls:null,viewAll:true},
   students:{cls:null},
   subjects:{cls:null,sub:null},
   attendance:{cls:null,sub:null},
@@ -1434,7 +1434,10 @@ function renderTimetableAllRooms(){
       <div><b><i class="ti ti-layout-grid"></i> ตารางสอนรวมทุกห้อง</b>
         <span style="font-size:12px;color:var(--mu);margin-left:8px">${cls.length} ห้อง · ${all.length} คาบ</span>
       </div>
-      <button class="btn btn-sm" onclick="printTimetableAll()"><i class="ti ti-printer"></i>พิมพ์</button>
+      <div class="f g8">
+        <button class="btn btn-p btn-sm" onclick="openAddPeriod()"><i class="ti ti-plus"></i>เพิ่มคาบ</button>
+        <button class="btn btn-sm" onclick="printTimetableAll()"><i class="ti ti-printer"></i>พิมพ์</button>
+      </div>
     </div>
   </div>`;
 
@@ -1574,10 +1577,12 @@ function printTimetableAll(){
 
 function openAddPeriod(cid){
   const allCls=termClasses();
+  if(!allCls.length){showToast('ยังไม่มีห้องเรียนในภาคเรียนนี้');return;}
+  // ถ้าไม่ระบุ cid — ไม่ต้อง default เลือกห้องใด ให้ครูเลือกเอง
   const dayOpts=DAYS_TH.slice(0,5).map((d,i)=>`<option value="${i}">${d}</option>`).join('');
   const clsChecks=allCls.map(c2=>`
     <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;background:var(--sf2);border-radius:6px;cursor:pointer;font-size:12.5px;user-select:none;border:1px solid var(--bd)">
-      <input type="checkbox" class="ttCls" value="${c2.id}" ${c2.id===cid?'checked':''} onchange="onClsChange()"> ${c2.name}
+      <input type="checkbox" class="ttCls" value="${c2.id}" ${cid&&c2.id===cid?'checked':''} onchange="onClsChange()"> ${c2.name}
     </label>`).join('');
   const stdPeriods=PERIODS.filter(p=>!p.isFixed);
   const periodOpts=stdPeriods.map((p,i)=>`<option value="${i}">${p.name} (${p.start}-${p.end})</option>`).join('');
