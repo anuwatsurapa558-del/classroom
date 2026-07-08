@@ -225,19 +225,12 @@ function calcGrade(pct){
   if(pct>=50)return{g:'1',cls:'g1'};return{g:'0',cls:'g0'};
 }
 function calcTotal(cid,subid,stuId){
-  const sub=subArr(cid).find(s=>s.id===subid);
-  if(!sub)return{assignPct:0,examPct:0,totalPct:0,grade:{g:'0',cls:'g0'}};
+  const sub=subArr(cid).find(s=>s.id===subid);if(!sub)return{assignPct:0,examPct:0,totalPct:0,grade:{g:'0',cls:'g0'}};
   const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
-  // assign score — ข้ามงานติดตาม (type='track') และกัน NaN
   const asgs=(asgBlock(cid)[subid])||[];
-  let assignRaw=0,assignMax=0;
-  asgs.forEach(a=>{
-    if(a.type==='track')return; // ข้ามงานติดตาม ไม่คิดคะแนน
-    const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];
-    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
-  });
-  const assignPct=assignMax?assignRaw/assignMax*100:0;
-  // exam score
+  let raw=0,max=0;
+  asgs.forEach(a=>{const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];if(v!==undefined&&v!==''){raw+=parseFloat(v);max+=a.maxScore;}});
+  const assignPct=max?raw/max*100:0;
   const ex=((exBlock(cid)[subid])||{})[stuId]||{};
   const midMax=sub.midMax||100,finMax=sub.finalMax||100;
   const midRaw=ex.mid!==undefined?parseFloat(ex.mid):null;
@@ -246,8 +239,7 @@ function calcTotal(cid,subid,stuId){
   const finPct=finRaw!==null?finRaw/finMax*100:null;
   let examPct=0;
   if(midPct!==null&&finPct!==null)examPct=midPct*(wM/100)+finPct*(wF/100);
-  else if(midPct!==null)examPct=midPct;
-  else if(finPct!==null)examPct=finPct;
+  else if(midPct!==null)examPct=midPct;else if(finPct!==null)examPct=finPct;
   const totalPct=assignPct*(wA/100)+examPct*(wE/100);
   return{assignPct:Math.round(assignPct*10)/10,examPct:Math.round(examPct*10)/10,totalPct:Math.round(totalPct*10)/10,grade:calcGrade(totalPct),midRaw,finRaw,midPct,finPct,midMax,finMax};
 }
@@ -837,12 +829,12 @@ function renderGrades(){
   const subs=subArr(me.classId);
   const cid=me.classId,sid=me.studentId;
 
-  // เช็คว่าครูเปิดให้ดูไหม
-  if(!cls||!cls.showGrades){
+  // เช็คอีกรอบว่าครูเปิดจริงไหม (กัน state ค้าง)
+  if(!cls.showGrades){
     document.getElementById('mainContent').innerHTML=`<div class="card"><div class="empty" style="padding:30px">
-      <i class="ti ti-lock" style="font-size:36px;color:var(--mu)"></i>
-      <div style="font-weight:700;margin-top:8px">ยังไม่ได้เปิดให้ดูผลการเรียน</div>
-      <p style="font-size:12.5px;margin-top:4px">กรุณาติดต่อครูประจำวิชาเพื่อเปิดการแสดงผล</p>
+      <i class="ti ti-eye-off" style="font-size:36px;color:var(--mu)"></i>
+      <div style="font-weight:700;margin-top:8px">ครูยังไม่เปิดให้ดูผลการเรียน</div>
+      <p style="font-size:12.5px">รอครูเปิดให้ดูก่อนครับ</p>
     </div></div>`;
     return;
   }
@@ -852,16 +844,25 @@ function renderGrades(){
     return;
   }
 
-  // คำนวณผลการเรียนแต่ละวิชา
+  // คำนวณคะแนนรวมทั้งหมด (ค่าเฉลี่ยทุกวิชา)
+  let totalGrade=0,count=0;
   const rows=subs.map(sub=>{
     const t=calcTotal(cid,sub.id,sid);
+    totalGrade+=parseFloat(t.grade.g);count++;
     return{sub,total:t};
   });
+  const gpa=count?(totalGrade/count).toFixed(2):'0.00';
+  const gpaCol=gpa>=3.5?'var(--gn)':gpa>=2.5?'var(--tl)':gpa>=1.5?'var(--am)':'var(--rd)';
+
   let html=`
     <div class="profile-card" style="text-align:center">
       <div style="font-size:12px;opacity:.85;margin-bottom:4px"><i class="ti ti-award"></i> ผลการเรียน</div>
       <div style="font-weight:700;font-size:16px;margin-bottom:2px">${stu.firstName} ${stu.lastName}</div>
       <div style="font-size:12px;opacity:.85">${cls.name}</div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.2)">
+        <div style="font-size:12px;opacity:.85;margin-bottom:4px">เกรดเฉลี่ย (GPA)</div>
+        <div style="font-size:36px;font-weight:800">${gpa}</div>
+      </div>
     </div>
 
     <div class="card">
@@ -870,41 +871,16 @@ function renderGrades(){
 
   rows.forEach(r=>{
     const g=r.total.grade;
-    const t=r.total;
-    const sub=r.sub;
-    const wA=sub.wAssign??70,wE=sub.wExam??30;
-    // คะแนนเก็บ (assign) และคะแนนสอบ (exam) หลังคูณสัดส่วน
-    const assignScore=(t.assignPct*wA/100).toFixed(1);
-    const examScore=(t.examPct*wE/100).toFixed(1);
-    const totalScore=t.totalPct.toFixed(1);
-    const gCol=t.totalPct>=80?'var(--gn)':t.totalPct>=70?'var(--tl)':t.totalPct>=60?'var(--am)':'var(--rd)';
-    html+=`<div style="padding:14px;border-bottom:1px solid var(--bd)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px">${sub.name}</div>
-          ${sub.code?`<div style="font-size:11px;color:var(--mu)">${sub.code}</div>`:''}
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:28px;font-weight:800;color:${gCol};line-height:1">${g.g}</div>
-          <div style="font-size:10px;color:var(--mu);margin-top:2px">เกรด</div>
-        </div>
+    const pct=r.total.totalPct;
+    const gCol=pct>=80?'var(--gn)':pct>=70?'var(--tl)':pct>=60?'var(--am)':'var(--rd)';
+    html+=`<div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px">${r.sub.name}</div>
+        ${r.sub.code?`<div style="font-size:11px;color:var(--mu)">${r.sub.code}</div>`:''}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--sf2);border-radius:8px;padding:10px">
-        <div style="text-align:center">
-          <div style="font-size:10.5px;color:var(--mu)">คะแนนเก็บ</div>
-          <div style="font-weight:700;font-size:15px;color:var(--tx)">${assignScore}</div>
-          <div style="font-size:9px;color:var(--mu)">เต็ม ${wA}</div>
-        </div>
-        <div style="text-align:center;border-left:1px solid var(--bd);border-right:1px solid var(--bd)">
-          <div style="font-size:10.5px;color:var(--mu)">คะแนนสอบ</div>
-          <div style="font-weight:700;font-size:15px;color:var(--tx)">${examScore}</div>
-          <div style="font-size:9px;color:var(--mu)">เต็ม ${wE}</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:10.5px;color:var(--mu)">คะแนนรวม</div>
-          <div style="font-weight:800;font-size:15px;color:${gCol}">${totalScore}</div>
-          <div style="font-size:9px;color:var(--mu)">เต็ม 100</div>
-        </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:800;color:${gCol};line-height:1">${g.g}</div>
+        <div style="font-size:10.5px;color:var(--mu);margin-top:2px">คะแนนรวม ${pct.toFixed(1)}</div>
       </div>
     </div>`;
   });
