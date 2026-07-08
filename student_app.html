@@ -189,7 +189,8 @@ input[type=password]:focus{border-color:var(--tl);}
   <div class="nav-tabs" id="navTabs" style="display:none">
     <button class="nav-tab active" onclick="switchTab('home',this)"><i class="ti ti-home"></i> หน้าหลัก</button>
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
-    <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งานที่สั่ง</button>
+    <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
+    <button class="nav-tab" id="tab-grades" onclick="switchTab('grades',this)" style="display:none"><i class="ti ti-award"></i> ผลการเรียน</button>
   </div>
 </div>
 
@@ -316,7 +317,6 @@ async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
     const r=await fetch(GAS_URL+'?action=load');
     const fresh=JSON.parse(await r.text());
     if(fresh&&fresh.classes){
-      // ใช้ db ล่าสุดจาก cloud เป็นฐาน
       db=fresh;
       _normalizeDB();
     }
@@ -545,6 +545,11 @@ function renderApp(){
   document.getElementById('navTabs').style.display='flex';
   document.getElementById('headerSub').textContent=`${stu.firstName} ${stu.lastName} • ${cls.name}`;
   updateHeaderSchool();
+  // โชว์/ซ่อนแท็บ ผลการเรียน ตามการตั้งค่าของครู
+  const gTab=document.getElementById('tab-grades');
+  if(gTab)gTab.style.display=cls.showGrades?'inline-flex':'none';
+  // ถ้ากำลังดูแท็บ grades แต่ครูปิดไว้ → ย้อนไปหน้าหลัก
+  if(currentTab==='grades'&&!cls.showGrades)currentTab='home';
   renderTab(currentTab);
 }
 
@@ -560,6 +565,7 @@ function renderTab(tab){
   if(tab==='home')renderHome();
   else if(tab==='attendance')renderAttendance();
   else if(tab==='assignments')renderAssignments();
+  else if(tab==='grades')renderGrades();
 }
 
 /* ── HOME ── */
@@ -813,6 +819,87 @@ function renderScores(){
     html+=`</div>`;
   }
   html+=`</div>`;
+  document.getElementById('mainContent').innerHTML=html;
+}
+
+/* ── GRADES (ผลการเรียน) ── */
+function renderGrades(){
+  const stu=stuArr(me.classId).find(s=>s.id===me.studentId);
+  const cls=db.classes.find(c=>c.id===me.classId);
+  const subs=subArr(me.classId);
+  const cid=me.classId,sid=me.studentId;
+
+  // เช็คอีกรอบว่าครูเปิดจริงไหม (กัน state ค้าง)
+  if(!cls.showGrades){
+    document.getElementById('mainContent').innerHTML=`<div class="card"><div class="empty" style="padding:30px">
+      <i class="ti ti-eye-off" style="font-size:36px;color:var(--mu)"></i>
+      <div style="font-weight:700;margin-top:8px">ครูยังไม่เปิดให้ดูผลการเรียน</div>
+      <p style="font-size:12.5px">รอครูเปิดให้ดูก่อนครับ</p>
+    </div></div>`;
+    return;
+  }
+
+  if(!subs.length){
+    document.getElementById('mainContent').innerHTML=`<div class="card"><div class="empty" style="padding:30px"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชา</div></div></div>`;
+    return;
+  }
+
+  // คำนวณคะแนนรวมทั้งหมด (ค่าเฉลี่ยทุกวิชา)
+  let totalGrade=0,count=0;
+  const rows=subs.map(sub=>{
+    const t=calcTotal(cid,sub.id,sid);
+    totalGrade+=parseFloat(t.grade.g);count++;
+    return{sub,total:t};
+  });
+  const gpa=count?(totalGrade/count).toFixed(2):'0.00';
+  const gpaCol=gpa>=3.5?'var(--gn)':gpa>=2.5?'var(--tl)':gpa>=1.5?'var(--am)':'var(--rd)';
+
+  let html=`
+    <div class="profile-card" style="text-align:center">
+      <div style="font-size:12px;opacity:.85;margin-bottom:4px"><i class="ti ti-award"></i> ผลการเรียน</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:2px">${stu.firstName} ${stu.lastName}</div>
+      <div style="font-size:12px;opacity:.85">${cls.name}</div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.2)">
+        <div style="font-size:12px;opacity:.85;margin-bottom:4px">เกรดเฉลี่ย (GPA)</div>
+        <div style="font-size:36px;font-weight:800">${gpa}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><div class="card-hd-title"><i class="ti ti-book"></i> ผลการเรียนแต่ละวิชา</div></div>
+      <div class="card-bd" style="padding:0">`;
+
+  rows.forEach(r=>{
+    const g=r.total.grade;
+    const pct=r.total.totalPct;
+    const gCol=pct>=80?'var(--gn)':pct>=70?'var(--tl)':pct>=60?'var(--am)':'var(--rd)';
+    html+=`<div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px">${r.sub.name}</div>
+        ${r.sub.code?`<div style="font-size:11px;color:var(--mu)">${r.sub.code}</div>`:''}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:800;color:${gCol};line-height:1">${g.g}</div>
+        <div style="font-size:10.5px;color:var(--mu);margin-top:2px">คะแนนรวม ${pct.toFixed(1)}</div>
+      </div>
+    </div>`;
+  });
+  html+=`</div></div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="card-hd"><div class="card-hd-title"><i class="ti ti-info-circle"></i> เกณฑ์การให้เกรด</div></div>
+      <div class="card-bd" style="padding:14px;font-size:12.5px;color:var(--mu)">
+        <div class="f jb mb14"><span>80 คะแนนขึ้นไป</span><b style="color:var(--gn)">เกรด 4</b></div>
+        <div class="f jb mb14"><span>75 - 79</span><b>เกรด 3.5</b></div>
+        <div class="f jb mb14"><span>70 - 74</span><b>เกรด 3</b></div>
+        <div class="f jb mb14"><span>65 - 69</span><b>เกรด 2.5</b></div>
+        <div class="f jb mb14"><span>60 - 64</span><b>เกรด 2</b></div>
+        <div class="f jb mb14"><span>55 - 59</span><b>เกรด 1.5</b></div>
+        <div class="f jb mb14"><span>50 - 54</span><b>เกรด 1</b></div>
+        <div class="f jb"><span>ต่ำกว่า 50</span><b style="color:var(--rd)">เกรด 0</b></div>
+      </div>
+    </div>`;
+
   document.getElementById('mainContent').innerHTML=html;
 }
 
