@@ -537,15 +537,21 @@ function calcGrade(pct){
 /* TOTAL SCORE for student */
 function calcTotal(cid,subid,stuId){
   const sub=getSub(cid,subid);
-  if(!sub)return{assignRaw:0,assignMax:0,assignScore:0,examRaw:0,examMax:0,examScore:0,totalScore:0,wA:70,wE:30,midRaw:null,finRaw:null,midMax:0,finMax:0,grade:{g:'0',cls:'g0'}};
+  if(!sub)return{assignRaw:0,assignMax:0,assignScore:0,examRaw:0,examMax:0,examScore:0,totalScore:0,wA:70,wE:30,midRaw:null,finRaw:null,midMax:0,finMax:0,grade:{g:'0',cls:'g0'},finalGrade:'0',note:'',missing:0};
   const wA=sub.wAssign??70; const wE=sub.wExam??30;
   // ── คะแนนเก็บ: รวม raw/max แล้วแปลงเป็นสัดส่วน wA ──
   const asgs=asgList(cid,subid);
+  const scoreAsgs=asgs.filter(a=>a.type!=='track');
   let assignRaw=0,assignMax=0;
-  asgs.forEach(a=>{
-    if(a.type==='track')return;
+  let missing=0; // จำนวนงานที่ยังไม่มีคะแนน
+  scoreAsgs.forEach(a=>{
     const v=scMap(cid,subid,a.id)[stuId];
-    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
+    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
+      assignRaw+=parseFloat(v);
+      assignMax+=a.maxScore;
+    } else {
+      missing++;
+    }
   });
   const assignScore=assignMax?assignRaw/assignMax*wA:0;
   // ── คะแนนสอบ: mid+final รวม raw/max แล้วแปลงเป็นสัดส่วน wE ──
@@ -559,6 +565,26 @@ function calcTotal(cid,subid,stuId){
   const examScore=examMax?examRaw/examMax*wE:0;
   // ── คะแนนรวม (เต็ม 100) ──
   const totalScore=assignScore+examScore;
+  const gradeObj=calcGrade(totalScore);
+
+  // ── เกรดสุดท้าย + หมายเหตุ ──
+  // 1. คะแนน<50 → 0 + "คะแนนไม่ถึงเกณฑ์"
+  // 2. คะแนน≥50 แต่ส่งงานไม่ครบ → ร + "ส่งงานไม่ครบ"
+  // 3. คะแนน<50 และส่งงานไม่ครบ → 0 + "คะแนนไม่ถึงเกณฑ์" (ตามข้อ 1 มาก่อน)
+  let finalGrade=gradeObj.g;
+  let finalCls=gradeObj.cls;
+  let note='';
+  const hasScoreAsgs=scoreAsgs.length>0;
+  if(totalScore<50){
+    finalGrade='0';
+    finalCls='g0';
+    note='คะแนนไม่ถึงเกณฑ์';
+  } else if(hasScoreAsgs && missing>0){
+    finalGrade='ร';
+    finalCls='g0';
+    note='ส่งงานไม่ครบ';
+  }
+
   return{
     assignRaw:Math.round(assignRaw*10)/10, assignMax,
     assignScore:Math.round(assignScore*10)/10,
@@ -566,7 +592,11 @@ function calcTotal(cid,subid,stuId){
     examScore:Math.round(examScore*10)/10,
     totalScore:Math.round(totalScore*10)/10,
     wA, wE, midRaw, finRaw, midMax, finMax,
-    grade:calcGrade(totalScore)
+    grade:gradeObj,      // เกรดตามคะแนนจริง (ไม่มีเงื่อนไข)
+    finalGrade,          // เกรดสุดท้าย (รวมเงื่อนไข ร, 0)
+    finalCls,
+    note,                // หมายเหตุ
+    missing              // จำนวนงานที่ยังไม่มีคะแนน
   };
 }
 
@@ -2495,15 +2525,22 @@ function renderAsgTable(cid,subid,stus,asgs,mode){
       const v=scMap(cid,subid,a.id)[s.id];
       if(isScore){
         const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;font-size:11.5px;cursor:pointer;${disp!==''?'background:#F0F9FF':''}" onclick="openScorePopup('${cid}','${subid}','${a.id}','${s.id}',${a.maxScore})">
-          <div style="padding:5px 2px;min-height:22px">${disp}</div>
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;${disp!==''?'background:#F0F9FF':''}">
+          <input type="number" step="0.5" min="0" max="${a.maxScore}" value="${disp}"
+            style="width:100%;border:none;background:transparent;text-align:center;padding:5px 2px;font-size:11.5px;font-family:inherit;outline:none;box-sizing:border-box"
+            onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore})"
+            onfocus="this.select()">
         </td>`;
       } else {
-        const ic=v==='ตรงเวลา'?'<i class="ti ti-check" style="color:var(--gn);font-size:15px"></i>':
-                 v==='ส่งช้า'?'<i class="ti ti-check" style="color:var(--am);font-size:15px"></i>':'';
         const bg=v==='ตรงเวลา'?'#F0FDF4':v==='ส่งช้า'?'#FFFBEB':'';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;cursor:pointer;${bg?'background:'+bg:''}" onclick="openTrackPopup('${cid}','${subid}','${a.id}','${s.id}')">
-          <div style="padding:4px 2px;min-height:22px">${ic}</div>
+        const col=v==='ตรงเวลา'?'#15803D':v==='ส่งช้า'?'#92400E':'var(--mu)';
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;${bg?'background:'+bg:''}">
+          <select style="width:100%;border:none;background:transparent;text-align:center;padding:4px 2px;font-size:11px;font-family:inherit;outline:none;color:${col};font-weight:${v?'600':'400'};box-sizing:border-box;-webkit-appearance:none;-moz-appearance:none;appearance:none"
+            onchange="saveTrackInline('${cid}','${subid}','${a.id}','${s.id}',this.value)">
+            <option value="" ${!v?'selected':''}>—</option>
+            <option value="ตรงเวลา" ${v==='ตรงเวลา'?'selected':''}>✓ ตรงเวลา</option>
+            <option value="ส่งช้า" ${v==='ส่งช้า'?'selected':''}>✓ ส่งช้า</option>
+          </select>
         </td>`;
       }
     });
@@ -2609,6 +2646,36 @@ function saveEditAsg(cid,subid,aid,isTrack){
   a.dueDate=document.getElementById('edAsgDue').value||'';
   save();openManageAsg(cid,subid);
   showToast('บันทึกแล้ว ✓');
+}
+
+// ── Inline save (autosave เมื่อพิมพ์/เลือกในตาราง) ──
+function saveScoreInline(cid,subid,aid,stuId,val,maxScore){
+  const tkey=tk(cid);
+  if(!db.scores[tkey])db.scores[tkey]={};
+  if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
+  if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
+  const v=(val||'').toString().trim();
+  if(v===''||isNaN(parseFloat(v))){
+    delete db.scores[tkey][subid][aid][stuId];
+  } else {
+    const n=Math.min(parseFloat(v),maxScore);
+    db.scores[tkey][subid][aid][stuId]=n;
+  }
+  save();
+}
+function saveTrackInline(cid,subid,aid,stuId,val){
+  const tkey=tk(cid);
+  if(!db.scores[tkey])db.scores[tkey]={};
+  if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
+  if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
+  if(!val){
+    delete db.scores[tkey][subid][aid][stuId];
+  } else {
+    db.scores[tkey][subid][aid][stuId]=val;
+  }
+  save();
+  // re-render เพื่ออัปเดตสีพื้นเซลล์
+  renderScEntry();
 }
 
 // ── Popup: กรอกคะแนนงาน ──
@@ -2809,7 +2876,7 @@ function renderScAll(){
   let html=`<div class="prop-box"><div class="f ic g8"><span class="badge bb">คะแนนเก็บ ${wA}%</span><span class="badge bt">คะแนนสอบ ${wE}%</span><span style="font-size:12px;color:var(--mu)">คะแนนรวม = ${wA}% × เก็บ + ${wE}% × สอบ</span></div></div>
   <div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr><th class="fc1">#</th><th class="fc2" style="min-width:130px">ชื่อ-สกุล</th>`;
   asgs.forEach(a=>{html+=`<th style="min-width:78px">${a.name}<br><span style="font-size:10px;font-weight:400;color:var(--mu)">(/${a.maxScore})</span></th>`;});
-  html+=`<th style="min-width:70px">เก็บ%</th><th>กลางภาค</th><th>ปลายภาค</th><th style="min-width:70px">สอบ%</th><th style="min-width:70px">รวม%</th><th>เกรด</th></tr></thead><tbody>`;
+  html+=`<th style="min-width:70px">เก็บ%</th><th>กลางภาค</th><th>ปลายภาค</th><th style="min-width:70px">สอบ%</th><th style="min-width:70px">รวม%</th><th>เกรด</th><th style="min-width:110px">หมายเหตุ</th></tr></thead><tbody>`;
   stus.forEach(s=>{
     const t=calcTotal(cid,subid,s.id);
     html+=`<tr><td class="fc1" style="font-weight:700;color:var(--mu)">${s.no}</td><td class="fc2">${s.firstName} ${s.lastName}</td>`;
@@ -2819,12 +2886,14 @@ function renderScAll(){
       else html+=`<td style="background:#FEE2E2;color:#B91C1C;text-align:center;font-size:11px">ไม่ส่ง</td>`;
     });
     const sub2=getSub(cid,subid);const midMax=sub2.midMax||100,finMax=sub2.finalMax||100;
+    const noteCol=t.note==='คะแนนไม่ถึงเกณฑ์'?'var(--rd)':t.note==='ส่งงานไม่ครบ'?'var(--am)':'var(--mu)';
     html+=`<td style="text-align:center;font-weight:700">${t.assignScore.toFixed(1)}</td>
       <td style="text-align:center">${t.midRaw!==null?t.midRaw+'/'+midMax:'-'}</td>
       <td style="text-align:center">${t.finRaw!==null?t.finRaw+'/'+finMax:'-'}</td>
       <td style="text-align:center;font-weight:700">${t.examScore.toFixed(1)}</td>
       <td style="text-align:center;font-weight:800;color:${t.totalScore>=80?'var(--gn)':t.totalScore>=60?'var(--am)':'var(--rd)'}">${t.totalScore.toFixed(1)}</td>
-      <td style="text-align:center"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td></tr>`;
+      <td style="text-align:center"><span class="grade ${t.finalCls}">${t.finalGrade}</span></td>
+      <td style="text-align:center;font-size:11px;color:${noteCol};font-weight:${t.note?'600':'400'}">${t.note||'-'}</td></tr>`;
   });
   html+=`</tbody></table></div></div>`;
 
@@ -2902,13 +2971,16 @@ function renderScGrade(){
           <th style="border:1px solid var(--bd);padding:3px;background:#FEF3C7;text-align:center;font-size:10px">รวม<br>สอบ<br>/${wE}</th>
           <th style="border:1px solid var(--bd);padding:3px;background:#DCFCE7;text-align:center;font-size:10.5px">รวม<br>/100</th>
           <th style="border:1px solid var(--bd);padding:3px;background:#DCFCE7;text-align:center">เกรด</th>
+          <th style="border:1px solid var(--bd);padding:3px;background:#FEE2E2;text-align:center;font-size:10.5px;min-width:100px">หมายเหตุ</th>
         </tr>
       </thead>
       <tbody>`;
 
   stus.forEach(s=>{
     const t=calcTotal(cid,subid,s.id);
-    gradeDist[parseFloat(t.grade.g)]=(gradeDist[parseFloat(t.grade.g)]||0)+1;
+    // นับ finalGrade เข้า distribution — ถ้าเป็น "ร" นับเป็น 0
+    const gForDist=t.finalGrade==='ร'?0:parseFloat(t.finalGrade);
+    gradeDist[gForDist]=(gradeDist[gForDist]||0)+1;
     html+=`<tr>
       <td style="border:1px solid var(--bd);padding:2px 3px;text-align:center;color:var(--mu);font-size:11px">${s.no}</td>
       <td style="border:1px solid var(--bd);padding:3px 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.firstName} ${s.lastName}</td>`;
@@ -2918,13 +2990,15 @@ function renderScGrade(){
       html+=`<td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-size:${fontSize}px">${disp}</td>`;
     });
     const tCol=t.totalScore>=80?'var(--gn)':t.totalScore>=60?'var(--am)':'var(--rd)';
+    const noteCol=t.note==='คะแนนไม่ถึงเกณฑ์'?'var(--rd)':t.note==='ส่งงานไม่ครบ'?'var(--am)':'var(--mu)';
     html+=`
       <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-weight:700;background:#EFF6FF">${t.assignScore.toFixed(1)}</td>
       <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-size:11px">${t.midRaw!==null?t.midRaw:''}</td>
       <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-size:11px">${t.finRaw!==null?t.finRaw:''}</td>
       <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-weight:700;background:#FEFCE8">${t.examScore.toFixed(1)}</td>
       <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;font-weight:800;color:${tCol};background:#F0FDF4">${t.totalScore.toFixed(1)}</td>
-      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;background:#F0FDF4"><span class="grade ${t.grade.cls}">${t.grade.g}</span></td>
+      <td style="border:1px solid var(--bd);padding:3px 2px;text-align:center;background:#F0FDF4"><span class="grade ${t.finalCls}">${t.finalGrade}</span></td>
+      <td style="border:1px solid var(--bd);padding:3px 5px;text-align:center;font-size:10.5px;color:${noteCol};background:#FEF7F7;font-weight:${t.note?'600':'400'}">${t.note||'-'}</td>
     </tr>`;
   });
   html+=`</tbody></table></div></div>`;

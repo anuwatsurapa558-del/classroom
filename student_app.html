@@ -226,15 +226,20 @@ function calcGrade(pct){
 }
 function calcTotal(cid,subid,stuId){
   const sub=subArr(cid).find(s=>s.id===subid);
-  if(!sub)return{assignScore:0,examScore:0,totalScore:0,wA:70,wE:30,grade:{g:'0',cls:'g0'}};
+  if(!sub)return{assignScore:0,examScore:0,totalScore:0,wA:70,wE:30,grade:{g:'0',cls:'g0'},finalGrade:'0',finalCls:'g0',note:'',missing:0};
   const wA=sub.wAssign??70,wE=sub.wExam??30;
   // ── คะแนนเก็บ ──
   const asgs=(asgBlock(cid)[subid])||[];
-  let assignRaw=0,assignMax=0;
-  asgs.forEach(a=>{
-    if(a.type==='track')return;
+  const scoreAsgs=asgs.filter(a=>a.type!=='track');
+  let assignRaw=0,assignMax=0,missing=0;
+  scoreAsgs.forEach(a=>{
     const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];
-    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){assignRaw+=parseFloat(v);assignMax+=a.maxScore;}
+    if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
+      assignRaw+=parseFloat(v);
+      assignMax+=a.maxScore;
+    } else {
+      missing++;
+    }
   });
   const assignScore=assignMax?assignRaw/assignMax*wA:0;
   // ── คะแนนสอบ ──
@@ -246,13 +251,24 @@ function calcTotal(cid,subid,stuId){
   if(midRaw!==null){examRaw+=midRaw; examMax+=midMax;}
   if(finRaw!==null){examRaw+=finRaw; examMax+=finMax;}
   const examScore=examMax?examRaw/examMax*wE:0;
-  // ── คะแนนรวม (เต็ม 100) ──
+  // ── คะแนนรวม ──
   const totalScore=assignScore+examScore;
+  const gradeObj=calcGrade(totalScore);
+  // ── เกรดสุดท้าย + หมายเหตุ ──
+  let finalGrade=gradeObj.g;
+  let finalCls=gradeObj.cls;
+  let note='';
+  const hasScoreAsgs=scoreAsgs.length>0;
+  if(totalScore<50){
+    finalGrade='0'; finalCls='g0'; note='คะแนนไม่ถึงเกณฑ์';
+  } else if(hasScoreAsgs && missing>0){
+    finalGrade='ร'; finalCls='g0'; note='ส่งงานไม่ครบ';
+  }
   return{
     assignScore:Math.round(assignScore*10)/10,
     examScore:Math.round(examScore*10)/10,
     totalScore:Math.round(totalScore*10)/10,
-    wA, wE, grade:calcGrade(totalScore)
+    wA, wE, grade:gradeObj, finalGrade, finalCls, note, missing
   };
 }
 
@@ -874,17 +890,19 @@ function renderGrades(){
       <div class="card-bd" style="padding:0">`;
 
   rows.forEach(r=>{
-    const g=r.total.grade;
     const t=r.total;
-    const gCol=t.totalScore>=80?'var(--gn)':t.totalScore>=70?'var(--tl)':t.totalScore>=60?'var(--am)':'var(--rd)';
+    const gCol=(t.finalGrade==='ร'||t.finalGrade==='0')?'var(--rd)':(t.totalScore>=80?'var(--gn)':t.totalScore>=70?'var(--tl)':t.totalScore>=60?'var(--am)':'var(--rd)');
+    const noteCol=t.note==='คะแนนไม่ถึงเกณฑ์'?'#B91C1C':t.note==='ส่งงานไม่ครบ'?'#92400E':'var(--mu)';
+    const noteBg=t.note==='คะแนนไม่ถึงเกณฑ์'?'#FEE2E2':t.note==='ส่งงานไม่ครบ'?'#FEF3C7':'';
     html+=`<div style="padding:14px;border-bottom:1px solid var(--bd)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${r.sub.name}</div>
           ${r.sub.code?`<div style="font-size:11px;color:var(--mu)">${r.sub.code}</div>`:''}
+          ${t.note?`<div style="font-size:11px;color:${noteCol};background:${noteBg};padding:3px 8px;border-radius:6px;display:inline-block;margin-top:5px;font-weight:600"><i class="ti ti-alert-circle"></i> ${t.note}</div>`:''}
         </div>
         <div style="text-align:right">
-          <div style="font-size:28px;font-weight:800;color:${gCol};line-height:1">${g.g}</div>
+          <div style="font-size:28px;font-weight:800;color:${gCol};line-height:1">${t.finalGrade}</div>
           <div style="font-size:10px;color:var(--mu);margin-top:2px">เกรด</div>
         </div>
       </div>
