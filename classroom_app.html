@@ -542,17 +542,27 @@ function calcTotal(cid,subid,stuId){
   // ── คะแนนเก็บ: รวม raw/max แล้วแปลงเป็นสัดส่วน wA ──
   const asgs=asgList(cid,subid);
   const scoreAsgs=asgs.filter(a=>a.type!=='track');
+  const trackAsgs=asgs.filter(a=>a.type==='track');
   let assignRaw=0,assignMax=0;
-  let missing=0; // จำนวนงานที่ยังไม่มีคะแนน
+  let missingScore=0; // งานเก็บคะแนนที่ยังไม่มีคะแนน
   scoreAsgs.forEach(a=>{
     const v=scMap(cid,subid,a.id)[stuId];
     if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
       assignRaw+=parseFloat(v);
       assignMax+=a.maxScore;
     } else {
-      missing++;
+      missingScore++;
     }
   });
+  // ── งานติดตาม: นับที่ยังไม่ส่ง (ค่าว่างหรือไม่มี) ──
+  let missingTrack=0;
+  trackAsgs.forEach(a=>{
+    const v=scMap(cid,subid,a.id)[stuId];
+    if(!v||(v!=='ตรงเวลา'&&v!=='ส่งช้า')){
+      missingTrack++;
+    }
+  });
+  const missing=missingScore+missingTrack;
   const assignScore=assignMax?assignRaw/assignMax*wA:0;
   // ── คะแนนสอบ: mid+final รวม raw/max แล้วแปลงเป็นสัดส่วน wE ──
   const ex=examMap(cid,subid)[stuId]||{};
@@ -569,17 +579,17 @@ function calcTotal(cid,subid,stuId){
 
   // ── เกรดสุดท้าย + หมายเหตุ ──
   // 1. คะแนน<50 → 0 + "คะแนนไม่ถึงเกณฑ์"
-  // 2. คะแนน≥50 แต่ส่งงานไม่ครบ → ร + "ส่งงานไม่ครบ"
+  // 2. คะแนน≥50 แต่ส่งงานไม่ครบ (รวมงานติดตาม) → ร + "ส่งงานไม่ครบ"
   // 3. คะแนน<50 และส่งงานไม่ครบ → 0 + "คะแนนไม่ถึงเกณฑ์" (ตามข้อ 1 มาก่อน)
   let finalGrade=gradeObj.g;
   let finalCls=gradeObj.cls;
   let note='';
-  const hasScoreAsgs=scoreAsgs.length>0;
+  const hasAnyAsg=scoreAsgs.length>0||trackAsgs.length>0;
   if(totalScore<50){
     finalGrade='0';
     finalCls='g0';
     note='คะแนนไม่ถึงเกณฑ์';
-  } else if(hasScoreAsgs && missing>0){
+  } else if(hasAnyAsg && missing>0){
     finalGrade='ร';
     finalCls='g0';
     note='ส่งงานไม่ครบ';
@@ -1214,9 +1224,6 @@ function renderClassroom(){
       <span class="badge bt" style="margin-left:4px"><i class="ti ti-book"></i> ${subs.length} วิชา</span>
     </div>
     <div class="f g8 fw">
-      <button class="btn btn-sm" onclick="toggleShowGrades('${cid}')" style="color:${cls.showGrades?'var(--gn)':'var(--mu)'};border-color:${cls.showGrades?'var(--gn)':'var(--bd)'}" title="${cls.showGrades?'ปิดการแสดงผลการเรียนให้นักเรียน':'เปิดการแสดงผลการเรียนให้นักเรียน'}">
-        <i class="ti ti-${cls.showGrades?'eye':'eye-off'}"></i>${cls.showGrades?'ผลการเรียน: เปิด':'ผลการเรียน: ปิด'}
-      </button>
       <button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button>
       <button class="btn btn-sm" onclick="openQrCode('${cid}')"><i class="ti ti-qrcode"></i>QR Code</button>
       <button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i>แก้ชื่อ</button>
@@ -2925,6 +2932,7 @@ function renderScGrade(){
   const el=document.getElementById('sc-grade');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;
+  const cls=db.classes.find(c=>c.id===cid);
   const sub=getSub(cid,subid),stus=stuList(cid);
   const allAsg=asgList(cid,subid);
   const scoreAsg=allAsg.filter(a=>a.type!=='track');
@@ -2940,8 +2948,27 @@ function renderScGrade(){
   const fontSize=colW<40?9.5:colW<55?10.5:11.5;
   const hdH=Math.max(70,Math.min(130,60+n*3));
 
+  // ── การ์ดปุ่มเปิด/ปิดการแสดงผลการเรียนให้นักเรียนดู ──
+  const showOn=!!cls?.showGrades;
+  let html=`<div class="card cp mb14" style="border-left:4px solid ${showOn?'var(--gn)':'var(--mu)'}">
+    <div class="f ic jb fw g8">
+      <div>
+        <div style="font-weight:700;font-size:13.5px">
+          <i class="ti ti-${showOn?'eye':'eye-off'}" style="color:${showOn?'var(--gn)':'var(--mu)'}"></i>
+          การแสดงผลการเรียนให้นักเรียนดู — ห้อง ${cls?.name||'-'}
+        </div>
+        <div style="font-size:11.5px;color:var(--mu);margin-top:3px">
+          ${showOn?'✓ นักเรียนในห้องนี้สามารถดูผลการเรียนของตัวเองได้':'✗ นักเรียนยังไม่เห็นผลการเรียน — กดปุ่มเพื่อเปิด'}
+        </div>
+      </div>
+      <button class="btn ${showOn?'btn-g':'btn-p'}" onclick="toggleShowGrades('${cid}')">
+        <i class="ti ti-${showOn?'eye-off':'eye'}"></i>${showOn?'ปิดการแสดงผล':'เปิดให้นักเรียนดู'}
+      </button>
+    </div>
+  </div>`;
+
   // ── ตารางคะแนนหลัก ──
-  let html=`<div class="card mb14" style="overflow:auto"><div style="padding:10px">
+  html+=`<div class="card mb14" style="overflow:auto"><div style="padding:10px">
     <div class="f ic jb" style="margin-bottom:8px">
       <div style="font-size:12.5px;color:var(--mu)"><i class="ti ti-table"></i> ตารางคะแนนรวม <span style="font-size:11px">· เต็ม ${wA}+${wE}=100</span></div>
       <div style="font-size:11px;color:var(--mu)">${n} งาน</div>
@@ -3178,7 +3205,14 @@ function toggleShowGrades(cid){
   const cls=db.classes.find(c=>c.id===cid);
   if(!cls)return;
   cls.showGrades=!cls.showGrades;
-  save();renderClassroom();
+  save();
+  // ถ้าอยู่หน้าเกรด → refresh หน้าเกรด, ถ้าอยู่หน้าจัดการห้อง → refresh renderClassroom
+  const activePage=document.querySelector('.page.active');
+  if(activePage&&activePage.id==='page-scores'){
+    renderScGrade();
+  } else {
+    renderClassroom();
+  }
   showToast(cls.showGrades?'✓ เปิดให้นักเรียนดูผลการเรียน':'✓ ปิดการแสดงผลการเรียน');
 }
 

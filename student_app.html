@@ -231,16 +231,26 @@ function calcTotal(cid,subid,stuId){
   // ── คะแนนเก็บ ──
   const asgs=(asgBlock(cid)[subid])||[];
   const scoreAsgs=asgs.filter(a=>a.type!=='track');
-  let assignRaw=0,assignMax=0,missing=0;
+  const trackAsgs=asgs.filter(a=>a.type==='track');
+  let assignRaw=0,assignMax=0,missingScore=0;
   scoreAsgs.forEach(a=>{
     const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];
     if(v!==undefined&&v!==''&&!isNaN(parseFloat(v))){
       assignRaw+=parseFloat(v);
       assignMax+=a.maxScore;
     } else {
-      missing++;
+      missingScore++;
     }
   });
+  // ── งานติดตาม: นับที่ยังไม่ส่ง ──
+  let missingTrack=0;
+  trackAsgs.forEach(a=>{
+    const v=((scBlock(cid)[subid]||{})[a.id]||{})[stuId];
+    if(!v||(v!=='ตรงเวลา'&&v!=='ส่งช้า')){
+      missingTrack++;
+    }
+  });
+  const missing=missingScore+missingTrack;
   const assignScore=assignMax?assignRaw/assignMax*wA:0;
   // ── คะแนนสอบ ──
   const ex=((exBlock(cid)[subid])||{})[stuId]||{};
@@ -258,10 +268,10 @@ function calcTotal(cid,subid,stuId){
   let finalGrade=gradeObj.g;
   let finalCls=gradeObj.cls;
   let note='';
-  const hasScoreAsgs=scoreAsgs.length>0;
+  const hasAnyAsg=scoreAsgs.length>0||trackAsgs.length>0;
   if(totalScore<50){
     finalGrade='0'; finalCls='g0'; note='คะแนนไม่ถึงเกณฑ์';
-  } else if(hasScoreAsgs && missing>0){
+  } else if(hasAnyAsg && missing>0){
     finalGrade='ร'; finalCls='g0'; note='ส่งงานไม่ครบ';
   }
   return{
