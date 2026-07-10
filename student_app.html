@@ -191,6 +191,7 @@ input[type=password]:focus{border-color:var(--tl);}
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
     <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
     <button class="nav-tab" id="tab-grades" onclick="switchTab('grades',this)" style="display:none"><i class="ti ti-award"></i> ผลการเรียน</button>
+    <button class="nav-tab" id="tab-fiveS" onclick="switchTab('fiveS',this)" style="display:none"><i class="ti ti-broom"></i> 5 ส</button>
   </div>
 </div>
 
@@ -305,6 +306,10 @@ function _normalizeDB(){
   if(!db.studentPasswords)db.studentPasswords={};
   if(!db.school)db.school={};
   if(!db.terms)db.terms=[];
+  if(!db.fiveS)db.fiveS={items:['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'],groups:{},checks:{}};
+  if(!db.fiveS.items||!db.fiveS.items.length)db.fiveS.items=['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'];
+  if(!db.fiveS.groups)db.fiveS.groups={};
+  if(!db.fiveS.checks)db.fiveS.checks={};
   // ตั้ง currentTermId จาก term ที่ isCurrent
   const cur=db.terms.find(t=>t.isCurrent);
   window._currentTermId=cur?cur.id:(db.terms[0]?.id||null);
@@ -588,6 +593,11 @@ function renderApp(){
   if(gTab)gTab.style.display=cls.showGrades?'inline-flex':'none';
   // ถ้ากำลังดูแท็บ grades แต่ครูปิดไว้ → ย้อนไปหน้าหลัก
   if(currentTab==='grades'&&!cls.showGrades)currentTab='home';
+  // โชว์แท็บ 5 ส เฉพาะเมื่อเป็นหัวหน้ากลุ่ม
+  const fsTab=document.getElementById('tab-fiveS');
+  const isLeader=fsIsLeader(me.classId,me.studentId);
+  if(fsTab)fsTab.style.display=isLeader?'inline-flex':'none';
+  if(currentTab==='fiveS'&&!isLeader)currentTab='home';
   renderTab(currentTab);
 }
 
@@ -604,6 +614,25 @@ function renderTab(tab){
   else if(tab==='attendance')renderAttendance();
   else if(tab==='assignments')renderAssignments();
   else if(tab==='grades')renderGrades();
+  else if(tab==='fiveS')renderFiveSStu();
+}
+
+// ── 5 ส helpers (นักเรียน) ──
+function fsGroupKeyStu(cid){
+  const cls=db.classes.find(c=>c.id===cid);
+  const tid=cls?.termId||(db.terms&&db.terms.find(t=>t.isCurrent)?.id)||'';
+  return tid+'__'+cid;
+}
+function fsGroupsStu(cid){return (db.fiveS&&db.fiveS.groups&&db.fiveS.groups[fsGroupKeyStu(cid)])||[];}
+function fsIsLeader(cid,sid){
+  return fsGroupsStu(cid).some(g=>g.leaderId===sid);
+}
+function fsMyGroup(cid,sid){
+  return fsGroupsStu(cid).find(g=>g.leaderId===sid);
+}
+function fsChecksStu(cid,gid,date){
+  const key=fsGroupKeyStu(cid)+'__'+gid;
+  return ((db.fiveS&&db.fiveS.checks&&db.fiveS.checks[key])||{})[date]||{};
 }
 
 /* ── HOME ── */
@@ -1156,6 +1185,260 @@ async function saveMyInfo(){
 }
 
 function logout(){me=null;localStorage.removeItem('stuSession');currentTab='home';renderLogin();}
+
+/* ══════════════════════════════
+   5 ส (นักเรียน - หัวหน้ากลุ่มเท่านั้น)
+   ══════════════════════════════ */
+let fsSelDate=null;
+let fsView='check'; // 'check' หรือ 'summary'
+
+function renderFiveSStu(){
+  const cid=me.classId, sid=me.studentId;
+  const g=fsMyGroup(cid,sid);
+  const el=document.getElementById('mainContent');
+  if(!g){
+    el.innerHTML=`<div class="card"><div class="empty" style="padding:30px">
+      <i class="ti ti-broom" style="font-size:36px;color:var(--mu)"></i>
+      <div style="font-weight:700;margin-top:8px">คุณไม่ใช่หัวหน้ากลุ่ม</div>
+      <p style="font-size:12.5px">แท็บนี้เห็นได้เฉพาะหัวหน้ากลุ่ม 5 ส</p>
+    </div></div>`;
+    return;
+  }
+  const items=(db.fiveS&&db.fiveS.items)||[];
+  if(!items.length){
+    el.innerHTML=`<div class="card"><div class="empty" style="padding:30px">
+      <i class="ti ti-list-check" style="font-size:36px;color:var(--mu)"></i>
+      <div style="font-weight:700;margin-top:8px">ยังไม่มีหัวข้อ 5 ส</div>
+      <p style="font-size:12.5px">รอครูกำหนดหัวข้อในระบบก่อน</p>
+    </div></div>`;
+    return;
+  }
+  let html=`<div class="score-type-bar" style="margin-bottom:12px">
+    <button class="score-type-btn${fsView==='check'?' active':''}" onclick="fsView='check';renderFiveSStu()"><i class="ti ti-checklist"></i> เช็คงาน</button>
+    <button class="score-type-btn${fsView==='members'?' active':''}" onclick="fsView='members';renderFiveSStu()"><i class="ti ti-users"></i> จัดการสมาชิก</button>
+    <button class="score-type-btn${fsView==='summary'?' active':''}" onclick="fsView='summary';renderFiveSStu()"><i class="ti ti-chart-bar"></i> สรุปผล</button>
+  </div>`;
+  if(fsView==='check')html+=fsRenderCheck(cid,sid,g,items);
+  else if(fsView==='members')html+=fsRenderMembers(cid,sid,g);
+  else html+=fsRenderSummary(cid,sid,g,items);
+  el.innerHTML=html;
+}
+
+function fsRenderCheck(cid,sid,g,items){
+  const today=new Date().toISOString().slice(0,10);
+  if(!fsSelDate)fsSelDate=today;
+  const date=fsSelDate;
+  const stus=stuArr(cid);
+  const members=[g.leaderId,...(g.memberIds||[])].map(id=>stus.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.no-b.no);
+  const dayChecks=fsChecksStu(cid,g.id,date);
+  let html=`<div class="card">
+    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-broom"></i> ${g.name} · เช็คกิจกรรม 5 ส</div></div>
+    <div class="card-bd">
+      <div class="fg">
+        <label class="fl"><i class="ti ti-calendar"></i> วันที่</label>
+        <input type="date" value="${date}" onchange="fsSelDate=this.value;renderFiveSStu()">
+      </div>
+      <div style="font-size:12px;color:var(--mu);padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:10px">
+        <i class="ti ti-info-circle"></i> ติ๊กในช่องเมื่อสมาชิก <b>ทำ</b> กิจกรรมนั้น · เว้นว่าง = <b>ไม่ทำ</b>
+      </div>
+    </div>
+  </div>`;
+  // ตาราง: แถว=นักเรียน, คอลัมน์=หัวข้อ 5ส
+  const n=items.length;
+  const colW=n<=3?70:n<=5?50:40;
+  html+=`<div class="card mt14" style="overflow:auto"><div style="padding:8px">
+    <table style="border-collapse:collapse;width:100%;font-size:12px;min-width:${180+n*colW}px">
+      <thead><tr style="background:var(--sf2)">
+        <th style="border:1px solid var(--bd);padding:5px;width:32px">ที่</th>
+        <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;min-width:100px">ชื่อ</th>`;
+  items.forEach((it,i)=>{
+    html+=`<th style="border:1px solid var(--bd);padding:3px 2px;background:#EEF2FF;text-align:center;width:${colW}px;vertical-align:middle;height:90px">
+      <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:600;margin:0 auto">${it}</div>
+    </th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+  members.forEach(m=>{
+    const isLeader=m.id===g.leaderId;
+    html+=`<tr>
+      <td style="border:1px solid var(--bd);padding:3px;text-align:center;color:var(--mu);font-size:11px">${m.no}</td>
+      <td style="border:1px solid var(--bd);padding:3px 6px;font-size:12px">${m.firstName} ${m.lastName}${isLeader?' <i class="ti ti-crown" style="color:#B45309;font-size:12px"></i>':''}</td>`;
+    items.forEach((it,i)=>{
+      const done=((dayChecks[m.id]||{}).items||{})[i]===true;
+      html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;background:${done?'#DCFCE7':''}">
+        <input type="checkbox" ${done?'checked':''} onchange="fsToggle('${cid}','${g.id}','${date}','${m.id}',${i},this.checked)" style="width:20px;height:20px;cursor:pointer;margin:4px">
+      </td>`;
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  return html;
+}
+
+function fsToggle(cid,gid,date,stuId,itemIdx,checked){
+  if(!db.fiveS.checks)db.fiveS.checks={};
+  const key=fsGroupKeyStu(cid)+'__'+gid;
+  if(!db.fiveS.checks[key])db.fiveS.checks[key]={};
+  if(!db.fiveS.checks[key][date])db.fiveS.checks[key][date]={};
+  if(!db.fiveS.checks[key][date][stuId])db.fiveS.checks[key][date][stuId]={items:{}};
+  if(!db.fiveS.checks[key][date][stuId].items)db.fiveS.checks[key][date][stuId].items={};
+  db.fiveS.checks[key][date][stuId].items[itemIdx]=checked;
+  // อัปเดต DOM ทันที (สีพื้น)
+  const td=event?.target?.closest('td');
+  if(td)td.style.background=checked?'#DCFCE7':'';
+  // save
+  saveStudentInfo(cid,stuId,null,null).catch(()=>{});
+  saveDbSilent();
+}
+
+function saveDbSilent(){
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  clearTimeout(window._fsSave);
+  window._fsSave=setTimeout(async()=>{
+    try{
+      await fetch(GAS_URL,{method:'POST',body:JSON.stringify(db),headers:{'Content-Type':'text/plain'}});
+    }catch(e){}
+  },1500);
+}
+
+// ── จัดการสมาชิก ──
+function fsRenderMembers(cid,sid,g){
+  const stus=stuArr(cid);
+  const groups=fsGroupsStu(cid);
+  // คนที่อยู่ในกลุ่มอื่นแล้ว (ไม่รวมกลุ่มเรา)
+  const assignedElsewhere=new Set();
+  groups.forEach(g2=>{
+    if(g2.id===g.id)return;
+    if(g2.leaderId)assignedElsewhere.add(g2.leaderId);
+    (g2.memberIds||[]).forEach(id=>assignedElsewhere.add(id));
+  });
+  const myMembers=(g.memberIds||[]).map(id=>stus.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.no-b.no);
+  const available=stus.filter(s=>s.id!==g.leaderId && !g.memberIds.includes(s.id) && !assignedElsewhere.has(s.id));
+  const leader=stus.find(s=>s.id===g.leaderId);
+  let html=`<div class="card">
+    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-users"></i> สมาชิก ${g.name}</div></div>
+    <div class="card-bd">
+      <div style="padding:10px;background:#FEF3C7;border-radius:6px;margin-bottom:12px">
+        <span style="font-size:12px;color:#92400E"><i class="ti ti-crown"></i> <b>หัวหน้ากลุ่ม:</b> ${leader?.firstName||''} ${leader?.lastName||''} (คุณ)</span>
+      </div>
+      <div style="font-weight:700;margin-bottom:6px;font-size:13px">สมาชิกปัจจุบัน (${myMembers.length} คน)</div>`;
+  if(!myMembers.length){
+    html+=`<div style="padding:14px;background:var(--sf2);border-radius:6px;text-align:center;font-size:12px;color:var(--mu)">ยังไม่มีสมาชิก · กดปุ่มด้านล่างเพื่อเพิ่ม</div>`;
+  } else {
+    myMembers.forEach(m=>{
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--sf2);border-radius:6px;margin-bottom:5px">
+        <span style="font-size:13px">${m.no}. ${m.firstName} ${m.lastName}</span>
+        <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="fsRemoveMember('${cid}','${g.id}','${m.id}')"><i class="ti ti-x"></i></button>
+      </div>`;
+    });
+  }
+  html+=`<div style="margin-top:14px">
+    <button class="btn btn-tl btn-full" onclick="fsOpenAddMember('${cid}','${g.id}')"${!available.length?' disabled':''}><i class="ti ti-user-plus"></i> เพิ่มสมาชิก ${available.length?`(มี ${available.length} คนว่าง)`:'(ไม่มีคนว่าง)'}</button>
+  </div>
+  </div></div>`;
+  return html;
+}
+
+function fsOpenAddMember(cid,gid){
+  const stus=stuArr(cid);
+  const groups=fsGroupsStu(cid);
+  const g=groups.find(x=>x.id===gid);
+  const assignedElsewhere=new Set();
+  groups.forEach(g2=>{
+    if(g2.leaderId)assignedElsewhere.add(g2.leaderId);
+    (g2.memberIds||[]).forEach(id=>assignedElsewhere.add(id));
+  });
+  const available=stus.filter(s=>s.id!==g.leaderId && !g.memberIds.includes(s.id) && !assignedElsewhere.has(s.id)).sort((a,b)=>a.no-b.no);
+  const opts=available.map(s=>`<label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:4px;cursor:pointer">
+    <input type="checkbox" class="fsAddMem" value="${s.id}" style="width:18px;height:18px">
+    <span style="font-size:13px">${s.no}. ${s.firstName} ${s.lastName}</span>
+  </label>`).join('');
+  showMD(`<div class="mt">เพิ่มสมาชิกเข้ากลุ่ม</div>
+    <div style="max-height:340px;overflow:auto;padding:4px">${opts||'<div style="text-align:center;padding:20px;color:var(--mu);font-size:12px">ไม่มีนักเรียนว่าง</div>'}</div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="fsSubmitAddMembers('${cid}','${gid}')"><i class="ti ti-check"></i>เพิ่ม</button>
+    </div>
+  `);
+}
+function fsSubmitAddMembers(cid,gid){
+  const ids=[...document.querySelectorAll('.fsAddMem:checked')].map(cb=>cb.value);
+  if(!ids.length){showToast('กรุณาเลือกอย่างน้อย 1 คน');return;}
+  const groups=fsGroupsStu(cid);
+  const g=groups.find(x=>x.id===gid);
+  if(!g)return;
+  g.memberIds=[...new Set([...(g.memberIds||[]),...ids])];
+  saveDbSilent();
+  closeMD();renderFiveSStu();
+  showToast(`เพิ่ม ${ids.length} คนเข้ากลุ่มแล้ว ✓`);
+}
+function fsRemoveMember(cid,gid,stuId){
+  if(!confirm('เอาสมาชิกคนนี้ออก?'))return;
+  const groups=fsGroupsStu(cid);
+  const g=groups.find(x=>x.id===gid);
+  if(!g)return;
+  g.memberIds=(g.memberIds||[]).filter(id=>id!==stuId);
+  saveDbSilent();renderFiveSStu();
+  showToast('เอาออกแล้ว');
+}
+
+// ── สรุปผล ──
+function fsRenderSummary(cid,sid,g,items){
+  const stus=stuArr(cid);
+  const members=[g.leaderId,...(g.memberIds||[])].map(id=>stus.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.no-b.no);
+  const today=new Date();
+  const dates=[];
+  for(let i=13;i>=0;i--){
+    const d=new Date(today);d.setDate(d.getDate()-i);
+    dates.push(d.toISOString().slice(0,10));
+  }
+  // นับ per stu
+  const perStu={};
+  let totalP=0,totalD=0,daysWith=0;
+  members.forEach(m=>{perStu[m.id]={name:m.firstName+' '+m.lastName,no:m.no,done:0,total:0};});
+  dates.forEach(d=>{
+    const c=fsChecksStu(cid,g.id,d);
+    if(!Object.keys(c).length)return;
+    daysWith++;
+    members.forEach(m=>{
+      items.forEach((it,i)=>{
+        const done=((c[m.id]||{}).items||{})[i]===true;
+        totalP++;perStu[m.id].total++;
+        if(done){totalD++;perStu[m.id].done++;}
+      });
+    });
+  });
+  const pct=totalP?Math.round(totalD/totalP*100):0;
+  const pctCol=pct>=80?'var(--gn)':pct>=60?'var(--am)':'var(--rd)';
+  let html=`<div class="profile-card" style="text-align:center">
+    <div style="font-size:12px;opacity:.85"><i class="ti ti-chart-bar"></i> สรุป 14 วันล่าสุด</div>
+    <div style="font-weight:700;font-size:15px;margin-top:2px">${g.name}</div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.2)">
+      <div style="font-size:12px;opacity:.85">คะแนนกลุ่ม</div>
+      <div style="font-size:32px;font-weight:800">${pct}%</div>
+      <div style="font-size:11px;opacity:.85">${daysWith} วันที่เช็ค</div>
+    </div>
+  </div>
+  <div class="card mt14">
+    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-users"></i> คะแนนรายบุคคล</div></div>
+    <div class="card-bd" style="padding:0">`;
+  if(!daysWith){
+    html+=`<div style="padding:20px;text-align:center;color:var(--mu);font-size:12.5px">ยังไม่มีข้อมูลใน 14 วันที่ผ่านมา</div>`;
+  } else {
+    Object.values(perStu).sort((a,b)=>a.no-b.no).forEach(s=>{
+      const p=s.total?Math.round(s.done/s.total*100):0;
+      const col=p>=80?'var(--gn)':p>=60?'var(--am)':'var(--rd)';
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--bd)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${s.no}. ${s.name}</div>
+          <div style="font-size:11px;color:var(--mu)">${s.done}/${s.total} ครั้ง</div>
+        </div>
+        <div style="font-size:18px;font-weight:800;color:${col}">${p}%</div>
+      </div>`;
+    });
+  }
+  html+=`</div></div>`;
+  return html;
+}
 
 /* ── INIT ── */
 init();
