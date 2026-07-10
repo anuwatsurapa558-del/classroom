@@ -158,6 +158,13 @@ input[type=password]:focus{border-color:var(--tl);}
 .spinner{width:20px;height:20px;border:2px solid var(--s3);border-top-color:var(--tl);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:none;align-items:center;justify-content:center;padding:16px;}
+.mo.open{display:flex;}
+.md{background:var(--sf);border-radius:16px;padding:22px;width:100%;max-width:520px;box-shadow:0 10px 40px rgba(0,0,0,0.2);max-height:88vh;overflow-y:auto;animation:fadeIn .22s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.mt{font-size:16px;font-weight:700;margin-bottom:16px;text-align:center;}
+
 /* SUBJECT TABS */
 .sub-tabs{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;}
 .sub-tabs::-webkit-scrollbar{display:none;}
@@ -191,7 +198,7 @@ input[type=password]:focus{border-color:var(--tl);}
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
     <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
     <button class="nav-tab" id="tab-grades" onclick="switchTab('grades',this)" style="display:none"><i class="ti ti-award"></i> ผลการเรียน</button>
-    <button class="nav-tab" id="tab-fiveS" onclick="switchTab('fiveS',this)" style="display:none"><i class="ti ti-broom"></i> 5 ส</button>
+    <button class="nav-tab" id="tab-fiveS" onclick="switchTab('fiveS',this)" style="display:none"><i class="ti ti-broom" style="color:#0EA5E9"></i> 🧹 5 ส</button>
   </div>
 </div>
 
@@ -200,6 +207,10 @@ input[type=password]:focus{border-color:var(--tl);}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="mo" id="MO" onclick="if(event.target.id==='MO')closeMD()">
+  <div class="md" id="MC"></div>
+</div>
 
 <script>
 const GAS_URL='https://script.google.com/macros/s/AKfycbwrdBS2gm5frwgmTRMcYYciw8UOYWc-X5aITv8L4mzJdIUlScwlpu8w7FeyvreZJVY9/exec';
@@ -216,6 +227,8 @@ function thDate(d){
   const[y,m,day]=d.split('-');return`${+day} ${mo[+m-1]} ${+y+543}`;
 }
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function showMD(html){document.getElementById('MC').innerHTML=html;document.getElementById('MO').classList.add('open');}
+function closeMD(){document.getElementById('MO').classList.remove('open');}
 function setSync(state){const d=document.getElementById('syncDot');if(d){d.className='sync-dot'+(state==='ok'?' ok':'');}}
 
 /* ── GRADE ── */

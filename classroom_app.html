@@ -141,11 +141,10 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
 input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 
 /* MODAL */
-.mo{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:none;align-items:flex-end;justify-content:center;}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:none;align-items:center;justify-content:center;padding:16px;}
 .mo.open{display:flex;}
-.md{background:var(--sf);border-radius:16px 16px 0 0;padding:22px;width:100%;max-width:560px;box-shadow:0 -4px 30px rgba(0,0,0,0.15);max-height:92vh;overflow-y:auto;animation:slideUp .22s ease;}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.md::before{content:'';display:block;width:40px;height:4px;background:var(--s3);border-radius:2px;margin:0 auto 16px;}
+.md{background:var(--sf);border-radius:16px;padding:22px;width:100%;max-width:560px;box-shadow:0 10px 40px rgba(0,0,0,0.2);max-height:88vh;overflow-y:auto;animation:fadeIn .22s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .mt{font-size:16px;font-weight:700;margin-bottom:16px;}
 
 /* TABS */
@@ -353,7 +352,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="ni" onclick="gotoPage('timetable',this)"><i class="ti ti-calendar-time"></i><span>ตารางสอน</span></button>
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
-    <button class="ni" onclick="gotoPage('fiveS',this)"><i class="ti ti-broom"></i><span>กิจกรรม 5 ส</span></button>
+    <button class="ni" onclick="gotoPage('fiveS',this)"><i class="ti ti-broom" style="color:#0EA5E9"></i><span>🧹 กิจกรรม 5 ส</span></button>
     <div class="nl" style="margin-top:6px">รายงาน</div>
     <button class="ni" onclick="gotoPage('export',this)"><i class="ti ti-file-export"></i><span>ส่งออกข้อมูล</span></button>
   </div>
@@ -2779,9 +2778,16 @@ function setAsgType(t){
   asgType=t;
   document.getElementById('atype-score')?.classList.toggle('active',t==='score');
   document.getElementById('atype-track')?.classList.toggle('active',t==='track');
-  // ซ่อน/แสดงช่องคะแนนเต็ม
+  // ซ่อน/แสดงช่องคะแนนเต็ม + ช่องกำหนดส่งเดี่ยว
   const w=document.getElementById('asgMaxWrap');
-  if(w)w.style.display=(t==='track')?'none':'block';
+  const w2=document.getElementById('asgDueOnlyWrap');
+  if(t==='track'){
+    if(w)w.style.display='none';
+    if(w2)w2.style.display='block';
+  } else {
+    if(w)w.style.display='grid';
+    if(w2)w2.style.display='none';
+  }
   const hint=document.getElementById('asgTypeHint');
   if(hint)hint.innerHTML=(t==='track')
     ?'<i class="ti ti-info-circle"></i> งานติดตาม: บันทึกแค่ "ส่งแล้ว / ยังไม่ส่ง" ไม่นำไปคิดคะแนนหรือเกรด'
@@ -2793,16 +2799,19 @@ function addAsg(cid,subid){
   if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
   if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
   const id=uid();
-  const due=val('asgDue')||'';
   if(asgType==='track'){
+    const due=val('asgDue2')||'';
     db.assignments[tk(cid)][subid].push({id,name,type:'track',dueDate:due});
+    if(document.getElementById('asgDue2'))document.getElementById('asgDue2').value='';
   }else{
     const max=parseInt(val('asgMax'));
     if(!max||max<1){showToast('กรุณากรอกคะแนนเต็ม');return;}
+    const due=val('asgDue')||'';
     db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score',dueDate:due});
+    if(document.getElementById('asgMax'))document.getElementById('asgMax').value='';
+    if(document.getElementById('asgDue'))document.getElementById('asgDue').value='';
   }
   document.getElementById('asgName').value='';
-  if(document.getElementById('asgMax'))document.getElementById('asgMax').value='';
   save();renderScEntry();
 }
 function delAsg(cid,subid,aid){
