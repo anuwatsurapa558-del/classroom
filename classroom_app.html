@@ -3114,6 +3114,11 @@ function fsCheckKey(cid,gid){return fsGroupKey(cid)+'__'+gid;}
 function fsGroups(cid){return db.fiveS.groups[fsGroupKey(cid)]||[];}
 function fsSetGroups(cid,arr){db.fiveS.groups[fsGroupKey(cid)]=arr;}
 function fsChecks(cid,gid,date){return ((db.fiveS.checks[fsCheckKey(cid,gid)]||{})[date])||{};}
+// items ของแต่ละกลุ่ม — ถ้ายังไม่มี ให้ใช้ค่า default
+function fsGroupItems(g){
+  if(!g.items||!g.items.length)return ['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'];
+  return g.items;
+}
 
 function renderFiveS(){
   selBar('fiveS-selbar','fiveS',false);
@@ -3125,11 +3130,9 @@ function renderFiveS(){
   const tab=P.fiveS.tab||'groups';
   let html=`<div class="score-type-bar" style="margin-bottom:12px">
     <button class="score-type-btn${tab==='groups'?' active':''}" onclick="P.fiveS.tab='groups';renderFiveS()"><i class="ti ti-users-group"></i> จัดการกลุ่ม</button>
-    <button class="score-type-btn${tab==='items'?' active':''}" onclick="P.fiveS.tab='items';renderFiveS()"><i class="ti ti-list-check"></i> หัวข้อ 5 ส</button>
     <button class="score-type-btn${tab==='summary'?' active':''}" onclick="P.fiveS.tab='summary';renderFiveS()"><i class="ti ti-chart-bar"></i> สรุปผล</button>
   </div>`;
   if(tab==='groups')html+=renderFiveSGroups(cid);
-  else if(tab==='items')html+=renderFiveSItems();
   else html+=renderFiveSSummary(cid);
   el.innerHTML=html;
 }
@@ -3173,6 +3176,7 @@ function renderFiveSGroups(cid){
   groups.forEach((g,idx)=>{
     const leader=stus.find(s=>s.id===g.leaderId);
     const members=(g.memberIds||[]).map(id=>stus.find(s=>s.id===id)).filter(Boolean);
+    const items=fsGroupItems(g);
     html+=`<div class="card mb14">
       <div class="cp" style="border-bottom:1px solid var(--bd);background:var(--sf2)">
         <div class="f ic jb fw g8">
@@ -3182,6 +3186,7 @@ function renderFiveSGroups(cid){
           </div>
           <div class="f g8">
             <button class="btn btn-xs btn-p" onclick="openFsManageMembers('${cid}','${g.id}')"><i class="ti ti-users"></i>สมาชิก</button>
+            <button class="btn btn-xs" style="color:var(--bl);border-color:var(--bl)" onclick="openFsGroupItems('${cid}','${g.id}')"><i class="ti ti-list-check"></i>หัวข้อ</button>
             <button class="btn btn-xs" onclick="openEditFsGroup('${cid}','${g.id}')"><i class="ti ti-edit"></i>แก้ไข</button>
             <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delFsGroup('${cid}','${g.id}')"><i class="ti ti-trash"></i>ลบ</button>
           </div>
@@ -3192,10 +3197,16 @@ function renderFiveSGroups(cid){
           <span style="font-size:11.5px;color:var(--mu)">หัวหน้ากลุ่ม:</span>
           ${leader?`<span style="background:#FEF3C7;padding:3px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:#92400E;margin-left:4px"><i class="ti ti-crown"></i> ${leader.firstName} ${leader.lastName}</span>`:'<span style="color:var(--rd);font-size:12px;margin-left:4px">ยังไม่มีหัวหน้า!</span>'}
         </div>
+        <div style="margin-bottom:8px">
+          <span style="font-size:11.5px;color:var(--mu)">หัวข้อกิจกรรม (${items.length}):</span>
+          <div style="margin-top:5px">
+            ${items.map(it=>`<span style="display:inline-block;background:#EEF2FF;color:#3730A3;padding:3px 8px;border-radius:6px;font-size:11.5px;margin:2px">${it}</span>`).join('')}
+          </div>
+        </div>
         <div>
           <span style="font-size:11.5px;color:var(--mu)">สมาชิก (${members.length} คน):</span>
           <div style="margin-top:5px">
-            ${members.length?members.map(m=>`<span style="display:inline-block;background:var(--sf2);padding:3px 10px;border-radius:8px;font-size:12px;margin:2px">${m.no}. ${m.firstName} ${m.lastName}</span>`).join(''):'<span style="font-size:11.5px;color:var(--mu);font-style:italic">รอหัวหน้ากลุ่มเพิ่มสมาชิกในแอปนักเรียน</span>'}
+            ${members.length?members.map(m=>`<span style="display:inline-block;background:var(--sf2);padding:3px 10px;border-radius:8px;font-size:12px;margin:2px">${m.no}. ${m.firstName} ${m.lastName}</span>`).join(''):'<span style="font-size:11.5px;color:var(--mu);font-style:italic">รอเพิ่มสมาชิก</span>'}
           </div>
         </div>
       </div>
@@ -3390,84 +3401,63 @@ function fsTeacherRemoveMember(cid,gid,stuId){
   setTimeout(()=>openFsManageMembers(cid,gid),400);
 }
 
-// ── หน้า 2: หัวข้อ 5 ส (ครูตั้งเอง) ──
-function renderFiveSItems(){
-  const items=db.fiveS.items||[];
-  let html=`<div class="card cp mb14">
-    <div class="f ic jb fw g8">
-      <div>
-        <b><i class="ti ti-list-check"></i> หัวข้อกิจกรรม 5 ส</b>
-        <div style="font-size:12px;color:var(--mu);margin-top:3px">ครูกำหนดเองได้ตามต้องการ · ${items.length} หัวข้อ</div>
-      </div>
-      <button class="btn btn-p btn-sm" onclick="openAddFsItem()"><i class="ti ti-plus"></i>เพิ่มหัวข้อ</button>
+// ── จัดการหัวข้อ 5 ส ของแต่ละกลุ่ม (ครูก็ทำได้) ──
+function openFsGroupItems(cid,gid){
+  const groups=fsGroups(cid);
+  const g=groups.find(x=>x.id===gid);
+  if(!g)return;
+  const items=fsGroupItems(g);
+  const rows=items.map((it,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--mu);width:24px;text-align:center">${i+1}.</span>
+      <input type="text" class="fsItInp" value="${it.replace(/"/g,'&quot;')}" data-idx="${i}" style="flex:1">
+      <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="fsRemoveItem(${i})"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+  showMD(`<div class="mt">หัวข้อกิจกรรม — ${g.name}</div>
+    <div style="font-size:12px;color:var(--mu);padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:10px">
+      <i class="ti ti-info-circle"></i> แต่ละกลุ่มมีหัวข้อของตัวเอง — กำหนดได้ตามพื้นที่รับผิดชอบ
     </div>
-  </div>`;
-  if(!items.length){
-    html+=`<div class="card cp"><div class="empty" style="padding:30px">
-      <i class="ti ti-list-check" style="color:var(--mu);font-size:36px"></i>
-      <div style="font-weight:700;margin-top:8px">ยังไม่มีหัวข้อ</div>
-    </div></div>`;
-    return html;
-  }
-  html+=`<div class="card"><div class="tw"><table><thead><tr><th style="width:40px">#</th><th>หัวข้อ</th><th style="width:120px">จัดการ</th></tr></thead><tbody>`;
-  items.forEach((it,i)=>{
-    html+=`<tr><td style="font-weight:700;color:var(--mu);text-align:center">${i+1}</td>
-      <td style="font-size:13.5px"><b>${it}</b></td>
-      <td style="text-align:center">
-        <button class="btn btn-xs" onclick="openEditFsItem(${i})"><i class="ti ti-edit"></i></button>
-        <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delFsItem(${i})"><i class="ti ti-trash"></i></button>
-      </td></tr>`;
-  });
-  html+=`</tbody></table></div></div>`;
-  return html;
-}
-function openAddFsItem(){
-  showMD(`<div class="mt">เพิ่มหัวข้อ 5 ส</div>
-    <div class="fg"><label class="fl">ชื่อหัวข้อ</label>
-      <input type="text" id="fsItName" placeholder="เช่น สะสาง, สะดวก, ทำความสะอาด">
+    <div id="fsItRows" style="max-height:300px;overflow:auto;padding:2px">${rows}</div>
+    <div class="f g8" style="margin-top:8px">
+      <button class="btn btn-sm btn-full" onclick="fsAddItemRow()"><i class="ti ti-plus"></i>เพิ่มหัวข้อ</button>
     </div>
-    <div class="f g8" style="justify-content:flex-end">
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
       <button class="btn" onclick="closeMD()">ยกเลิก</button>
-      <button class="btn btn-p" onclick="submitAddFsItem()"><i class="ti ti-check"></i>เพิ่ม</button>
+      <button class="btn btn-p" onclick="saveFsGroupItems('${cid}','${gid}')"><i class="ti ti-check"></i>บันทึก</button>
     </div>
   `);
 }
-function submitAddFsItem(){
-  const name=(document.getElementById('fsItName').value||'').trim();
-  if(!name){showToast('กรุณากรอกหัวข้อ');return;}
-  db.fiveS.items.push(name);
+function fsAddItemRow(){
+  const wrap=document.getElementById('fsItRows');
+  if(!wrap)return;
+  const idx=wrap.querySelectorAll('.fsItInp').length;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML=`<span style="font-size:11px;color:var(--mu);width:24px;text-align:center">${idx+1}.</span>
+    <input type="text" class="fsItInp" placeholder="ชื่อหัวข้อใหม่" data-idx="${idx}" style="flex:1">
+    <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="this.parentElement.remove()"><i class="ti ti-x"></i></button>`;
+  wrap.appendChild(div);
+  div.querySelector('input').focus();
+}
+function fsRemoveItem(idx){
+  const inputs=document.querySelectorAll('.fsItInp');
+  if(inputs[idx])inputs[idx].parentElement.remove();
+}
+function saveFsGroupItems(cid,gid){
+  const groups=fsGroups(cid);
+  const g=groups.find(x=>x.id===gid);
+  if(!g)return;
+  const items=[...document.querySelectorAll('.fsItInp')].map(inp=>inp.value.trim()).filter(v=>v);
+  if(!items.length){showToast('กรุณากรอกหัวข้ออย่างน้อย 1 หัวข้อ');return;}
+  g.items=items;
+  fsSetGroups(cid,groups);
   save();closeMD();renderFiveS();
-  showToast('เพิ่มหัวข้อแล้ว ✓');
-}
-function openEditFsItem(idx){
-  const cur=db.fiveS.items[idx]||'';
-  showMD(`<div class="mt">แก้ไขหัวข้อ</div>
-    <div class="fg"><label class="fl">ชื่อหัวข้อ</label>
-      <input type="text" id="fsItName" value="${cur.replace(/"/g,'&quot;')}">
-    </div>
-    <div class="f g8" style="justify-content:flex-end">
-      <button class="btn" onclick="closeMD()">ยกเลิก</button>
-      <button class="btn btn-p" onclick="saveEditFsItem(${idx})"><i class="ti ti-check"></i>บันทึก</button>
-    </div>
-  `);
-}
-function saveEditFsItem(idx){
-  const name=(document.getElementById('fsItName').value||'').trim();
-  if(!name){showToast('กรุณากรอกหัวข้อ');return;}
-  db.fiveS.items[idx]=name;
-  save();closeMD();renderFiveS();
-  showToast('แก้ไขแล้ว ✓');
-}
-function delFsItem(idx){
-  if(!confirm('ลบหัวข้อนี้? ประวัติเช็คของหัวข้อนี้จะยังอยู่แต่จะไม่แสดง'))return;
-  db.fiveS.items.splice(idx,1);
-  save();renderFiveS();
+  showToast('บันทึกหัวข้อแล้ว ✓');
 }
 
 // ── หน้า 3: สรุปผล ──
 function renderFiveSSummary(cid){
   const groups=fsGroups(cid);
-  const items=db.fiveS.items||[];
   const stus=stuList(cid);
   const cls=db.classes.find(c=>c.id===cid);
   if(!groups.length){
@@ -3489,13 +3479,14 @@ function renderFiveSSummary(cid){
     <div style="font-size:12px;color:var(--mu);margin-top:3px">30 วันย้อนหลัง · ${groups.length} กลุ่ม</div>
   </div>`;
   groups.forEach(g=>{
+    const items=fsGroupItems(g);
     const leader=stus.find(s=>s.id===g.leaderId);
     const members=[g.leaderId,...(g.memberIds||[])].map(id=>stus.find(s=>s.id===id)).filter(Boolean);
     // นับ: total = จำนวนวัน × สมาชิก × หัวข้อ, done = จำนวนที่ทำ
     let totalPossible=0, totalDone=0;
     const perStu={};
     const perItem={};
-    items.forEach((it,i)=>{perItem[i]={done:0,total:0};});
+    items.forEach((it,i)=>{perItem[i]={done:0,total:0,name:it};});
     members.forEach(m=>{perStu[m.id]={name:m.firstName+' '+m.lastName,no:m.no,done:0,total:0};});
     let daysWithData=0;
     dates.forEach(d=>{

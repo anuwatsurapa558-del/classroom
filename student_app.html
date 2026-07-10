@@ -1204,24 +1204,34 @@ function renderFiveSStu(){
     </div></div>`;
     return;
   }
-  const items=(db.fiveS&&db.fiveS.items)||[];
-  if(!items.length){
-    el.innerHTML=`<div class="card"><div class="empty" style="padding:30px">
-      <i class="ti ti-list-check" style="font-size:36px;color:var(--mu)"></i>
-      <div style="font-weight:700;margin-top:8px">ยังไม่มีหัวข้อ 5 ส</div>
-      <p style="font-size:12.5px">รอครูกำหนดหัวข้อในระบบก่อน</p>
-    </div></div>`;
-    return;
-  }
+  const items=fsGroupItemsStu(g);
   let html=`<div class="score-type-bar" style="margin-bottom:12px">
     <button class="score-type-btn${fsView==='check'?' active':''}" onclick="fsView='check';renderFiveSStu()"><i class="ti ti-checklist"></i> เช็คงาน</button>
-    <button class="score-type-btn${fsView==='members'?' active':''}" onclick="fsView='members';renderFiveSStu()"><i class="ti ti-users"></i> จัดการสมาชิก</button>
+    <button class="score-type-btn${fsView==='items'?' active':''}" onclick="fsView='items';renderFiveSStu()"><i class="ti ti-list-check"></i> หัวข้อ</button>
+    <button class="score-type-btn${fsView==='members'?' active':''}" onclick="fsView='members';renderFiveSStu()"><i class="ti ti-users"></i> สมาชิก</button>
     <button class="score-type-btn${fsView==='summary'?' active':''}" onclick="fsView='summary';renderFiveSStu()"><i class="ti ti-chart-bar"></i> สรุปผล</button>
   </div>`;
-  if(fsView==='check')html+=fsRenderCheck(cid,sid,g,items);
+  if(fsView==='check'){
+    if(!items.length){
+      html+=`<div class="card"><div class="empty" style="padding:30px">
+        <i class="ti ti-list-check" style="font-size:36px;color:var(--mu)"></i>
+        <div style="font-weight:700;margin-top:8px">ยังไม่มีหัวข้อกิจกรรม</div>
+        <p style="font-size:12.5px">ไปที่แท็บ "หัวข้อ" เพื่อกำหนดหัวข้อของกลุ่ม</p>
+      </div></div>`;
+    } else {
+      html+=fsRenderCheck(cid,sid,g,items);
+    }
+  }
+  else if(fsView==='items')html+=fsRenderItems(cid,sid,g,items);
   else if(fsView==='members')html+=fsRenderMembers(cid,sid,g);
   else html+=fsRenderSummary(cid,sid,g,items);
   el.innerHTML=html;
+}
+
+// items ของกลุ่ม (ถ้าไม่มี ใช้ default)
+function fsGroupItemsStu(g){
+  if(!g.items||!g.items.length)return ['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'];
+  return g.items;
 }
 
 function fsRenderCheck(cid,sid,g,items){
@@ -1236,10 +1246,10 @@ function fsRenderCheck(cid,sid,g,items){
     <div class="card-bd">
       <div class="fg">
         <label class="fl"><i class="ti ti-calendar"></i> วันที่</label>
-        <input type="date" value="${date}" onchange="fsSelDate=this.value;renderFiveSStu()">
+        <input type="date" value="${date}" onchange="if(fsHasPending()){if(!confirm('มีการเปลี่ยนแปลงที่ยังไม่บันทึก ต้องการทิ้ง?')){this.value=fsSelDate;return;}}fsClearPending();fsSelDate=this.value;renderFiveSStu()">
       </div>
       <div style="font-size:12px;color:var(--mu);padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:10px">
-        <i class="ti ti-info-circle"></i> ติ๊กในช่องเมื่อสมาชิก <b>ทำ</b> กิจกรรมนั้น · เว้นว่าง = <b>ไม่ทำ</b>
+        <i class="ti ti-info-circle"></i> ติ๊กในช่องเมื่อสมาชิก <b>ทำ</b> กิจกรรมนั้น · เว้นว่าง = <b>ไม่ทำ</b> · <b>กดปุ่มบันทึกด้านล่าง</b>เมื่อเช็คเสร็จ
       </div>
     </div>
   </div>`;
@@ -1247,7 +1257,7 @@ function fsRenderCheck(cid,sid,g,items){
   const n=items.length;
   const colW=n<=3?70:n<=5?50:40;
   html+=`<div class="card mt14" style="overflow:auto"><div style="padding:8px">
-    <table style="border-collapse:collapse;width:100%;font-size:12px;min-width:${180+n*colW}px">
+    <table id="fsTb" style="border-collapse:collapse;width:100%;font-size:12px;min-width:${180+n*colW}px" data-cid="${cid}" data-gid="${g.id}" data-date="${date}">
       <thead><tr style="background:var(--sf2)">
         <th style="border:1px solid var(--bd);padding:5px;width:32px">ที่</th>
         <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;min-width:100px">ชื่อ</th>`;
@@ -1264,32 +1274,84 @@ function fsRenderCheck(cid,sid,g,items){
       <td style="border:1px solid var(--bd);padding:3px 6px;font-size:12px">${m.firstName} ${m.lastName}${isLeader?' <i class="ti ti-crown" style="color:#B45309;font-size:12px"></i>':''}</td>`;
     items.forEach((it,i)=>{
       const done=((dayChecks[m.id]||{}).items||{})[i]===true;
-      html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;background:${done?'#DCFCE7':''}">
-        <input type="checkbox" ${done?'checked':''} onchange="fsToggle('${cid}','${g.id}','${date}','${m.id}',${i},this.checked)" style="width:20px;height:20px;cursor:pointer;margin:4px">
+      html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;background:${done?'#DCFCE7':''}" class="fs-cell">
+        <input type="checkbox" ${done?'checked':''} data-stu="${m.id}" data-item="${i}" onchange="fsMark(this)" style="width:20px;height:20px;cursor:pointer;margin:4px">
       </td>`;
     });
     html+=`</tr>`;
   });
-  html+=`</tbody></table></div></div>`;
+  html+=`</tbody></table></div>
+  <div class="cp" style="border-top:1px solid var(--bd);background:var(--sf2)">
+    <div class="f g8" style="justify-content:space-between;align-items:center">
+      <div id="fsPendingLbl" style="font-size:12px;color:var(--mu)"><i class="ti ti-info-circle"></i> ยังไม่มีการเปลี่ยนแปลง</div>
+      <button class="btn btn-p" id="fsSaveBtn" onclick="fsSaveAll()"><i class="ti ti-device-floppy"></i> บันทึก</button>
+    </div>
+  </div>
+  </div>`;
   return html;
 }
 
-function fsToggle(cid,gid,date,stuId,itemIdx,checked){
+// ── รวมการเปลี่ยนแปลงที่รอบันทึก ──
+window._fsPending={}; // {stuId: {itemIdx: bool}}
+
+function fsHasPending(){
+  return Object.keys(window._fsPending||{}).length>0;
+}
+function fsClearPending(){
+  window._fsPending={};
+}
+function fsMark(cb){
+  const stu=cb.dataset.stu;
+  const idx=parseInt(cb.dataset.item);
+  if(!window._fsPending)window._fsPending={};
+  if(!window._fsPending[stu])window._fsPending[stu]={};
+  window._fsPending[stu][idx]=cb.checked;
+  // เปลี่ยนสีพื้น
+  const td=cb.closest('td');
+  if(td)td.style.background=cb.checked?'#FEF3C7':'#FEF3C7';  // เหลือง = รอบันทึก
+  const lbl=document.getElementById('fsPendingLbl');
+  const total=Object.values(window._fsPending).reduce((s,o)=>s+Object.keys(o).length,0);
+  if(lbl)lbl.innerHTML=`<i class="ti ti-alert-triangle" style="color:var(--am)"></i> มีการเปลี่ยนแปลง ${total} รายการ (ยังไม่บันทึก)`;
+}
+
+function fsSaveAll(){
+  const tb=document.getElementById('fsTb');
+  if(!tb)return;
+  const cid=tb.dataset.cid;
+  const gid=tb.dataset.gid;
+  const date=tb.dataset.date;
+  const pending=window._fsPending||{};
+  const cnt=Object.values(pending).reduce((s,o)=>s+Object.keys(o).length,0);
+  if(!cnt){showToast('ไม่มีการเปลี่ยนแปลง');return;}
+  // บันทึกทุกช่องลง db
   if(!db.fiveS.checks)db.fiveS.checks={};
   const key=fsGroupKeyStu(cid)+'__'+gid;
   if(!db.fiveS.checks[key])db.fiveS.checks[key]={};
   if(!db.fiveS.checks[key][date])db.fiveS.checks[key][date]={};
-  if(!db.fiveS.checks[key][date][stuId])db.fiveS.checks[key][date][stuId]={items:{}};
-  if(!db.fiveS.checks[key][date][stuId].items)db.fiveS.checks[key][date][stuId].items={};
-  db.fiveS.checks[key][date][stuId].items[itemIdx]=checked;
-  // อัปเดต DOM ทันที (สีพื้น)
-  const td=event?.target?.closest('td');
-  if(td)td.style.background=checked?'#DCFCE7':'';
-  // save
-  saveStudentInfo(cid,stuId,null,null).catch(()=>{});
-  saveDbSilent();
+  Object.keys(pending).forEach(stuId=>{
+    if(!db.fiveS.checks[key][date][stuId])db.fiveS.checks[key][date][stuId]={items:{}};
+    if(!db.fiveS.checks[key][date][stuId].items)db.fiveS.checks[key][date][stuId].items={};
+    Object.keys(pending[stuId]).forEach(idx=>{
+      db.fiveS.checks[key][date][stuId].items[idx]=pending[stuId][idx];
+    });
+  });
+  // sync ขึ้น cloud
+  saveDbNow();
+  fsClearPending();
+  showToast(`✓ บันทึกแล้ว ${cnt} รายการ`);
+  // เปลี่ยนสีพื้นกลับเป็นเขียว (ตรงตามที่ติ๊ก)
+  document.querySelectorAll('.fs-cell').forEach(td=>{
+    const cb=td.querySelector('input[type="checkbox"]');
+    if(cb)td.style.background=cb.checked?'#DCFCE7':'';
+  });
+  const lbl=document.getElementById('fsPendingLbl');
+  if(lbl)lbl.innerHTML='<i class="ti ti-circle-check" style="color:var(--gn)"></i> บันทึกสำเร็จ';
 }
 
+function saveDbNow(){
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  fetch(GAS_URL,{method:'POST',body:JSON.stringify(db),headers:{'Content-Type':'text/plain'}}).catch(()=>{});
+}
 function saveDbSilent(){
   try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
   clearTimeout(window._fsSave);
@@ -1301,6 +1363,61 @@ function saveDbSilent(){
 }
 
 // ── จัดการสมาชิก ──
+// ── หน้าจัดการหัวข้อ 5 ส (หัวหน้ากลุ่ม) ──
+function fsRenderItems(cid,sid,g,items){
+  const rows=items.map((it,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--mu);width:24px;text-align:center">${i+1}.</span>
+      <input type="text" class="fsItInp" value="${it.replace(/"/g,'&quot;')}" style="flex:1">
+      <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="fsItRemoveRow(this)"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+  let html=`<div class="card">
+    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-list-check"></i> หัวข้อกิจกรรม — ${g.name}</div></div>
+    <div class="card-bd">
+      <div style="font-size:12px;color:var(--mu);padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:12px">
+        <i class="ti ti-info-circle"></i> กำหนดหัวข้อเฉพาะกลุ่มของคุณ — ตามพื้นที่รับผิดชอบ
+      </div>
+      <div id="fsItRows">${rows}</div>
+      <button class="btn btn-sm btn-full" style="margin-top:8px" onclick="fsItAddRow()"><i class="ti ti-plus"></i> เพิ่มหัวข้อใหม่</button>
+    </div>
+  </div>
+  <div style="margin-top:14px">
+    <button class="btn btn-p btn-full" onclick="fsSaveItems('${cid}','${g.id}')"><i class="ti ti-device-floppy"></i> บันทึกหัวข้อ</button>
+  </div>`;
+  return html;
+}
+
+function fsItAddRow(){
+  const wrap=document.getElementById('fsItRows');
+  if(!wrap)return;
+  const idx=wrap.querySelectorAll('.fsItInp').length;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML=`<span style="font-size:11px;color:var(--mu);width:24px;text-align:center">${idx+1}.</span>
+    <input type="text" class="fsItInp" placeholder="ชื่อหัวข้อใหม่" style="flex:1">
+    <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="fsItRemoveRow(this)"><i class="ti ti-x"></i></button>`;
+  wrap.appendChild(div);
+  div.querySelector('input').focus();
+}
+function fsItRemoveRow(btn){
+  btn.parentElement.remove();
+  // Renumber
+  document.querySelectorAll('#fsItRows > div').forEach((div,i)=>{
+    const span=div.querySelector('span');
+    if(span)span.textContent=(i+1)+'.';
+  });
+}
+function fsSaveItems(cid,gid){
+  const items=[...document.querySelectorAll('.fsItInp')].map(inp=>inp.value.trim()).filter(v=>v);
+  if(!items.length){showToast('กรุณากรอกหัวข้ออย่างน้อย 1 หัวข้อ');return;}
+  const groups=fsGroupsStu(cid);
+  const g=groups.find(x=>x.id===gid);
+  if(!g)return;
+  g.items=items;
+  saveDbNow();
+  showToast('บันทึกหัวข้อแล้ว ✓');
+}
+
 function fsRenderMembers(cid,sid,g){
   const stus=stuArr(cid);
   const groups=fsGroupsStu(cid);
