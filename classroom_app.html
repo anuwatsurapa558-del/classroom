@@ -641,6 +641,23 @@ async function _upsertMany(table,rows){
 
 // ── แปลง db → rows ของแต่ละ table ──
 function _dbToRows(){
+  // สร้าง lookup: cid → true
+  const validClassIds=new Set((db.classes||[]).map(c=>c.id));
+  const validTermIds=new Set((db.terms||[]).map(t=>t.id));
+  // Helper: แยก termId + cid จาก tkey
+  function resolveCid(tkey){
+    if(!tkey)return null;
+    // format: "termId__cid" หรือ "cid"
+    const parts=tkey.split('__');
+    if(parts.length>=2){
+      // parts[0] = termId, parts[1] = cid
+      const cid=parts.slice(1).join('__'); // เผื่อ cid มี __ ปน
+      return validClassIds.has(cid)?cid:(validClassIds.has(parts[1])?parts[1]:null);
+    }
+    // ไม่มี __ → tkey ทั้งอันคือ cid
+    return validClassIds.has(tkey)?tkey:null;
+  }
+
   const rows={
     school:{
       id:'main',
@@ -653,8 +670,8 @@ function _dbToRows(){
     terms:(db.terms||[]).map(t=>({
       id:t.id, year:t.year, semester:t.semester, label:t.label, is_current:!!t.isCurrent
     })),
-    classes:(db.classes||[]).map(c=>({
-      id:c.id, name:c.name, term_id:c.termId, show_grades:!!c.showGrades
+    classes:(db.classes||[]).filter(c=>!c.termId||validTermIds.has(c.termId)).map(c=>({
+      id:c.id, name:c.name, term_id:c.termId||null, show_grades:!!c.showGrades
     })),
     students:[],
     subjects:[],
@@ -668,69 +685,97 @@ function _dbToRows(){
     five_s_members:[],
     five_s_checks:[]
   };
-  // students
+
+  // ── build set ของ subject id ที่ valid ──
+  const validSubIds=new Set();
+  const validStudentIds=new Set();
+
+  // students (ต้องมาก่อน validStudentIds)
   Object.keys(db.students||{}).forEach(tkey=>{
-    const cid=tkey.split('__')[1]||tkey;
+    const cid=resolveCid(tkey);
+    if(!cid)return;
     (db.students[tkey]||[]).forEach(s=>{
+      if(!s.id)return;
       rows.students.push({
-        id:s.id, class_id:cid, no:s.no,
-        first_name:s.firstName, last_name:s.lastName,
+        id:s.id, class_id:cid, no:s.no||0,
+        first_name:s.firstName||'', last_name:s.lastName||'',
         password:(db.studentPasswords||{})[s.id]||''
       });
+      validStudentIds.add(s.id);
     });
   });
+
   // subjects
   Object.keys(db.subjects||{}).forEach(tkey=>{
-    const cid=tkey.split('__')[1]||tkey;
+    const cid=resolveCid(tkey);
+    if(!cid)return;
     (db.subjects[tkey]||[]).forEach(s=>{
+      if(!s.id)return;
       rows.subjects.push({
-        id:s.id, class_id:cid, name:s.name, code:s.code||'',
+        id:s.id, class_id:cid, name:s.name||'', code:s.code||'',
         w_assign:s.wAssign??70, w_exam:s.wExam??30,
         mid_max:s.midMax??20, final_max:s.finalMax??30
       });
+      validSubIds.add(s.id);
     });
   });
+
   // attendance
   Object.keys(db.attendance||{}).forEach(tkey=>{
-    const cid=tkey.split('__')[1]||tkey;
+    const cid=resolveCid(tkey);
+    if(!cid)return;
     const sub=db.attendance[tkey];
     Object.keys(sub||{}).forEach(subId=>{
+      if(!validSubIds.has(subId))return;
       Object.keys(sub[subId]||{}).forEach(date=>{
         Object.keys(sub[subId][date]||{}).forEach(stuId=>{
+          if(!validStudentIds.has(stuId))return;
           const status=sub[subId][date][stuId];
           if(status)rows.attendance.push({class_id:cid,subject_id:subId,student_id:stuId,date,status});
         });
       });
     });
   });
+
   // assignments
+  const validAsgIds=new Set();
   Object.keys(db.assignments||{}).forEach(tkey=>{
-    const cid=tkey.split('__')[1]||tkey;
+    const cid=resolveCid(tkey);
+    if(!cid)return;
     Object.keys(db.assignments[tkey]||{}).forEach(subId=>{
+      if(!validSubIds.has(subId))return;
       (db.assignments[tkey][subId]||[]).forEach(a=>{
+        if(!a.id)return;
         rows.assignments.push({
-          id:a.id, class_id:cid, subject_id:subId, name:a.name,
+          id:a.id, class_id:cid, subject_id:subId, name:a.name||'',
           max_score:a.maxScore||null, type:a.type||'score',
           due_date:a.dueDate||null
         });
+        validAsgIds.add(a.id);
       });
     });
   });
+
   // scores
   Object.keys(db.scores||{}).forEach(tkey=>{
     Object.keys(db.scores[tkey]||{}).forEach(subId=>{
       Object.keys(db.scores[tkey][subId]||{}).forEach(asgId=>{
+        if(!validAsgIds.has(asgId))return;
         Object.keys(db.scores[tkey][subId][asgId]||{}).forEach(stuId=>{
+          if(!validStudentIds.has(stuId))return;
           const v=db.scores[tkey][subId][asgId][stuId];
           if(v!==undefined&&v!==null&&v!=='')rows.scores.push({assignment_id:asgId,student_id:stuId,value:String(v)});
         });
       });
     });
   });
+
   // exam_scores
   Object.keys(db.examScores||{}).forEach(tkey=>{
     Object.keys(db.examScores[tkey]||{}).forEach(subId=>{
+      if(!validSubIds.has(subId))return;
       Object.keys(db.examScores[tkey][subId]||{}).forEach(stuId=>{
+        if(!validStudentIds.has(stuId))return;
         const e=db.examScores[tkey][subId][stuId]||{};
         if(e.mid!==undefined||e.final!==undefined){
           rows.exam_scores.push({
@@ -741,46 +786,59 @@ function _dbToRows(){
       });
     });
   });
+
   // timetable
   Object.keys(db.timetable||{}).forEach(tkey=>{
-    const cid=tkey.split('__')[1]||tkey;
+    const cid=resolveCid(tkey);
+    if(!cid)return;
     (db.timetable[tkey]||[]).forEach(t=>{
+      if(!t.id)return;
       rows.timetable.push({
-        id:t.id, class_id:cid, subject_id:t.subId||null,
+        id:t.id, class_id:cid,
+        subject_id:(t.subId&&validSubIds.has(t.subId))?t.subId:null,
         day:t.day, start_time:t.start, end_time:t.end,
         note:t.note||'', is_activity:!!t.isActivity,
         activity_name:t.activityName||''
       });
     });
   });
+
   // periods
   (db.periods||[]).forEach((p,i)=>{
     rows.periods.push({
-      order_num:i, name:p.name, start_time:p.start, end_time:p.end,
+      order_num:i, name:p.name||'', start_time:p.start||'', end_time:p.end||'',
       is_fixed:!!p.isFixed, label:p.label||'', color:p.color||''
     });
   });
+
   // 5s groups + members
+  const validGroupIds=new Set();
   Object.keys((db.fiveS||{}).groups||{}).forEach(tkey=>{
-    const cid=tkey.split('__')[1]||tkey;
+    const cid=resolveCid(tkey);
+    if(!cid)return;
     (db.fiveS.groups[tkey]||[]).forEach(g=>{
+      if(!g.id)return;
       rows.five_s_groups.push({
-        id:g.id, class_id:cid, name:g.name,
-        leader_id:g.leaderId||null,
+        id:g.id, class_id:cid, name:g.name||'',
+        leader_id:(g.leaderId&&validStudentIds.has(g.leaderId))?g.leaderId:null,
         items:g.items||null
       });
+      validGroupIds.add(g.id);
       (g.memberIds||[]).forEach(sid=>{
+        if(!validStudentIds.has(sid))return;
         rows.five_s_members.push({group_id:g.id,student_id:sid});
       });
     });
   });
+
   // 5s checks
   Object.keys((db.fiveS||{}).checks||{}).forEach(ckey=>{
-    // key format: termId__cid__gid
     const parts=ckey.split('__');
     const gid=parts[parts.length-1];
+    if(!validGroupIds.has(gid))return;
     Object.keys(db.fiveS.checks[ckey]||{}).forEach(date=>{
       Object.keys(db.fiveS.checks[ckey][date]||{}).forEach(stuId=>{
+        if(!validStudentIds.has(stuId))return;
         const rec=db.fiveS.checks[ckey][date][stuId]||{};
         rows.five_s_checks.push({
           group_id:gid, student_id:stuId, date,
@@ -789,6 +847,7 @@ function _dbToRows(){
       });
     });
   });
+
   return rows;
 }
 
@@ -1310,6 +1369,7 @@ async function restoreData(input){
         ['five_s_checks',rows.five_s_checks],
       ];
       let totalRows=0;
+      const errors=[];
       for(const [table,data] of stages){
         if(!data.length)continue;
         let onConflictCol='id';
@@ -1318,13 +1378,18 @@ async function restoreData(input){
         else if(table==='exam_scores')onConflictCol='subject_id,student_id';
         else if(table==='five_s_members')onConflictCol='group_id,student_id';
         else if(table==='five_s_checks')onConflictCol='group_id,student_id,date';
-        const {error}=await sb.from(table).upsert(data,{onConflict:onConflictCol});
-        if(error){
-          console.error(`Restore ${table} error:`,error);
-          alert(`กู้คืน ${table} ล้มเหลว:\n${error.message}\n\nข้อมูลอาจไม่ครบ`);
-          break;
+        // แบ่ง batch ละ 500 กัน request ใหญ่เกินไป
+        const BATCH=500;
+        for(let i=0;i<data.length;i+=BATCH){
+          const chunk=data.slice(i,i+BATCH);
+          const {error}=await sb.from(table).upsert(chunk,{onConflict:onConflictCol});
+          if(error){
+            console.error(`Restore ${table} [${i}-${i+BATCH}] error:`,error);
+            errors.push(`${table}: ${error.message}`);
+            break;
+          }
+          totalRows+=chunk.length;
         }
-        totalRows+=data.length;
       }
       // periods
       if(rows.periods.length){
@@ -1340,7 +1405,11 @@ async function restoreData(input){
       updateSidebarLogo();renderSchool();renderDash();
 
       if(s){s.textContent=`✅ กู้คืนแล้ว (${totalRows} rows)`;s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},4000);}
-      showToast(`กู้คืนข้อมูลสำเร็จ ✓ (${totalRows} แถว)`);
+      if(errors.length){
+        alert('กู้คืนสำเร็จบางส่วน:\n\n✅ '+totalRows+' rows\n\n⚠️ Errors:\n'+errors.join('\n'));
+      } else {
+        showToast(`กู้คืนข้อมูลสำเร็จ ✓ (${totalRows} แถว)`);
+      }
     }catch(err){
       console.error('Restore error:',err);
       alert('กู้คืนไม่สำเร็จ:\n'+err.message+'\n\nกรุณาตรวจสอบไฟล์');
@@ -1606,7 +1675,7 @@ function setCurrentTerm(id){
   currentTermId=id;save();renderSchool();
   showToast('ตั้งภาคเรียนปัจจุบันแล้ว ✓');
 }
-function deleteTerm(id){
+async function deleteTerm(id){
   const t=db.terms.find(x=>x.id===id);
   if(!t)return;
   // คำนวณจำนวนข้อมูลก่อนลบ
@@ -1627,18 +1696,40 @@ function deleteTerm(id){
     +'• คะแนน + เช็คชื่อทั้งหมดของภาคนี้\n\n'
     +'การกระทำนี้ย้อนกลับไม่ได้';
   if(!confirm(msg))return;
+
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+
+  // ลบใน Supabase — DELETE ที่ terms → CASCADE จะลบ classes → students → etc อัตโนมัติ
+  try{
+    const {error}=await sb.from('terms').delete().eq('id',id);
+    if(error){
+      console.error('Delete term error:',error);
+      alert('ลบภาคเรียนไม่สำเร็จ:\n'+error.message);
+      if(s){s.textContent='❌ '+error.message.slice(0,40);s.style.color='var(--rd)';}
+      return;
+    }
+  }catch(e){
+    console.error('Network error:',e);
+    alert('ลบไม่สำเร็จ:\n'+e.message);
+    return;
+  }
+  _lastSaveTime=Date.now();
+
+  // ลบใน local db
   cls.forEach(c2=>{
     const tkey=id+'__'+c2.id;
-    ['students','subjects','attendance','assignments','scores','examScores','submitStatus'].forEach(k=>{if(db[k])delete db[k][tkey];});
+    ['students','subjects','attendance','assignments','scores','examScores','submitStatus','timetable'].forEach(k=>{if(db[k])delete db[k][tkey];});
   });
-  // ลบรหัสผ่านของนักเรียนในภาคนี้
   if(db.studentPasswords){stuIds.forEach(sid=>{delete db.studentPasswords[sid];});}
   db.classes=db.classes.filter(c2=>c2.termId!==id);
   db.terms=db.terms.filter(x=>x.id!==id);
   if(currentTermId===id)currentTermId=db.terms[0]?.id||null;
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
   const sizeAfter=JSON.stringify(db).length;
   const savedKB=Math.round((sizeBefore-sizeAfter)/1024);
-  save();renderSchool();
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  renderSchool();
   showToast('ลบภาคเรียนแล้ว ประหยัด '+savedKB+' KB');
 }
 
