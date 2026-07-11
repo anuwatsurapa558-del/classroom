@@ -1265,19 +1265,84 @@ function backupData(){
   URL.revokeObjectURL(url);
   showToast('ดาวน์โหลดไฟล์สำรองแล้ว ✓');
 }
-function restoreData(input){
+async function restoreData(input){
   const file=input.files[0];if(!file)return;
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       const newDb=JSON.parse(e.target.result);
       if(!newDb||typeof newDb!=='object'){throw new Error('ไฟล์ไม่ถูกต้อง');}
-      if(!confirm('⚠️ กู้คืนข้อมูล?\n\nข้อมูลปัจจุบันจะถูกเขียนทับด้วยข้อมูลในไฟล์\nแนะนำให้ดาวน์โหลดสำรองปัจจุบันก่อน\n\nดำเนินการต่อ?'))return;
+      if(!confirm('⚠️ กู้คืนข้อมูล?\n\n• ข้อมูลปัจจุบันใน Supabase จะถูกลบทั้งหมด\n• แทนที่ด้วยข้อมูลในไฟล์\n• กระบวนการนี้ใช้เวลา 5-15 วินาที\n\nแนะนำให้ดาวน์โหลดสำรองปัจจุบันก่อน\n\nดำเนินการต่อ?'))return;
+
+      const s=document.getElementById('sync-status');
+      if(s){s.textContent='☁️ กำลังกู้คืน...';s.style.color='var(--am)';}
+
+      // 1) โหลดข้อมูลเข้า db ในหน่วยความจำก่อน
       db=newDb;
       _initDB();
-      save();updateSidebarLogo();renderSchool();renderDash();
-      showToast('กู้คืนข้อมูลสำเร็จ ✓');
+
+      // 2) ลบข้อมูลทุก table ใน Supabase (ยกเว้น school แค่ update)
+      const tablesToClear=['five_s_checks','five_s_members','five_s_groups','timetable','exam_scores','scores','assignments','attendance','subjects','students','classes','terms','periods'];
+      for(const t of tablesToClear){
+        // ใช้ neq ที่ตรงกับทุก row เพื่อ delete all
+        if(t==='five_s_checks'||t==='five_s_members'||t==='periods'){
+          await sb.from(t).delete().neq('id',0); // int PK
+        } else {
+          await sb.from(t).delete().neq('id','__never__'); // text PK
+        }
+      }
+
+      // 3) upsert ทุก table ตาม _dbToRows
+      const rows=_dbToRows();
+      const stages=[
+        ['school',[rows.school]],
+        ['terms',rows.terms],
+        ['classes',rows.classes],
+        ['students',rows.students],
+        ['subjects',rows.subjects],
+        ['assignments',rows.assignments],
+        ['timetable',rows.timetable],
+        ['five_s_groups',rows.five_s_groups],
+        ['attendance',rows.attendance],
+        ['scores',rows.scores],
+        ['exam_scores',rows.exam_scores],
+        ['five_s_members',rows.five_s_members],
+        ['five_s_checks',rows.five_s_checks],
+      ];
+      let totalRows=0;
+      for(const [table,data] of stages){
+        if(!data.length)continue;
+        let onConflictCol='id';
+        if(table==='attendance')onConflictCol='class_id,subject_id,student_id,date';
+        else if(table==='scores')onConflictCol='assignment_id,student_id';
+        else if(table==='exam_scores')onConflictCol='subject_id,student_id';
+        else if(table==='five_s_members')onConflictCol='group_id,student_id';
+        else if(table==='five_s_checks')onConflictCol='group_id,student_id,date';
+        const {error}=await sb.from(table).upsert(data,{onConflict:onConflictCol});
+        if(error){
+          console.error(`Restore ${table} error:`,error);
+          alert(`กู้คืน ${table} ล้มเหลว:\n${error.message}\n\nข้อมูลอาจไม่ครบ`);
+          break;
+        }
+        totalRows+=data.length;
+      }
+      // periods
+      if(rows.periods.length){
+        await sb.from('periods').insert(rows.periods);
+        totalRows+=rows.periods.length;
+      }
+
+      _lastSaveTime=Date.now();
+      try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+
+      // 4) โหลดจาก Supabase อีกครั้งเพื่อให้แน่ใจ
+      await load();
+      updateSidebarLogo();renderSchool();renderDash();
+
+      if(s){s.textContent=`✅ กู้คืนแล้ว (${totalRows} rows)`;s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},4000);}
+      showToast(`กู้คืนข้อมูลสำเร็จ ✓ (${totalRows} แถว)`);
     }catch(err){
+      console.error('Restore error:',err);
       alert('กู้คืนไม่สำเร็จ:\n'+err.message+'\n\nกรุณาตรวจสอบไฟล์');
     }
     input.value='';
@@ -1299,10 +1364,31 @@ function clearAllData(){
   const ans=prompt(msg);
   if(ans!=='ลบทั้งหมด'){showToast('ยกเลิกการลบ');return;}
   const school=db.school; // เก็บข้อมูลโรงเรียน
-  db={school:school||{name:'',subdistrict:'',district:'',province:'',logo:''},terms:[],classes:[],students:{},subjects:{},attendance:{},assignments:{},scores:{},examScores:{},studentPasswords:{},submitStatus:{}};
+  db={school:school||{name:'',subdistrict:'',district:'',province:'',logo:''},terms:[],classes:[],students:{},subjects:{},attendance:{},assignments:{},scores:{},examScores:{},studentPasswords:{},submitStatus:{},timetable:{},fiveS:{items:['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'],groups:{},checks:{}}};
   currentTermId=null;
   _initDB();
-  save();updateSidebarLogo();renderSchool();renderDash();
+  // ลบข้อมูลใน Supabase ทุก table (ยกเว้น school)
+  (async()=>{
+    const s=document.getElementById('sync-status');
+    if(s){s.textContent='☁️ กำลังลบข้อมูล...';s.style.color='var(--am)';}
+    const tablesToClear=['five_s_checks','five_s_members','five_s_groups','timetable','exam_scores','scores','assignments','attendance','subjects','students','classes','terms','periods'];
+    for(const t of tablesToClear){
+      if(t==='five_s_checks'||t==='five_s_members'||t==='periods'){
+        await sb.from(t).delete().neq('id',0);
+      } else {
+        await sb.from(t).delete().neq('id','__never__');
+      }
+    }
+    // อัปเดต school (ที่เก็บไว้)
+    await sb.from('school').update({
+      name:school?.name||'',subdistrict:school?.subdistrict||'',
+      district:school?.district||'',province:school?.province||'',
+      logo:school?.logo||''
+    }).eq('id','main');
+    _lastSaveTime=Date.now();
+    if(s){s.textContent='✅ ล้างข้อมูลแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  })();
+  updateSidebarLogo();renderSchool();renderDash();
   showToast('ล้างข้อมูลทั้งหมดแล้ว (คงข้อมูลโรงเรียนไว้)');
 }
 
