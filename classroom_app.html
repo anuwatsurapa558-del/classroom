@@ -620,31 +620,223 @@ function calcTotal(cid,subid,stuId){
   };
 }
 
-/* ── PERSISTENCE (Supabase) ── */
+/* ── PERSISTENCE (Supabase Relational V2) ── */
 let _saveTimer=null;
 let _lastSaveTime=0;
+let _saveQueue={}; // สิ่งที่ต้อง save {table: true/false}
 
 function save(){
   try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  // Mark ทุก table ว่าอาจมีการเปลี่ยนแปลง (ค่อยคิดตอน save จริง)
+  _saveQueue.all=true;
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(_cloudSave,1500);
+}
+
+// ── Helper: บันทึก table โดย upsert ──
+async function _upsertMany(table,rows){
+  if(!rows||!rows.length)return null;
+  return await sb.from(table).upsert(rows,{onConflict:'id'});
+}
+
+// ── แปลง db → rows ของแต่ละ table ──
+function _dbToRows(){
+  const rows={
+    school:{
+      id:'main',
+      name:db.school?.name||'',
+      subdistrict:db.school?.subdistrict||'',
+      district:db.school?.district||'',
+      province:db.school?.province||'',
+      logo:db.school?.logo||''
+    },
+    terms:(db.terms||[]).map(t=>({
+      id:t.id, year:t.year, semester:t.semester, label:t.label, is_current:!!t.isCurrent
+    })),
+    classes:(db.classes||[]).map(c=>({
+      id:c.id, name:c.name, term_id:c.termId, show_grades:!!c.showGrades
+    })),
+    students:[],
+    subjects:[],
+    attendance:[],
+    assignments:[],
+    scores:[],
+    exam_scores:[],
+    timetable:[],
+    periods:[],
+    five_s_groups:[],
+    five_s_members:[],
+    five_s_checks:[]
+  };
+  // students
+  Object.keys(db.students||{}).forEach(tkey=>{
+    const cid=tkey.split('__')[1]||tkey;
+    (db.students[tkey]||[]).forEach(s=>{
+      rows.students.push({
+        id:s.id, class_id:cid, no:s.no,
+        first_name:s.firstName, last_name:s.lastName,
+        password:(db.studentPasswords||{})[s.id]||''
+      });
+    });
+  });
+  // subjects
+  Object.keys(db.subjects||{}).forEach(tkey=>{
+    const cid=tkey.split('__')[1]||tkey;
+    (db.subjects[tkey]||[]).forEach(s=>{
+      rows.subjects.push({
+        id:s.id, class_id:cid, name:s.name, code:s.code||'',
+        w_assign:s.wAssign??70, w_exam:s.wExam??30,
+        mid_max:s.midMax??20, final_max:s.finalMax??30
+      });
+    });
+  });
+  // attendance
+  Object.keys(db.attendance||{}).forEach(tkey=>{
+    const cid=tkey.split('__')[1]||tkey;
+    const sub=db.attendance[tkey];
+    Object.keys(sub||{}).forEach(subId=>{
+      Object.keys(sub[subId]||{}).forEach(date=>{
+        Object.keys(sub[subId][date]||{}).forEach(stuId=>{
+          const status=sub[subId][date][stuId];
+          if(status)rows.attendance.push({class_id:cid,subject_id:subId,student_id:stuId,date,status});
+        });
+      });
+    });
+  });
+  // assignments
+  Object.keys(db.assignments||{}).forEach(tkey=>{
+    const cid=tkey.split('__')[1]||tkey;
+    Object.keys(db.assignments[tkey]||{}).forEach(subId=>{
+      (db.assignments[tkey][subId]||[]).forEach(a=>{
+        rows.assignments.push({
+          id:a.id, class_id:cid, subject_id:subId, name:a.name,
+          max_score:a.maxScore||null, type:a.type||'score',
+          due_date:a.dueDate||null
+        });
+      });
+    });
+  });
+  // scores
+  Object.keys(db.scores||{}).forEach(tkey=>{
+    Object.keys(db.scores[tkey]||{}).forEach(subId=>{
+      Object.keys(db.scores[tkey][subId]||{}).forEach(asgId=>{
+        Object.keys(db.scores[tkey][subId][asgId]||{}).forEach(stuId=>{
+          const v=db.scores[tkey][subId][asgId][stuId];
+          if(v!==undefined&&v!==null&&v!=='')rows.scores.push({assignment_id:asgId,student_id:stuId,value:String(v)});
+        });
+      });
+    });
+  });
+  // exam_scores
+  Object.keys(db.examScores||{}).forEach(tkey=>{
+    Object.keys(db.examScores[tkey]||{}).forEach(subId=>{
+      Object.keys(db.examScores[tkey][subId]||{}).forEach(stuId=>{
+        const e=db.examScores[tkey][subId][stuId]||{};
+        if(e.mid!==undefined||e.final!==undefined){
+          rows.exam_scores.push({
+            subject_id:subId, student_id:stuId,
+            mid_score:e.mid??null, final_score:e.final??null
+          });
+        }
+      });
+    });
+  });
+  // timetable
+  Object.keys(db.timetable||{}).forEach(tkey=>{
+    const cid=tkey.split('__')[1]||tkey;
+    (db.timetable[tkey]||[]).forEach(t=>{
+      rows.timetable.push({
+        id:t.id, class_id:cid, subject_id:t.subId||null,
+        day:t.day, start_time:t.start, end_time:t.end,
+        note:t.note||'', is_activity:!!t.isActivity,
+        activity_name:t.activityName||''
+      });
+    });
+  });
+  // periods
+  (db.periods||[]).forEach((p,i)=>{
+    rows.periods.push({
+      order_num:i, name:p.name, start_time:p.start, end_time:p.end,
+      is_fixed:!!p.isFixed, label:p.label||'', color:p.color||''
+    });
+  });
+  // 5s groups + members
+  Object.keys((db.fiveS||{}).groups||{}).forEach(tkey=>{
+    const cid=tkey.split('__')[1]||tkey;
+    (db.fiveS.groups[tkey]||[]).forEach(g=>{
+      rows.five_s_groups.push({
+        id:g.id, class_id:cid, name:g.name,
+        leader_id:g.leaderId||null,
+        items:g.items||null
+      });
+      (g.memberIds||[]).forEach(sid=>{
+        rows.five_s_members.push({group_id:g.id,student_id:sid});
+      });
+    });
+  });
+  // 5s checks
+  Object.keys((db.fiveS||{}).checks||{}).forEach(ckey=>{
+    // key format: termId__cid__gid
+    const parts=ckey.split('__');
+    const gid=parts[parts.length-1];
+    Object.keys(db.fiveS.checks[ckey]||{}).forEach(date=>{
+      Object.keys(db.fiveS.checks[ckey][date]||{}).forEach(stuId=>{
+        const rec=db.fiveS.checks[ckey][date][stuId]||{};
+        rows.five_s_checks.push({
+          group_id:gid, student_id:stuId, date,
+          items:rec.items||{}, note:rec.note||''
+        });
+      });
+    });
+  });
+  return rows;
 }
 
 async function _cloudSave(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
-    const payload=JSON.stringify(db);
-    const sizeKB=Math.round(payload.length/1024);
-    const {error}=await sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID);
-    if(error){
-      if(s){s.textContent='❌ '+error.message.slice(0,40);s.style.color='var(--rd)';}
-      console.error('Save error:',error);
-      alert('บันทึกไม่สำเร็จ:\n'+error.message+'\n\nขนาดข้อมูล: '+sizeKB+'KB');
-      return false;
+    const rows=_dbToRows();
+    // บันทึกตามลำดับ (parent ก่อน children — foreign key)
+    const stages=[
+      ['school',[rows.school]],
+      ['terms',rows.terms],
+      ['classes',rows.classes],
+      ['students',rows.students],
+      ['subjects',rows.subjects],
+      ['assignments',rows.assignments],
+      ['timetable',rows.timetable],
+      ['five_s_groups',rows.five_s_groups],
+      ['attendance',rows.attendance],
+      ['scores',rows.scores],
+      ['exam_scores',rows.exam_scores],
+      ['five_s_members',rows.five_s_members],
+      ['five_s_checks',rows.five_s_checks],
+    ];
+    let totalRows=0;
+    for(const [table,data] of stages){
+      if(!data.length)continue;
+      let onConflictCol='id';
+      if(table==='attendance')onConflictCol='class_id,subject_id,student_id,date';
+      else if(table==='scores')onConflictCol='assignment_id,student_id';
+      else if(table==='exam_scores')onConflictCol='subject_id,student_id';
+      else if(table==='five_s_members')onConflictCol='group_id,student_id';
+      else if(table==='five_s_checks')onConflictCol='group_id,student_id,date';
+      const {error}=await sb.from(table).upsert(data,{onConflict:onConflictCol});
+      if(error){
+        console.error(`Save ${table} error:`,error);
+        if(s){s.textContent='❌ '+table+': '+error.message.slice(0,30);s.style.color='var(--rd)';}
+        return false;
+      }
+      totalRows+=data.length;
     }
-    _lastSaveTime=Date.now(); // กัน echo กลับมาที่ตัวเอง
-    if(s){s.textContent='✅ บันทึกแล้ว ('+sizeKB+'KB)';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    // periods: clear old then insert (ไม่มี stable id)
+    if(rows.periods.length){
+      await sb.from('periods').delete().neq('id',0);
+      await sb.from('periods').insert(rows.periods);
+    }
+    _lastSaveTime=Date.now();
+    if(s){s.textContent=`✅ บันทึกแล้ว (${totalRows} rows)`;s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
     return true;
   }catch(e){
     if(s){s.textContent='⚠️ ออฟไลน์';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},4000);}
@@ -653,22 +845,165 @@ async function _cloudSave(){
   }
 }
 
+// ── โหลดทุก table แล้วประกอบเป็น db object ──
+async function _rowsToDb(rows){
+  const d={
+    school:{name:'',subdistrict:'',district:'',province:'',logo:''},
+    terms:[],
+    classes:[],
+    students:{},
+    subjects:{},
+    attendance:{},
+    assignments:{},
+    scores:{},
+    examScores:{},
+    studentPasswords:{},
+    submitStatus:{},
+    timetable:{},
+    periods:[],
+    fiveS:{items:['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'],groups:{},checks:{}}
+  };
+  // school
+  if(rows.school&&rows.school[0]){
+    const s=rows.school[0];
+    d.school={name:s.name||'',subdistrict:s.subdistrict||'',district:s.district||'',province:s.province||'',logo:s.logo||''};
+  }
+  // terms
+  d.terms=(rows.terms||[]).map(t=>({id:t.id,year:t.year,semester:t.semester,label:t.label,isCurrent:!!t.is_current}));
+  // classes
+  d.classes=(rows.classes||[]).map(c=>({id:c.id,name:c.name,termId:c.term_id,showGrades:!!c.show_grades}));
+  // periods
+  d.periods=(rows.periods||[]).sort((a,b)=>a.order_num-b.order_num).map(p=>{
+    const o={name:p.name,start:p.start_time,end:p.end_time};
+    if(p.is_fixed){o.isFixed=true;o.label=p.label||'';o.color=p.color||'';}
+    return o;
+  });
+  // สร้าง classIdToTermId map
+  const cid2term={};
+  d.classes.forEach(c=>{cid2term[c.id]=c.termId||'';});
+  // students
+  (rows.students||[]).forEach(s=>{
+    const tkey=(cid2term[s.class_id]||'')+'__'+s.class_id;
+    if(!d.students[tkey])d.students[tkey]=[];
+    d.students[tkey].push({id:s.id,no:s.no,firstName:s.first_name,lastName:s.last_name});
+    if(s.password)d.studentPasswords[s.id]=s.password;
+  });
+  // subjects
+  (rows.subjects||[]).forEach(s=>{
+    const tkey=(cid2term[s.class_id]||'')+'__'+s.class_id;
+    if(!d.subjects[tkey])d.subjects[tkey]=[];
+    d.subjects[tkey].push({
+      id:s.id,name:s.name,code:s.code||'',
+      wAssign:s.w_assign,wExam:s.w_exam,
+      midMax:s.mid_max,finalMax:s.final_max
+    });
+  });
+  // Build subjectId → classId map สำหรับ query
+  const sid2cid={};
+  (rows.subjects||[]).forEach(s=>{sid2cid[s.id]=s.class_id;});
+  const asgId2sub={};
+  // assignments
+  (rows.assignments||[]).forEach(a=>{
+    const tkey=(cid2term[a.class_id]||'')+'__'+a.class_id;
+    if(!d.assignments[tkey])d.assignments[tkey]={};
+    if(!d.assignments[tkey][a.subject_id])d.assignments[tkey][a.subject_id]=[];
+    d.assignments[tkey][a.subject_id].push({
+      id:a.id,name:a.name,maxScore:a.max_score,type:a.type||'score',
+      dueDate:a.due_date||''
+    });
+    asgId2sub[a.id]={cid:a.class_id,subId:a.subject_id};
+  });
+  // attendance
+  (rows.attendance||[]).forEach(a=>{
+    const tkey=(cid2term[a.class_id]||'')+'__'+a.class_id;
+    if(!d.attendance[tkey])d.attendance[tkey]={};
+    if(!d.attendance[tkey][a.subject_id])d.attendance[tkey][a.subject_id]={};
+    if(!d.attendance[tkey][a.subject_id][a.date])d.attendance[tkey][a.subject_id][a.date]={};
+    d.attendance[tkey][a.subject_id][a.date][a.student_id]=a.status;
+  });
+  // scores
+  (rows.scores||[]).forEach(sc=>{
+    const info=asgId2sub[sc.assignment_id];
+    if(!info)return;
+    const tkey=(cid2term[info.cid]||'')+'__'+info.cid;
+    if(!d.scores[tkey])d.scores[tkey]={};
+    if(!d.scores[tkey][info.subId])d.scores[tkey][info.subId]={};
+    if(!d.scores[tkey][info.subId][sc.assignment_id])d.scores[tkey][info.subId][sc.assignment_id]={};
+    // แปลงกลับเป็น number ถ้าเป็นตัวเลข
+    const v=sc.value;
+    const n=parseFloat(v);
+    d.scores[tkey][info.subId][sc.assignment_id][sc.student_id]=(!isNaN(n)&&String(n)===v)?n:v;
+  });
+  // exam_scores
+  (rows.exam_scores||[]).forEach(e=>{
+    const cid=sid2cid[e.subject_id];
+    if(!cid)return;
+    const tkey=(cid2term[cid]||'')+'__'+cid;
+    if(!d.examScores[tkey])d.examScores[tkey]={};
+    if(!d.examScores[tkey][e.subject_id])d.examScores[tkey][e.subject_id]={};
+    const rec={};
+    if(e.mid_score!==null)rec.mid=parseFloat(e.mid_score);
+    if(e.final_score!==null)rec.final=parseFloat(e.final_score);
+    if(Object.keys(rec).length)d.examScores[tkey][e.subject_id][e.student_id]=rec;
+  });
+  // timetable
+  (rows.timetable||[]).forEach(t=>{
+    const tkey=(cid2term[t.class_id]||'')+'__'+t.class_id;
+    if(!d.timetable[tkey])d.timetable[tkey]=[];
+    const o={id:t.id,day:t.day,start:t.start_time,end:t.end_time,note:t.note||''};
+    if(t.subject_id)o.subId=t.subject_id;
+    if(t.is_activity){o.isActivity=true;o.activityName=t.activity_name||'';}
+    d.timetable[tkey].push(o);
+  });
+  // 5s groups + members
+  const groupMembers={};
+  (rows.five_s_members||[]).forEach(m=>{
+    if(!groupMembers[m.group_id])groupMembers[m.group_id]=[];
+    groupMembers[m.group_id].push(m.student_id);
+  });
+  (rows.five_s_groups||[]).forEach(g=>{
+    const tkey=(cid2term[g.class_id]||'')+'__'+g.class_id;
+    if(!d.fiveS.groups[tkey])d.fiveS.groups[tkey]=[];
+    d.fiveS.groups[tkey].push({
+      id:g.id,name:g.name,leaderId:g.leader_id||null,
+      memberIds:groupMembers[g.id]||[],
+      items:g.items
+    });
+  });
+  // 5s checks
+  const groupToClass={};
+  (rows.five_s_groups||[]).forEach(g=>{groupToClass[g.id]=g.class_id;});
+  (rows.five_s_checks||[]).forEach(ck=>{
+    const cid=groupToClass[ck.group_id];
+    if(!cid)return;
+    const ckey=(cid2term[cid]||'')+'__'+cid+'__'+ck.group_id;
+    if(!d.fiveS.checks[ckey])d.fiveS.checks[ckey]={};
+    if(!d.fiveS.checks[ckey][ck.date])d.fiveS.checks[ckey][ck.date]={};
+    d.fiveS.checks[ckey][ck.date][ck.student_id]={
+      items:ck.items||{},note:ck.note||''
+    };
+  });
+  return d;
+}
+
 async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    const {data,error}=await sb.from('schools').select('data').eq('id',SCHOOL_ID).single();
-    if(error){
-      console.error('Load error:',error);
-      throw error;
-    }
-    if(data&&data.data&&(data.data.classes||data.data.school||data.data.terms)){
-      db=data.data;
-      _initDB();
-      if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-      return;
-    }
-  }catch(e){console.error('Network error:',e);}
+    // โหลดจากทุก table พร้อมกัน
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks'];
+    const results=await Promise.all(tables.map(t=>sb.from(t).select('*')));
+    const rows={};
+    tables.forEach((t,i)=>{
+      const key=t; // เก็บ raw name
+      rows[key]=results[i].data||[];
+      if(results[i].error)console.error(`Load ${t} error:`,results[i].error);
+    });
+    db=await _rowsToDb(rows);
+    _initDB();
+    if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    return;
+  }catch(e){console.error('Load error:',e);}
   try{const x=localStorage.getItem('crDB4');if(x){db=JSON.parse(x);}}catch(e){}
   _initDB();
   if(s){s.textContent='📱 โหลดจากเครื่อง';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},3000);}
@@ -3938,34 +4273,25 @@ function _initDB(){
 
 /* ── REALTIME SUBSCRIPTION ── */
 function _setupRealtime(){
-  const channel=sb.channel('schools-changes')
-    .on('postgres_changes',{
-      event:'UPDATE',
-      schema:'public',
-      table:'schools',
-      filter:'id=eq.'+SCHOOL_ID
-    },payload=>{
-      // Echo protection: ถ้าตัวเราเพิ่งบันทึก (ภายใน 2 วินาที) ข้าม
+  // Subscribe ทุก table ที่มีข้อมูล — เมื่อมีการเปลี่ยนแปลง reload ทั้งหมด
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks'];
+  const channel=sb.channel('all-tables-changes');
+  tables.forEach(t=>{
+    channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
+      // Echo protection: ถ้าเราเพิ่งบันทึกภายใน 2 วินาที ข้าม
       if(Date.now()-_lastSaveTime<2000)return;
-      const newData=payload.new?.data;
-      if(!newData||!(newData.classes||newData.school||newData.terms))return;
-      // Merge เข้า db
-      db=newData;
-      _initDB();
-      try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-      // Re-render หน้าปัจจุบัน
-      const cur=curPage();
-      if(cur){
-        renderPage(cur);
-        updateSidebarLogo();
-      }
-      // แสดง notification เล็กๆ
-      const s=document.getElementById('sync-status');
-      if(s){s.textContent='🔄 อัปเดตจากที่อื่น';s.style.color='var(--tl)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-    })
-    .subscribe(status=>{
-      console.log('Realtime status:',status);
+      // Debounce: รอ 500ms ก่อน reload (กรณีมี event ซ้อน)
+      clearTimeout(window._rtReload);
+      window._rtReload=setTimeout(async()=>{
+        await load();
+        const cur=curPage();
+        if(cur){renderPage(cur);updateSidebarLogo();}
+        const s=document.getElementById('sync-status');
+        if(s){s.textContent='🔄 อัปเดตจากที่อื่น';s.style.color='var(--tl)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+      },500);
     });
+  });
+  channel.subscribe(status=>{console.log('Realtime status:',status);});
   return channel;
 }
 
