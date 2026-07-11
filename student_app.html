@@ -241,7 +241,7 @@ function thDate(d){
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function showMD(html){document.getElementById('MC').innerHTML=html;document.getElementById('MO').classList.add('open');}
 function closeMD(){document.getElementById('MO').classList.remove('open');}
-function setSync(state){const d=document.getElementById('syncDot');if(d){d.className='sync-dot'+(state==='ok'?' ok':'');}}
+function setSync(state){const d=document.getElementById('syncDot');if(d){d.className='sync-dot'+(state==='ok'?' ok':state==='sync'?' sync':'');if(state==='sync')setTimeout(()=>{d.className='sync-dot ok';},1500);}}
 
 /* ── GRADE ── */
 function calcGrade(pct){
@@ -408,6 +408,7 @@ async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
   try{
     const {error}=await sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID);
     if(error)throw error;
+    _lastSaveTimeStu=Date.now();
     setSync('ok');
   }catch(e){setSync('');console.error('save error:',e);}
   localStorage.setItem('crDB4',JSON.stringify(db));
@@ -432,9 +433,36 @@ async function checkPw(sid,pw){
 }
 function hasPw(sid){return !!(db.studentPasswords||{})[sid];}
 
+/* ── REALTIME SUBSCRIPTION ── */
+let _lastSaveTimeStu=0;
+function _setupRealtimeStu(){
+  const channel=sb.channel('schools-changes-stu')
+    .on('postgres_changes',{
+      event:'UPDATE',
+      schema:'public',
+      table:'schools',
+      filter:'id=eq.'+SCHOOL_ID
+    },payload=>{
+      // Echo protection: ถ้าเราเพิ่งบันทึกภายใน 2 วินาที ข้าม
+      if(Date.now()-_lastSaveTimeStu<2000)return;
+      const newData=payload.new?.data;
+      if(!newData||!(newData.classes||newData.school||newData.terms))return;
+      db=newData;
+      _normalizeDB();
+      try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+      // Re-render หน้าปัจจุบัน (ถ้าล็อกอินแล้ว)
+      if(me){renderApp();}
+      // แสดง notification เล็กๆ
+      setSync('sync');
+    })
+    .subscribe(status=>{console.log('Realtime status:',status);});
+  return channel;
+}
+
 /* ── INIT ── */
 async function init(){
   const ok=await loadData();
+  _setupRealtimeStu();
   const sess=loadSession();
   if(sess&&stuArr(sess.classId).length>0){
     const stu=stuArr(sess.classId).find(s=>s.id===sess.studentId);
@@ -1373,6 +1401,7 @@ function fsSaveAll(){
 
 function saveDbNow(){
   try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  _lastSaveTimeStu=Date.now();
   sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID).then(()=>{}).catch(()=>{});
 }
 function saveDbSilent(){
@@ -1380,6 +1409,7 @@ function saveDbSilent(){
   clearTimeout(window._fsSave);
   window._fsSave=setTimeout(async()=>{
     try{
+      _lastSaveTimeStu=Date.now();
       await sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID);
     }catch(e){}
   },1500);

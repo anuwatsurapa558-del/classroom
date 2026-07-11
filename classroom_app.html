@@ -3936,8 +3936,46 @@ function _initDB(){
   currentTermId=cur?cur.id:(db.terms[0]?.id||null);
 }
 
+/* ── REALTIME SUBSCRIPTION ── */
+function _setupRealtime(){
+  const channel=sb.channel('schools-changes')
+    .on('postgres_changes',{
+      event:'UPDATE',
+      schema:'public',
+      table:'schools',
+      filter:'id=eq.'+SCHOOL_ID
+    },payload=>{
+      // Echo protection: ถ้าตัวเราเพิ่งบันทึก (ภายใน 2 วินาที) ข้าม
+      if(Date.now()-_lastSaveTime<2000)return;
+      const newData=payload.new?.data;
+      if(!newData||!(newData.classes||newData.school||newData.terms))return;
+      // Merge เข้า db
+      db=newData;
+      _initDB();
+      try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+      // Re-render หน้าปัจจุบัน
+      const cur=curPage();
+      if(cur){
+        renderPage(cur);
+        updateSidebarLogo();
+      }
+      // แสดง notification เล็กๆ
+      const s=document.getElementById('sync-status');
+      if(s){s.textContent='🔄 อัปเดตจากที่อื่น';s.style.color='var(--tl)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    })
+    .subscribe(status=>{
+      console.log('Realtime status:',status);
+    });
+  return channel;
+}
+
 /* ── INIT ── */
-load().then(()=>{updateSidebarLogo();renderSchool();renderDash();});
+load().then(()=>{
+  updateSidebarLogo();
+  renderSchool();
+  renderDash();
+  _setupRealtime();
+});
 </script>
 </body>
 </html>
