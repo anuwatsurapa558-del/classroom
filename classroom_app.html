@@ -10,6 +10,7 @@
 <title>ระบบเช็คชื่อและเก็บคะแนน (ครู)</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#F4F3EF;--sf:#fff;--s2:#EDEBE7;--s3:#E4E2DD;
@@ -444,7 +445,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 <div class="toast" id="toast"></div>
 
 <script>
-const GAS_URL='https://script.google.com/macros/s/AKfycbwrdBS2gm5frwgmTRMcYYciw8UOYWc-X5aITv8L4mzJdIUlScwlpu8w7FeyvreZJVY9/exec';
+// ═══ Supabase Connection ═══
+const SUPABASE_URL='https://ymmjsalckzznmungcsip.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltbWpzYWxja3p6bm11bmdjc2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NTkyMDUsImV4cCI6MjA5OTMzNTIwNX0.CmiyDZJ3oM_DLeKE-DS-qVVN7eqUQCe0EdnGoZFhVGk';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const SCHOOL_ID='main';
 
 /* ════ DATA ════
   db.classes   [{id,name}]
@@ -615,49 +620,55 @@ function calcTotal(cid,subid,stuId){
   };
 }
 
-/* ── PERSISTENCE ── */
+/* ── PERSISTENCE (Supabase) ── */
 let _saveTimer=null;
+let _lastSaveTime=0;
+
 function save(){
   try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(_cloudSave,1500);
 }
+
 async function _cloudSave(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
     const payload=JSON.stringify(db);
     const sizeKB=Math.round(payload.length/1024);
-    const r=await fetch(GAS_URL,{method:'POST',body:payload,headers:{'Content-Type':'text/plain'}});
-    const j=await r.json();
-    if(j.status==='ok'){
-      if(s){s.textContent='✅ บันทึกแล้ว ('+sizeKB+'KB)';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-      return true;
-    }
-    if(j.error){
-      if(s){s.textContent='❌ '+j.error.slice(0,40);s.style.color='var(--rd)';}
-      alert('บันทึกไม่สำเร็จ:\n'+j.error+'\n\nขนาดข้อมูล: '+sizeKB+'KB');
+    const {error}=await sb.from('schools').update({data:db,updated_at:new Date().toISOString()}).eq('id',SCHOOL_ID);
+    if(error){
+      if(s){s.textContent='❌ '+error.message.slice(0,40);s.style.color='var(--rd)';}
+      console.error('Save error:',error);
+      alert('บันทึกไม่สำเร็จ:\n'+error.message+'\n\nขนาดข้อมูล: '+sizeKB+'KB');
       return false;
     }
+    _lastSaveTime=Date.now(); // กัน echo กลับมาที่ตัวเอง
+    if(s){s.textContent='✅ บันทึกแล้ว ('+sizeKB+'KB)';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    return true;
   }catch(e){
     if(s){s.textContent='⚠️ ออฟไลน์';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},4000);}
+    console.error('Network error:',e);
     return false;
   }
-  return false;
 }
+
 async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    const r=await fetch(GAS_URL+'?action=load');
-    const j=JSON.parse(await r.text());
-    if(j&&(j.classes||j.school||j.terms)){
-      db=j;
+    const {data,error}=await sb.from('schools').select('data').eq('id',SCHOOL_ID).single();
+    if(error){
+      console.error('Load error:',error);
+      throw error;
+    }
+    if(data&&data.data&&(data.data.classes||data.data.school||data.data.terms)){
+      db=data.data;
       _initDB();
       if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
       return;
     }
-  }catch(e){}
+  }catch(e){console.error('Network error:',e);}
   try{const x=localStorage.getItem('crDB4');if(x){db=JSON.parse(x);}}catch(e){}
   _initDB();
   if(s){s.textContent='📱 โหลดจากเครื่อง';s.style.color='var(--am)';setTimeout(()=>{if(s)s.textContent='';},3000);}
