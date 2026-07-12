@@ -1346,11 +1346,39 @@ function openReport(cid,sid){
     <style>
       @font-face{font-family:'TH Sarabun New';src:local('TH Sarabun New'),local('THSarabunNew');}
       *{box-sizing:border-box}
-      body{font-family:'TH Sarabun New','Sarabun',sans-serif;background:#f1f5f9;margin:0;padding:0;color:#000;}
-      ${document.querySelector('style')?.textContent?.split('/* PRINT — รายงานผู้ปกครอง */')[1]?.split('/* SCHOOL INFO PAGE */')[0]||''}
-      .print-btn{position:fixed;top:20px;right:20px;background:#000;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;}
-      .print-btn:hover{background:#333;}
-      @media print{.print-btn{display:none}body{background:#fff;}@page{size:A4;margin:2.5cm 2cm 2cm 2.5cm;}}
+      body{font-family:'TH Sarabun New','Sarabun',sans-serif;background:#f1f5f9;margin:0;padding:0;color:#000;line-height:1.2}
+      .report-page{background:#fff;padding:30px 42px 24px;margin:15px auto;max-width:820px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-radius:8px;color:#000;font-family:'TH Sarabun New','Sarabun',sans-serif;line-height:1.2}
+      .report-hd{text-align:center;padding-bottom:4px;margin-bottom:6px}
+      .report-hd img{width:90px;height:90px;object-fit:contain;margin:0 auto 2px;display:block}
+      .report-hd .r-school{font-size:22pt;font-weight:700;color:#000;margin:4px 0 2px;line-height:1.1}
+      .report-hd .r-office{font-size:16pt;font-weight:700;color:#000;margin:1px 0;line-height:1.15}
+      .report-hd .r-title{font-size:16pt;font-weight:700;color:#000;margin:2px 0;line-height:1.15}
+      .report-hd .r-term{font-size:14pt;font-weight:700;color:#000;margin:2px 0 0;line-height:1.15}
+      .report-title{background:#fff;color:#000;padding:3px 4px;border-top:1px solid #000;border-bottom:1px solid #000;font-weight:700;font-size:15pt;margin:12px 0 6px;text-align:left}
+      .report-info{display:grid;grid-template-columns:1fr 1fr;gap:4px 32px;padding:2px 4px 6px;margin-bottom:2px}
+      .report-info-item{display:flex;align-items:baseline;padding:1px 0;font-size:14pt;color:#000;gap:12px}
+      .report-info-item .lbl{font-weight:700;min-width:130px}
+      .report-info-item .val{font-weight:400;flex:1}
+      .report-tbl{width:100%;border-collapse:collapse;margin-bottom:6px}
+      .report-tbl th,.report-tbl td{padding:4px 8px;border:1px solid #000;text-align:center;color:#000;font-size:14pt;line-height:1.2;vertical-align:middle}
+      .report-tbl th{font-weight:700;background:#fff}
+      .report-tbl td{font-weight:400}
+      .report-tbl td.tl,.report-tbl th.tl{text-align:left}
+      .report-signature{margin-top:24px;display:flex;flex-wrap:wrap;justify-content:space-around;gap:16px;font-size:14pt;color:#000;text-align:center}
+      .report-signature > div{padding:0 8px;min-width:240px}
+      .report-signature .sig-line-1{padding-bottom:0;letter-spacing:1px;font-weight:400;margin-top:32px}
+      .report-signature .sig-name{margin-top:2px;font-weight:400}
+      .report-signature .sig-role{margin-top:2px;font-weight:700}
+      .print-btn{position:fixed;top:20px;right:20px;background:#000;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100}
+      .print-btn:hover{background:#333}
+      @media print{
+        .print-btn{display:none}
+        body{background:#fff}
+        .report-page{margin:0;box-shadow:none;padding:0;max-width:100%;border-radius:0}
+        .report-page *{page-break-inside:avoid}
+        .report-signature{page-break-inside:avoid}
+        @page{size:A4;margin:2cm 2cm 1.5cm 2.5cm;}
+      }
     </style></head><body>
     <button class="print-btn no-print" onclick="window.print()">🖨️ พิมพ์ / บันทึกเป็น PDF</button>
     ${html}
