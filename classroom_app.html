@@ -2964,19 +2964,19 @@ function renderScEntry(){
   const el=document.getElementById('sc-entry');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
-  // โหลด submissions ใน background — เมื่อเสร็จ re-render
-  loadTeacherSubmissions(cid,subid).then(()=>{
-    // เช็คว่ายังอยู่หน้านี้ก่อน re-render
-    if(document.getElementById('sc-entry')&&needCS('scores')){
-      // re-render ใหม่โดยเรียก renderScEntry ซ้ำ แต่ไม่วน infinite loop
-      // ใช้ flag เพื่อป้องกัน
-      if(!window._rescRe){
-        window._rescRe=true;
-        renderScEntry();
-        window._rescRe=false;
-      }
-    }
-  });
+  // โหลด submissions แค่ครั้งแรก ตอนเปลี่ยน cid/subid
+  const key=cid+'|'+subid;
+  if(window._lastSubKey!==key){
+    window._lastSubKey=key;
+    loadTeacherSubmissions(cid,subid).then(()=>{
+      // เมื่อโหลดเสร็จ ค่อย re-render (ใช้ setTimeout กันชนกับ event ปัจจุบัน)
+      setTimeout(()=>{
+        if(window._lastSubKey===key&&document.getElementById('sc-entry')){
+          renderScEntry();
+        }
+      },0);
+    });
+  }
   const wA=sub.wAssign??70;
   let html=`<div class="prop-box"><div class="prop-title">สัดส่วนคะแนน — ${sub.name}</div>
     <div class="prop-bar"><div class="prop-seg" style="width:${wA}%;background:var(--bl)">${wA}% เก็บ</div><div class="prop-seg" style="width:${100-wA}%;background:var(--tl)">${100-wA}% สอบ</div></div>
