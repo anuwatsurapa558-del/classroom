@@ -242,28 +242,28 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   @page{size:A4;margin:2.5cm 2cm 2cm 2.5cm;}
 }
 /* รายงานผู้ปกครอง — ใช้ TH Sarabun New (fallback → Sarabun) */
-.report-page{background:#fff;padding:30px 40px;margin:15px auto;max-width:820px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-radius:8px;color:#000;font-family:'TH Sarabun New','Sarabun',sans-serif;}
-.report-hd{text-align:center;padding-bottom:14px;margin-bottom:20px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
-.report-hd img{width:110px;height:110px;object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;}
-.report-hd .r-school{font-size:24pt;font-weight:700;color:#000;margin:6px 0 2px;line-height:1.15;}
+.report-page{background:#fff;padding:40px 50px 30px;margin:15px auto;max-width:820px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-radius:8px;color:#000;font-family:'TH Sarabun New','Sarabun',sans-serif;line-height:1.35;}
+.report-hd{text-align:center;padding-bottom:8px;margin-bottom:14px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-hd img{width:120px;height:120px;object-fit:contain;margin:0 auto 4px;display:block;}
+.report-hd .r-school{font-size:24pt;font-weight:700;color:#000;margin:8px 0 4px;line-height:1.1;}
 .report-hd .r-office{font-size:18pt;font-weight:700;color:#000;margin:2px 0;line-height:1.2;}
 .report-hd .r-title{font-size:18pt;font-weight:700;color:#000;margin:4px 0;line-height:1.2;}
 .report-hd .r-term{font-size:16pt;font-weight:700;color:#000;margin:4px 0 0;line-height:1.2;}
-.report-title{background:#fff;color:#000;padding:6px 0;border-top:1.5px solid #000;border-bottom:1.5px solid #000;font-weight:700;font-size:18pt;margin:20px 0 12px;text-align:left;font-family:'TH Sarabun New','Sarabun',sans-serif;}
-.report-info{display:grid;grid-template-columns:1fr 1fr;gap:10px 32px;padding:8px 4px 14px;margin-bottom:6px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
-.report-info-item{display:flex;align-items:baseline;padding:2px 0;font-size:16pt;color:#000;gap:12px;}
-.report-info-item .lbl{font-weight:700;min-width:140px;}
+.report-title{background:#fff;color:#000;padding:5px 6px;border-top:1.5px solid #000;border-bottom:1.5px solid #000;font-weight:700;font-size:18pt;margin:22px 0 12px;text-align:left;font-family:'TH Sarabun New','Sarabun',sans-serif;letter-spacing:0.5px;}
+.report-info{display:grid;grid-template-columns:1fr 1fr;gap:12px 40px;padding:4px 8px 12px;margin-bottom:8px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-info-item{display:flex;align-items:baseline;padding:2px 0;font-size:16pt;color:#000;gap:16px;}
+.report-info-item .lbl{font-weight:700;min-width:150px;}
 .report-info-item .val{font-weight:400;flex:1;}
-.report-tbl{width:100%;border-collapse:collapse;margin-bottom:12px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
-.report-tbl th,.report-tbl td{padding:8px 10px;border:1px solid #000;text-align:center;color:#000;font-size:16pt;line-height:1.3;}
+.report-tbl{width:100%;border-collapse:collapse;margin-bottom:14px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-tbl th,.report-tbl td{padding:9px 12px;border:1px solid #000;text-align:center;color:#000;font-size:16pt;line-height:1.3;vertical-align:middle;}
 .report-tbl th{font-weight:700;background:#fff;}
 .report-tbl td{font-weight:400;}
-.report-tbl td.tl{text-align:left;}
-.report-signature{margin-top:56px;display:flex;flex-wrap:wrap;justify-content:space-around;gap:16px;font-size:16pt;color:#000;text-align:center;font-family:'TH Sarabun New','Sarabun',sans-serif;}
-.report-signature > div{padding:0 12px;min-width:240px;}
+.report-tbl td.tl,.report-tbl th.tl{text-align:left;}
+.report-signature{margin-top:60px;display:flex;flex-wrap:wrap;justify-content:space-around;gap:24px;font-size:16pt;color:#000;text-align:center;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-signature > div{padding:0 8px;min-width:260px;}
 .report-signature .sig-line-1{padding-bottom:2px;letter-spacing:1px;font-weight:400;}
-.report-signature .sig-name{margin-top:4px;font-weight:400;}
-.report-signature .sig-role{margin-top:4px;font-weight:700;}
+.report-signature .sig-name{margin-top:6px;font-weight:400;}
+.report-signature .sig-role{margin-top:6px;font-weight:700;}
 
 /* SCHOOL INFO PAGE */
 .school-card{background:linear-gradient(135deg,#1e3a5f,#2563EB);color:#fff;border-radius:var(--rl);padding:24px;margin-bottom:14px;box-shadow:0 4px 20px rgba(37,99,235,0.3);text-align:center;}
@@ -1284,7 +1284,7 @@ function openReport(cid,sid){
 
     <div class="report-title">เวลาเรียน</div>
     <table class="report-tbl">
-      <thead><tr><th>วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>วันเรียน</th><th>%มาเรียน</th></tr></thead>
+      <thead><tr><th class="tl">วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>วันเรียน</th><th>%มาเรียน</th></tr></thead>
       <tbody>`;
   rows.forEach(r=>{
     html+=`<tr><td class="tl">${r.sub.name}</td><td>${r.ma}</td><td>${r.say}</td><td>${r.la}</td><td>${r.kh}</td><td>${r.tot}</td><td>${r.attPct}%</td></tr>`;
@@ -1293,7 +1293,7 @@ function openReport(cid,sid){
 
     <div class="report-title">ผลการเรียน</div>
     <table class="report-tbl">
-      <thead><tr><th>วิชา</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>รวมคะแนน</th><th>เกรด</th><th>หมายเหตุ</th></tr></thead>
+      <thead><tr><th class="tl">วิชา</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>รวมคะแนน</th><th>เกรด</th><th class="tl">หมายเหตุ</th></tr></thead>
       <tbody>`;
   rows.forEach(r=>{
     const c=r.calc;
@@ -1302,7 +1302,7 @@ function openReport(cid,sid){
     const total=Math.round((c.totalScore||0)*10)/10;
     const grade=c.finalGrade||c.grade?.g||'0';
     const note=c.note||'';
-    html+=`<tr><td class="tl">${r.sub.name}</td><td>${assign}</td><td>${exam}</td><td>${total}</td><td>${grade}</td><td>${note}</td></tr>`;
+    html+=`<tr><td class="tl">${r.sub.name}</td><td>${assign}</td><td>${exam}</td><td>${total}</td><td>${grade}</td><td class="tl">${note}</td></tr>`;
   });
   html+=`</tbody></table>
 
@@ -2916,35 +2916,96 @@ function renderAttEdit(){
   el.innerHTML=html;
 }
 function pickStEdit(btn){const g=btn.closest('.abtns');g.querySelectorAll('.ab').forEach(b=>b.className='ab');btn.className=`ab${btn.dataset.k?' s-'+btn.dataset.k:''}`;}
-function deleteAttDay(cid,subid){
+async function deleteAttDay(cid,subid){
   if(!confirm('ลบข้อมูลการเช็คชื่อทั้งหมดของวันที่ '+thDate(attEditDate)+' ?\nสถิติของวันนี้จะถูกลบออกด้วย'))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+  try{
+    // ลบใน Supabase โดยใช้ composite key
+    const {error}=await sb.from('attendance').delete()
+      .eq('class_id',cid)
+      .eq('subject_id',subid)
+      .eq('date',attEditDate);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);
+    alert('ลบไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
+  // ลบใน local db
   const tkey=tk(cid);
   if(db.attendance[tkey]&&db.attendance[tkey][subid]&&db.attendance[tkey][subid][attEditDate]){
     delete db.attendance[tkey][subid][attEditDate];
   }
-  // เลือกวันที่ถัดไปที่เหลือ
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
   const dates=Object.keys(((db.attendance[tkey]||{})[subid])||{}).sort().reverse();
   attEditDate=dates[0]||todayStr();
-  save();showToast('ลบข้อมูลการเช็คชื่อทั้งวันแล้ว ✓');
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  showToast('ลบข้อมูลการเช็คชื่อทั้งวันแล้ว ✓');
   renderAtt();
 }
-function saveAttEdit(cid,subid){
+async function saveAttEdit(cid,subid){
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
   if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
   if(!db.attendance[tk(cid)][subid])db.attendance[tk(cid)][subid]={};
   if(!db.attendance[tk(cid)][subid][attEditDate])db.attendance[tk(cid)][subid][attEditDate]={};
-  stuList(cid).forEach(s=>{
-    const g=document.getElementById('eabg-'+s.id);if(!g)return;
+
+  // ── บันทึกสถานะใหม่ และเก็บ list นักเรียนที่ถูกลบสถานะ ──
+  const removedStuIds=[];
+  const upsertRows=[];
+  stuList(cid).forEach(stu=>{
+    const g=document.getElementById('eabg-'+stu.id);if(!g)return;
     const a=g.querySelector('[class*="s-"]');
-    if(a){const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');if(k)db.attendance[tk(cid)][subid][attEditDate][s.id]=lkmap[k]||k;}
-    else delete db.attendance[tk(cid)][subid][attEditDate][s.id];
+    if(a){
+      const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');
+      if(k){
+        const status=lkmap[k]||k;
+        db.attendance[tk(cid)][subid][attEditDate][stu.id]=status;
+        upsertRows.push({class_id:cid,subject_id:subid,student_id:stu.id,date:attEditDate,status});
+      }
+    } else {
+      // ไม่มีสถานะ - ลบออก
+      if(db.attendance[tk(cid)][subid][attEditDate][stu.id]!==undefined){
+        delete db.attendance[tk(cid)][subid][attEditDate][stu.id];
+        removedStuIds.push(stu.id);
+      }
+    }
   });
-  // ถ้าวันนี้ไม่มีสถานะเหลือเลย ให้ลบ key วันออก (ไม่ให้สถิติค้าง)
-  if(Object.keys(db.attendance[tk(cid)][subid][attEditDate]).length===0){
-    delete db.attendance[tk(cid)][subid][attEditDate];
-    const dates=attDates(cid,subid).sort().reverse();
-    attEditDate=dates[0]||todayStr();
+
+  try{
+    // ── ลบสถานะที่ถูกเอาออกใน Supabase ──
+    for(const stuId of removedStuIds){
+      await sb.from('attendance').delete()
+        .eq('class_id',cid).eq('subject_id',subid)
+        .eq('student_id',stuId).eq('date',attEditDate);
+    }
+    // ── upsert สถานะที่มี ──
+    if(upsertRows.length){
+      const {error}=await sb.from('attendance').upsert(upsertRows,{onConflict:'class_id,subject_id,student_id,date'});
+      if(error)throw error;
+    }
+    // ── ถ้าวันนี้ไม่มีสถานะเหลือ ลบข้อมูลวันนั้นทั้งหมดใน DB (กันสถิติค้าง) ──
+    if(Object.keys(db.attendance[tk(cid)][subid][attEditDate]).length===0){
+      delete db.attendance[tk(cid)][subid][attEditDate];
+      // ลบใน Supabase ด้วย (เผื่อมี row ค้าง)
+      await sb.from('attendance').delete()
+        .eq('class_id',cid).eq('subject_id',subid).eq('date',attEditDate);
+      const dates=attDates(cid,subid).sort().reverse();
+      attEditDate=dates[0]||todayStr();
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');
+    renderAtt();
+  }catch(e){
+    console.error(e);
+    alert('บันทึกไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
   }
-  save();showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');renderAtt();
 }
 
 function renderAttSummary(){
@@ -3613,11 +3674,26 @@ function addAsg(cid,subid){
   document.getElementById('asgName').value='';
   save();renderScEntry();
 }
-function delAsg(cid,subid,aid){
+async function delAsg(cid,subid,aid){
   if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+  try{
+    // CASCADE จะลบ scores และ submissions อัตโนมัติ
+    const {error}=await sb.from('assignments').delete().eq('id',aid);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);
+    alert('ลบไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
   db.assignments[tk(cid)][subid]=(db.assignments[tk(cid)][subid]||[]).filter(a=>a.id!==aid);
   if((db.scores[tk(cid)]||{})[subid])delete db.scores[tk(cid)][subid][aid];
-  save();renderScEntry();
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  renderScEntry();
 }
 
 /* คะแนนสอบ */
@@ -4118,14 +4194,29 @@ function saveEditFsGroup(cid,gid){
   save();closeMD();renderFiveS();
   showToast('✓ บันทึกแล้ว');
 }
-function delFsGroup(cid,gid){
+async function delFsGroup(cid,gid){
   const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
   if(!g)return;
   if(!confirm(`ลบ "${g.name}"? ข้อมูลเช็ค 5 ส ของกลุ่มนี้จะหายทั้งหมด`))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+  try{
+    // CASCADE จะลบ five_s_members + five_s_checks อัตโนมัติ
+    const {error}=await sb.from('five_s_groups').delete().eq('id',gid);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);
+    alert('ลบไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
   fsSetGroups(cid,groups.filter(x=>x.id!==gid));
   delete db.fiveS.checks[fsCheckKey(cid,gid)];
-  save();renderFiveS();
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  renderFiveS();
   showToast('ลบกลุ่มแล้ว');
 }
 
@@ -4649,7 +4740,30 @@ function openAddClass(){showMD(`<div class="mt"><i class="ti ti-door-enter"></i>
 function submitAddClass(){const name=val('mCN');if(!name)return;const id=uid();db.classes.push({id,name,termId:currentTermId});db.students[tk(id)]=[];sortClasses();save();closeMD();Object.keys(P).forEach(p=>{if(P[p].cls===undefined)return;if(!P[p].cls)P[p].cls=id;});renderPage(curPage());showToast(`เพิ่มห้อง "${name}" แล้ว`);}
 function openEditCls(cid){const c=getCls(cid);showMD(`<div class="mt">แก้ไขห้องเรียน</div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mCN2" value="${c.name}"></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditCls('${cid}')">บันทึก</button></div>`);}
 function submitEditCls(cid){const name=val('mCN2');if(!name)return;const c=getCls(cid);if(c)c.name=name;sortClasses();save();closeMD();renderStudents();}
-function deleteCls(cid){const c=getCls(cid);if(!confirm(`ลบห้อง "${c?.name}"?\nข้อมูลทั้งหมดจะหายไป`))return;db.classes=db.classes.filter(x=>x.id!==cid);const _tk=tk(cid);['students','subjects','attendance','assignments','scores','examScores'].forEach(k=>{delete db[k][_tk];});Object.keys(P).forEach(p=>{if(P[p].cls===cid){P[p].cls=db.classes[0]?.id||null;if(P[p].sub!==undefined)P[p].sub=null;}});save();renderStudents();showToast('ลบห้องเรียนแล้ว');}
+async function deleteCls(cid){
+  const c=getCls(cid);
+  if(!confirm(`ลบห้อง "${c?.name}"?\nข้อมูลทั้งหมดจะหายไป (นักเรียน วิชา คะแนน เช็คชื่อ งาน)`))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+  try{
+    const {error}=await sb.from('classes').delete().eq('id',cid);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);
+    alert('ลบไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
+  db.classes=db.classes.filter(x=>x.id!==cid);
+  const _tk=tk(cid);
+  ['students','subjects','attendance','assignments','scores','examScores','timetable'].forEach(k=>{if(db[k])delete db[k][_tk];});
+  Object.keys(P).forEach(p=>{if(P[p]?.cls===cid){P[p].cls=db.classes[0]?.id||null;if(P[p].sub!==undefined)P[p].sub=null;}});
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  renderStudents();
+  showToast('ลบห้องเรียนแล้ว');
+}
 
 function openAddSubject(cid,page){
   showMD(`<div class="mt"><i class="ti ti-book-plus"></i> เพิ่มวิชา — ${getCls(cid).name}</div>
