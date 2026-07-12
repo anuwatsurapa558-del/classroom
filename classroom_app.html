@@ -236,24 +236,34 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   .sb,.bn,.tb,.tools,#tools{display:none!important;}
   .main{margin:0!important;padding:0!important;}
   .tb{display:none!important;}
-  .report-page{page-break-after:always;}
+  .report-page{page-break-after:always;box-shadow:none!important;margin:0!important;border-radius:0!important;}
   .report-page:last-child{page-break-after:auto;}
   .no-print{display:none!important;}
+  @page{size:A4;margin:2.5cm 2cm 2cm 2.5cm;}
 }
-.report-page{background:#fff;padding:30px;margin:15px auto;max-width:780px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-radius:8px;color:#1a1a1a;}
-.report-hd{text-align:center;border-bottom:2px solid #2563EB;padding-bottom:14px;margin-bottom:20px;}
-.report-hd h2{margin:6px 0 2px;font-size:20px;font-weight:800;}
-.report-hd p{margin:2px 0;font-size:13px;color:#555;}
-.report-hd img{width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:8px;}
-.report-title{background:#2563EB;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;font-size:15px;margin:16px 0 10px;}
-.report-info{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:#f8fafc;padding:14px;border-radius:8px;margin-bottom:14px;}
-.report-info-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #d1d5db;font-size:13px;}
-.report-info-item b{color:#111;}
-.report-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;}
-.report-tbl th,.report-tbl td{padding:6px 8px;border:1px solid #d1d5db;text-align:left;}
-.report-tbl th{background:#eff6ff;font-weight:700;color:#1e3a8a;}
-.report-signature{margin-top:30px;display:flex;flex-wrap:wrap;justify-content:space-around;gap:8px;font-size:12px;color:#555;text-align:center;}
-.report-signature > div{padding:0 12px;}
+/* รายงานผู้ปกครอง — ใช้ TH Sarabun New (fallback → Sarabun) */
+.report-page{background:#fff;padding:20px;margin:15px auto;max-width:800px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-radius:8px;color:#000;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-hd{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:18px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-hd .r-school{font-size:20pt;font-weight:700;color:#000;margin:6px 0 2px;line-height:1.2;}
+.report-hd .r-office{font-size:16pt;font-weight:700;color:#000;margin:2px 0;line-height:1.2;}
+.report-hd .r-title{font-size:16pt;font-weight:700;color:#000;margin:4px 0;line-height:1.2;}
+.report-hd img{width:70px;height:70px;border-radius:50%;object-fit:cover;margin-bottom:6px;}
+.report-title{background:#fff;color:#000;padding:6px 0;border-top:2px solid #000;border-bottom:2px solid #000;font-weight:700;font-size:18pt;margin:16px 0 10px;text-align:left;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-info{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;padding:8px 4px;margin-bottom:12px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-info-item{display:flex;padding:4px 0;font-size:16pt;color:#000;}
+.report-info-item .lbl{font-weight:700;min-width:130px;}
+.report-info-item .val{font-weight:400;}
+.report-tbl{width:100%;border-collapse:collapse;margin-bottom:12px;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-tbl th,.report-tbl td{padding:6px 8px;border:1px solid #000;text-align:center;color:#000;font-size:16pt;}
+.report-tbl th{font-weight:700;background:#fff;}
+.report-tbl td{font-weight:400;}
+.report-tbl td.tl{text-align:left;}
+.report-signature{margin-top:40px;display:flex;flex-wrap:wrap;justify-content:space-around;gap:8px;font-size:16pt;color:#000;text-align:center;font-family:'TH Sarabun New','Sarabun',sans-serif;}
+.report-signature > div{padding:0 12px;min-width:200px;}
+.report-signature .sig-line{padding-top:0;margin-top:60px;border-top:none;}
+.report-signature .sig-line-1{border-top:none;padding-bottom:2px;letter-spacing:1px;}
+.report-signature .sig-name{margin-top:2px;}
+.report-signature .sig-role{margin-top:2px;font-weight:700;}
 
 /* SCHOOL INFO PAGE */
 .school-card{background:linear-gradient(135deg,#1e3a5f,#2563EB);color:#fff;border-radius:var(--rl);padding:24px;margin-bottom:14px;box-shadow:0 4px 20px rgba(37,99,235,0.3);text-align:center;}
@@ -1247,37 +1257,41 @@ function openReport(cid,sid){
     return{sub,asgs:asgs.length,sent,late,missed,ma,say,la,kh,tot,attPct,calc};
   });
 
-  const logoHtml=sch.logo?`<img src="${sch.logo}">`:'<i class="ti ti-building-bank" style="font-size:36px;color:#2563EB"></i>';
+  const logoHtml=sch.logo?`<img src="${sch.logo}">`:'';
   const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  // ข้อความหัวสำนักงานเขต (ไม่รวม subdistrict/district/province ตามที่ user ต้องการ)
+  const officeText='สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสกลนคร';
+  // ปีการศึกษา + ภาค
+  const termLine=cur?`ปีการศึกษา ${cur.year} ภาค ${cur.semester}`:'';
 
   let html=`<div class="report-page">
     <div class="report-hd">
       ${logoHtml}
-      <h2>${sch.name||'โรงเรียน'}</h2>
-      <p>${[sch.subdistrict,sch.district,sch.province].filter(Boolean).join(' ')}</p>
-      <p style="margin-top:4px"><b>รายงานผลการเรียนสำหรับผู้ปกครอง</b></p>
-      <p>${cur?cur.label:''}</p>
+      <div class="r-school">${sch.name||'โรงเรียน'}</div>
+      <div class="r-office">${officeText}</div>
+      <div class="r-title">รายงานผลการเรียนสำหรับผู้ปกครอง</div>
+      <div class="r-title">${termLine}</div>
     </div>
 
-    <div class="report-title"><i class="ti ti-user"></i> ข้อมูลนักเรียน</div>
+    <div class="report-title">ข้อมูลนักเรียน</div>
     <div class="report-info">
-      <div class="report-info-item"><span>เลขที่</span><b>${stu.no}</b></div>
-      <div class="report-info-item"><span>ห้อง</span><b>${cls.name}</b></div>
-      <div class="report-info-item"><span>ชื่อ-สกุล</span><b>${stu.firstName} ${stu.lastName}</b></div>
-      <div class="report-info-item"><span>วันที่ออกรายงาน</span><b>${today}</b></div>
+      <div class="report-info-item"><span class="lbl">ชื่อ-สกุล</span><span class="val">${stu.firstName} ${stu.lastName}</span></div>
+      <div class="report-info-item"><span class="lbl">ชั้น</span><span class="val">${cls.name}</span></div>
+      <div class="report-info-item"><span class="lbl">เลขที่</span><span class="val">${stu.no}</span></div>
+      <div class="report-info-item"><span class="lbl">วันที่ออกรายงาน</span><span class="val">${today}</span></div>
     </div>
 
-    <div class="report-title"><i class="ti ti-calendar"></i> เวลาเรียน</div>
+    <div class="report-title">เวลาเรียน</div>
     <table class="report-tbl">
       <thead><tr><th>วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>วันเรียน</th><th>%มาเรียน</th></tr></thead>
       <tbody>`;
   rows.forEach(r=>{
-    const col=r.attPct>=80?'#059669':r.attPct>=60?'#d97706':'#dc2626';
-    html+=`<tr><td><b>${r.sub.name}</b></td><td>${r.ma}</td><td>${r.say}</td><td>${r.la}</td><td>${r.kh}</td><td>${r.tot}</td><td style="color:${col};font-weight:700">${r.attPct}%</td></tr>`;
+    html+=`<tr><td class="tl">${r.sub.name}</td><td>${r.ma}</td><td>${r.say}</td><td>${r.la}</td><td>${r.kh}</td><td>${r.tot}</td><td>${r.attPct}%</td></tr>`;
   });
   html+=`</tbody></table>
 
-    <div class="report-title"><i class="ti ti-award"></i> ผลการเรียน</div>
+    <div class="report-title">ผลการเรียน</div>
     <table class="report-tbl">
       <thead><tr><th>วิชา</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>รวมคะแนน</th><th>เกรด</th><th>หมายเหตุ</th></tr></thead>
       <tbody>`;
@@ -1288,55 +1302,38 @@ function openReport(cid,sid){
     const total=Math.round((c.totalScore||0)*10)/10;
     const grade=c.finalGrade||c.grade?.g||'0';
     const note=c.note||'';
-    const gColor=grade==='0'?'#dc2626':grade==='ร'?'#d97706':grade==='4'?'#059669':'#333';
-    html+=`<tr>
-      <td><b>${r.sub.name}</b></td>
-      <td style="text-align:center">${assign}</td>
-      <td style="text-align:center">${exam}</td>
-      <td style="text-align:center;font-weight:700">${total}</td>
-      <td style="text-align:center;font-weight:700;color:${gColor}">${grade}</td>
-      <td style="font-size:11px;color:#666">${note}</td>
-    </tr>`;
+    html+=`<tr><td class="tl">${r.sub.name}</td><td>${assign}</td><td>${exam}</td><td>${total}</td><td>${grade}</td><td>${note}</td></tr>`;
   });
   html+=`</tbody></table>
 
     <div class="report-signature">`;
 
-  // ลายเซ็นครูประจำวิชา — แสดงตามจำนวนวิชา
+  // ลายเซ็นครูประจำวิชา — โครงสร้างใหม่:
+  //   บรรทัด 1: เส้นว่างสำหรับเซ็น
+  //   บรรทัด 2: (ชื่อครู) หรือ (........) สำหรับผู้ปกครอง
+  //   บรรทัด 3: "ครูประจำวิชา" หรือ "ผู้ปกครอง"
   const teachers=[...new Set(rows.map(r=>r.sub.teacher).filter(t=>t))];
   if(teachers.length){
-    // ถ้ามีครูหลายคน แสดงเป็น block
     teachers.forEach(tname=>{
-      html+=`<div style="min-width:180px;margin:15px 10px">
-        <div style="border-top:1px solid #333;padding-top:6px;margin-top:40px;text-align:center">
-          <b>ครูประจำวิชา</b><br>
-          <span style="font-size:12px">(${tname})</span>
-        </div>
+      html+=`<div>
+        <div class="sig-line-1">............................................</div>
+        <div class="sig-name">(${tname})</div>
+        <div class="sig-role">ครูประจำวิชา</div>
       </div>`;
     });
-    // ลายเซ็นผู้ปกครอง
-    html+=`<div style="min-width:180px;margin:15px 10px">
-      <div style="border-top:1px solid #333;padding-top:6px;margin-top:40px;text-align:center">
-        <b>ผู้ปกครอง</b><br>
-        <span style="font-size:12px">(............................................)</span>
-      </div>
-    </div>`;
   } else {
-    // ไม่มีชื่อครูที่ระบุ — ใช้แบบเดิม
-    html+=`
-      <div>
-        <div style="border-top:1px solid #333;padding-top:6px;margin-top:40px;min-width:180px;text-align:center">
-          <b>ครูประจำวิชา</b><br>
-          <span style="font-size:12px">(............................................)</span>
-        </div>
-      </div>
-      <div>
-        <div style="border-top:1px solid #333;padding-top:6px;margin-top:40px;min-width:180px;text-align:center">
-          <b>ผู้ปกครอง</b><br>
-          <span style="font-size:12px">(............................................)</span>
-        </div>
-      </div>`;
+    html+=`<div>
+      <div class="sig-line-1">............................................</div>
+      <div class="sig-name">(............................................)</div>
+      <div class="sig-role">ครูประจำวิชา</div>
+    </div>`;
   }
+  // ผู้ปกครอง
+  html+=`<div>
+    <div class="sig-line-1">............................................</div>
+    <div class="sig-name">(............................................)</div>
+    <div class="sig-role">ผู้ปกครอง</div>
+  </div>`;
   html+=`
     </div>
   </div>`;
@@ -1344,17 +1341,17 @@ function openReport(cid,sid){
   // เปิดใน window ใหม่แล้วสั่งพิมพ์
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานผู้ปกครอง ${stu.firstName} ${stu.lastName}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/dist/tabler-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+      @font-face{font-family:'TH Sarabun New';src:local('TH Sarabun New'),local('THSarabunNew');}
       *{box-sizing:border-box}
-      body{font-family:'Sarabun',sans-serif;background:#f1f5f9;margin:0;padding:0;}
+      body{font-family:'TH Sarabun New','Sarabun',sans-serif;background:#f1f5f9;margin:0;padding:0;color:#000;}
       ${document.querySelector('style')?.textContent?.split('/* PRINT — รายงานผู้ปกครอง */')[1]?.split('/* SCHOOL INFO PAGE */')[0]||''}
-      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.3);z-index:100;}
-      .print-btn:hover{background:#1e40af;}
-      @media print{.print-btn{display:none}}
+      .print-btn{position:fixed;top:20px;right:20px;background:#000;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;}
+      .print-btn:hover{background:#333;}
+      @media print{.print-btn{display:none}body{background:#fff;}@page{size:A4;margin:2.5cm 2cm 2cm 2.5cm;}}
     </style></head><body>
-    <button class="print-btn no-print" onclick="window.print()"><i class="ti ti-printer"></i> พิมพ์ / บันทึกเป็น PDF</button>
+    <button class="print-btn no-print" onclick="window.print()">🖨️ พิมพ์ / บันทึกเป็น PDF</button>
     ${html}
     </body></html>`);
   w.document.close();
