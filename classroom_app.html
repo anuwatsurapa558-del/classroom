@@ -2074,7 +2074,7 @@ function printTimetableAll(){
   const cls=termClasses();
   const sch=db.school||{};
   const cur=curTerm();
-  const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:50px;height:50px;border-radius:50%;object-fit:cover">`:'';
+  const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover">`:'';
 
   const all=[];
   cls.forEach(c2=>{
@@ -2088,20 +2088,34 @@ function printTimetableAll(){
   const clsColors=['#DBEAFE','#FCE7F3','#DCFCE7','#FEF3C7','#E9D5FF','#FED7AA','#FEE2E2','#CCFBF1','#E0E7FF','#F3E8FF'];
   const clsColorMap={};
   cls.forEach((c2,i)=>{clsColorMap[c2.id]=clsColors[i%clsColors.length];});
+  // สถิติ
+  const stats={};
+  cls.forEach(c2=>{stats[c2.id]={name:c2.name,periods:all.filter(a=>a.clsId===c2.id).length};});
 
-  // ตารางแนวนอน: แถว=วัน คอลัมน์=คาบ
-  let tblHtml='<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr>';
-  tblHtml+='<th style="border:1px solid #999;padding:5px;background:#f1f5f9;width:70px">วัน/เวลา</th>';
+  // Legend: คำอธิบายสีห้อง
+  let legendHtml='<div style="margin-bottom:12px;padding:10px;background:#F9FAFB;border-radius:6px;border:1px solid #E5E7EB"><div style="font-size:11px;color:#666;margin-bottom:6px"><b>คำอธิบายสีห้อง:</b></div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+  cls.forEach(c2=>{
+    legendHtml+=`<span style="background:${clsColorMap[c2.id]};padding:3px 10px;border-radius:6px;font-size:11px;color:#1a1a1a;border:1px solid rgba(0,0,0,0.1)">${c2.name} <span style="opacity:.6">(${stats[c2.id].periods})</span></span>`;
+  });
+  legendHtml+='</div></div>';
+
+  // ตารางแนวนอน: แถว=วัน คอลัมน์=คาบ (เหมือนหน้าจอ)
+  let tblHtml='<table style="width:100%;border-collapse:separate;border-spacing:3px;font-size:10px;table-layout:fixed"><thead><tr>';
+  tblHtml+='<th style="background:#F1F5F9;padding:6px;border-radius:6px;font-size:11px;width:75px">วัน / เวลา</th>';
   PERIODS.forEach(p=>{
-    const bg=p.isFixed?(p.color||'#E5E7EB'):'#f8fafc';
-    tblHtml+=`<th style="border:1px solid #999;padding:4px;background:${bg};font-size:9.5px"><b>${p.isFixed?p.label:p.name}</b><br>${p.start}-${p.end}</th>`;
+    const bg=p.isFixed?(p.color||'#E5E7EB'):'#F8FAFC';
+    const w=p.isFixed?'110px':'auto';
+    tblHtml+=`<th style="background:${bg};padding:5px;border-radius:6px;font-size:10px;color:#1a1a1a;width:${w}">
+      <div style="font-weight:700">${p.isFixed?p.label:p.name}</div>
+      <div style="font-size:9px;font-weight:400;opacity:.8">${p.start}-${p.end}</div>
+    </th>`;
   });
   tblHtml+='</tr></thead><tbody>';
   for(let d=0;d<5;d++){
-    tblHtml+=`<tr><td style="border:1px solid #999;padding:6px;text-align:center;background:${DAY_COLORS[d]};font-weight:700;color:#1a1a1a">${DAYS_TH[d]}</td>`;
+    tblHtml+=`<tr><td style="background:${DAY_COLORS[d]};text-align:center;padding:8px 4px;border-radius:6px;font-size:11px;font-weight:700;color:#1a1a1a">${DAYS_TH[d]}</td>`;
     PERIODS.forEach(p=>{
       if(p.isFixed){
-        tblHtml+=`<td style="border:1px solid #999;padding:4px;background:${p.color};text-align:center;font-size:9.5px;color:#555"><b>${p.label}</b></td>`;
+        tblHtml+=`<td style="background:${p.color};padding:6px;border-radius:6px;text-align:center;color:#555;font-size:10px;vertical-align:middle"><b>${p.label}</b></td>`;
         return;
       }
       const items=all.filter(a=>a.day===d&&a.start<p.end&&a.end>p.start);
@@ -2109,11 +2123,16 @@ function printTimetableAll(){
         items.sort((a,b)=>a.clsName.localeCompare(b.clsName));
         let cellHtml='';
         items.forEach(item=>{
-          cellHtml+=`<div style="background:${clsColorMap[item.clsId]};padding:2px 4px;border-radius:3px;margin-bottom:1.5px;line-height:1.2"><b>${item.clsName}</b>: ${item.isActivity?'★ ':''}${item.name}${item.note?' <span style="color:#666;font-size:9px">('+item.note+')</span>':''}</div>`;
+          const isAct=item.isActivity;
+          cellHtml+=`<div style="background:${clsColorMap[item.clsId]};padding:3px 5px;border-radius:4px;margin-bottom:2px;line-height:1.25;${isAct?'border-left:3px solid #F59E0B':''}">
+            <div style="font-weight:700;color:#1a1a1a;font-size:10px">${item.clsName}</div>
+            <div style="color:#333;font-size:9.5px">${isAct?'★ ':''}${item.name}</div>
+            ${item.note?`<div style="font-size:8.5px;color:#666">${item.note}</div>`:''}
+          </div>`;
         });
-        tblHtml+=`<td style="border:1px solid #999;padding:3px;vertical-align:top">${cellHtml}</td>`;
+        tblHtml+=`<td style="padding:3px;border-radius:6px;vertical-align:top;background:#FAFAFA">${cellHtml}</td>`;
       } else {
-        tblHtml+='<td style="border:1px solid #999;padding:4px;color:#ccc;text-align:center">—</td>';
+        tblHtml+='<td style="background:#F9FAFB;padding:4px;border-radius:6px;color:#CBD5E1;text-align:center;font-size:11px">—</td>';
       }
     });
     tblHtml+='</tr>';
@@ -2124,21 +2143,109 @@ function printTimetableAll(){
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ตารางสอนรวม</title>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-      body{font-family:'Sarabun',sans-serif;padding:16px;margin:0}
+      body{font-family:'Sarabun',sans-serif;padding:16px;margin:0;background:#fff}
       .hd{text-align:center;margin-bottom:14px;border-bottom:2px solid #2563EB;padding-bottom:10px}
       .hd h1{margin:6px 0;font-size:19px}
       .hd h2{margin:6px 0;font-size:15px;color:#2563EB}
-      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
-      @media print{.print-btn{display:none}body{padding:8px}@page{size:A4 landscape;margin:1cm}}
+      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+      .foot{margin-top:14px;font-size:11px;color:#666;text-align:center}
+      @media print{
+        .print-btn{display:none}
+        body{padding:8px}
+        @page{size:A4 landscape;margin:1cm}
+      }
     </style></head><body>
-    <button class="print-btn" onclick="window.print()">พิมพ์</button>
+    <button class="print-btn" onclick="window.print()">🖨 พิมพ์</button>
     <div class="hd">
       ${logoHtml}
       <h1>${sch.name||'โรงเรียน'}</h1>
       <h2>ตารางสอนรวมทุกห้อง</h2>
       <p style="margin:4px 0;font-size:13px;color:#666">${cur?cur.label:''}</p>
     </div>
+    ${legendHtml}
     ${tblHtml}
+    <div class="foot">
+      <i>★ = กิจกรรมพิเศษ · แถบสีอ่อน = กิจกรรมประจำ (โฮมรูม/พักเที่ยง/บำเพ็ญประโยชน์)</i>
+    </div>
+    </body></html>`);
+  w.document.close();
+}
+
+// ── พิมพ์ตารางเรียนของห้องเดียว (per-class) ──
+function printTimetableClass(cid){
+  const cls=db.classes.find(c=>c.id===cid);
+  if(!cls){showToast('ไม่พบห้อง');return;}
+  const sch=db.school||{};
+  const cur=curTerm();
+  const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover">`:'';
+  const tt=ttGet(cid);
+  const subs=subList(cid);
+  const items=tt.map(t=>({
+    day:t.day,start:t.start,end:t.end,
+    name:t.isActivity?t.activityName:(subs.find(s=>s.id===t.subId)?.name||'—'),
+    note:t.note||'',
+    isActivity:t.isActivity
+  }));
+
+  // ตารางแนวนอน: แถว=วัน คอลัมน์=คาบ
+  let tblHtml='<table style="width:100%;border-collapse:separate;border-spacing:3px;font-size:11px;table-layout:fixed"><thead><tr>';
+  tblHtml+='<th style="background:#F1F5F9;padding:8px;border-radius:6px;font-size:12px;width:80px">วัน / เวลา</th>';
+  PERIODS.forEach(p=>{
+    const bg=p.isFixed?(p.color||'#E5E7EB'):'#F8FAFC';
+    const w=p.isFixed?'110px':'auto';
+    tblHtml+=`<th style="background:${bg};padding:6px;border-radius:6px;font-size:11px;color:#1a1a1a;width:${w}">
+      <div style="font-weight:700">${p.isFixed?p.label:p.name}</div>
+      <div style="font-size:9.5px;font-weight:400;opacity:.8">${p.start}-${p.end}</div>
+    </th>`;
+  });
+  tblHtml+='</tr></thead><tbody>';
+  for(let d=0;d<5;d++){
+    tblHtml+=`<tr><td style="background:${DAY_COLORS[d]};text-align:center;padding:10px 4px;border-radius:6px;font-size:12px;font-weight:700;color:#1a1a1a">${DAYS_TH[d]}</td>`;
+    PERIODS.forEach(p=>{
+      if(p.isFixed){
+        tblHtml+=`<td style="background:${p.color};padding:8px;border-radius:6px;text-align:center;color:#555;font-size:11px;vertical-align:middle"><b>${p.label}</b></td>`;
+        return;
+      }
+      const its=items.filter(a=>a.day===d&&a.start<p.end&&a.end>p.start);
+      if(its.length){
+        let cellHtml='';
+        its.forEach(item=>{
+          const isAct=item.isActivity;
+          cellHtml+=`<div style="background:#DBEAFE;padding:5px 6px;border-radius:4px;margin-bottom:2px;line-height:1.3;${isAct?'border-left:3px solid #F59E0B':''}">
+            <div style="font-weight:700;color:#1a1a1a;font-size:11.5px">${isAct?'★ ':''}${item.name}</div>
+            ${item.note?`<div style="font-size:10px;color:#666;margin-top:1px">${item.note}</div>`:''}
+          </div>`;
+        });
+        tblHtml+=`<td style="padding:4px;border-radius:6px;vertical-align:top;background:#FAFAFA">${cellHtml}</td>`;
+      } else {
+        tblHtml+='<td style="background:#F9FAFB;padding:6px;border-radius:6px;color:#CBD5E1;text-align:center">—</td>';
+      }
+    });
+    tblHtml+='</tr>';
+  }
+  tblHtml+='</tbody></table>';
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ตารางเรียน ${cls.name}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Sarabun',sans-serif;padding:16px;margin:0;background:#fff}
+      .hd{text-align:center;margin-bottom:14px;border-bottom:2px solid #2563EB;padding-bottom:10px}
+      .hd h1{margin:6px 0;font-size:19px}
+      .hd h2{margin:6px 0;font-size:16px;color:#2563EB}
+      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+      .foot{margin-top:14px;font-size:11px;color:#666;text-align:center}
+      @media print{.print-btn{display:none}body{padding:8px}@page{size:A4 landscape;margin:1cm}}
+    </style></head><body>
+    <button class="print-btn" onclick="window.print()">🖨 พิมพ์</button>
+    <div class="hd">
+      ${logoHtml}
+      <h1>${sch.name||'โรงเรียน'}</h1>
+      <h2>ตารางเรียน ห้อง ${cls.name}</h2>
+      <p style="margin:4px 0;font-size:13px;color:#666">${cur?cur.label:''}</p>
+    </div>
+    ${tblHtml}
+    <div class="foot"><i>★ = กิจกรรมพิเศษ · แถบสีอ่อน = กิจกรรมประจำ</i></div>
     </body></html>`);
   w.document.close();
 }
@@ -2465,64 +2572,8 @@ function clearTimetable(cid){
 }
 
 function printTimetable(cid){
-  const cls=getCls(cid);const subs=subList(cid);const tt=ttGet(cid);
-  const sch=db.school||{};
-  const cur=curTerm();
-  const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:50px;height:50px;border-radius:50%;object-fit:cover">`:'';
-  // ใช้ time slots จริงจากข้อมูล
-  const slotSet=new Set();
-  tt.forEach(t=>slotSet.add(t.start+'-'+t.end));
-  const timeSlots=[...slotSet].map(s=>{const[st,en]=s.split('-');return{start:st,end:en};}).sort((a,b)=>a.start.localeCompare(b.start));
-  let tblHtml='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>';
-    tblHtml+='<th style="border:1px solid #999;padding:5px;background:#f1f5f9;width:70px">วัน/เวลา</th>';
-    PERIODS.forEach(p=>{
-      const bg=p.isFixed?(p.color||'#E5E7EB'):'#f8fafc';
-      tblHtml+=`<th style="border:1px solid #999;padding:4px;background:${bg};font-size:10px"><b>${p.isFixed?p.label:p.name}</b><br>${p.start}-${p.end}</th>`;
-    });
-    tblHtml+='</tr></thead><tbody>';
-    for(let d=0;d<5;d++){
-      tblHtml+=`<tr><td style="border:1px solid #999;padding:6px;text-align:center;background:${DAY_COLORS[d]};font-weight:700;color:#1a1a1a">${DAYS_TH[d]}</td>`;
-      PERIODS.forEach(p=>{
-        if(p.isFixed){
-          tblHtml+=`<td style="border:1px solid #999;padding:4px;background:${p.color};text-align:center;font-size:10px;color:#555"><b>${p.label}</b></td>`;
-          return;
-        }
-        const items=tt.filter(t=>t.day===d&&t.start<p.end&&t.end>p.start);
-        if(items.length){
-          const cellHtml=items.map(item=>{
-            const name=item.isActivity?item.activityName:(subs.find(s=>s.id===item.subId)?.name||'—');
-            return `<div style="font-size:10px"><b>${item.isActivity?'★ ':''}${name}</b>${item.note?'<br><span style="font-size:9px;color:#666">'+item.note+'</span>':''}</div>`;
-          }).join('');
-          tblHtml+=`<td style="border:1px solid #999;padding:4px;vertical-align:top">${cellHtml}</td>`;
-        } else {
-          tblHtml+='<td style="border:1px solid #999;padding:6px;color:#ccc;text-align:center">—</td>';
-        }
-      });
-      tblHtml+='</tr>';
-    }
-    tblHtml+='</tbody></table>';
-
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ตารางสอน ${cls.name}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-      body{font-family:'Sarabun',sans-serif;padding:20px;margin:0}
-      .hd{text-align:center;margin-bottom:16px;border-bottom:2px solid #2563EB;padding-bottom:10px}
-      .hd h1{margin:6px 0;font-size:20px}
-      .hd h2{margin:6px 0;font-size:16px;color:#2563EB}
-      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
-      @media print{.print-btn{display:none}body{padding:10px}}
-    </style></head><body>
-    <button class="print-btn" onclick="window.print()">พิมพ์</button>
-    <div class="hd">
-      ${logoHtml}
-      <h1>${sch.name||'โรงเรียน'}</h1>
-      <h2>ตารางสอน ห้อง ${cls.name}</h2>
-      <p style="margin:4px 0;font-size:13px;color:#666">${cur?cur.label:''}</p>
-    </div>
-    ${tblHtml}
-    </body></html>`);
-  w.document.close();
+  // redirect ไป printTimetableClass ที่ใช้สไตล์เดียวกับหน้าจอ
+  printTimetableClass(cid);
 }
 
 function renderDash(){
@@ -4302,8 +4353,46 @@ function renderExport(){
       <div class="exp-row"><div class="exp-lbl"><b>รูปแบบ</b><small>สรุป = รวมมา/ขาด | รายวัน = แต่ละวันแยกคอลัมน์</small></div><select id="ex-at-mode"><option value="daily">รายวัน (แนะนำ)</option><option value="summary">สรุปรายคน</option></select></div>
       <div class="exp-row" style="border:none;padding-top:12px"><div class="exp-lbl"><b>ดาวน์โหลด</b><small>ไฟล์ CSV เปิดใน Excel ได้เลย</small></div><button class="dl-btn at" onclick="exportAttendance()"><i class="ti ti-download"></i> ดาวน์โหลด CSV</button></div>
     </div>
+  </div>
+  <div class="exp-card">
+    <div class="exp-hd"><div class="exp-icon sc" style="background:#DBEAFE;color:#1E40AF"><i class="ti ti-file-type-pdf"></i></div><div><div style="font-weight:700;font-size:15px">รายงานผลการเรียน + เวลาเรียน รายบุคคล (PDF)</div><div style="font-size:12px;color:var(--mu)">รายงานสำหรับผู้ปกครอง — บันทึกเป็น PDF หรือพิมพ์</div></div></div>
+    <div class="exp-bd">
+      <div class="exp-row"><div class="exp-lbl"><b>ห้อง</b></div><select id="ex-pdf-cls" onchange="expPdfClsChange()">${clsOpts}</select></div>
+      <div class="exp-row"><div class="exp-lbl"><b>นักเรียน</b></div>
+        <select id="ex-pdf-stu">
+          <option value="__all__">ทุกคน (พิมพ์ทีละคน)</option>
+          ${cid?stuList(cid).map(s=>`<option value="${s.id}">${s.no}. ${s.firstName} ${s.lastName}</option>`).join(''):''}
+        </select>
+      </div>
+      <div class="exp-row" style="border:none;padding-top:12px"><div class="exp-lbl"><b>เปิดรายงาน</b><small>ในหน้าใหม่ — กด "พิมพ์ / บันทึกเป็น PDF"</small></div>
+        <button class="dl-btn" style="background:#2563EB" onclick="openStuReportFromExport()"><i class="ti ti-file-type-pdf"></i> เปิดรายงาน</button>
+      </div>
+    </div>
   </div>`;
-  if(cid){const sc=document.getElementById('ex-sc-cls'),at=document.getElementById('ex-at-cls');if(sc)sc.value=cid;if(at)at.value=cid;}
+  if(cid){const sc=document.getElementById('ex-sc-cls'),at=document.getElementById('ex-at-cls'),pdf=document.getElementById('ex-pdf-cls');if(sc)sc.value=cid;if(at)at.value=cid;if(pdf)pdf.value=cid;}
+}
+
+function expPdfClsChange(){
+  const cid=document.getElementById('ex-pdf-cls').value;
+  const stus=stuList(cid);
+  const sel=document.getElementById('ex-pdf-stu');
+  sel.innerHTML='<option value="__all__">ทุกคน (พิมพ์ทีละคน)</option>'+stus.map(s=>`<option value="${s.id}">${s.no}. ${s.firstName} ${s.lastName}</option>`).join('');
+}
+
+function openStuReportFromExport(){
+  const cid=document.getElementById('ex-pdf-cls').value;
+  const sid=document.getElementById('ex-pdf-stu').value;
+  if(!cid){showToast('เลือกห้องก่อน');return;}
+  if(sid==='__all__'){
+    const stus=stuList(cid);
+    if(!stus.length){showToast('ไม่มีนักเรียน');return;}
+    if(!confirm(`เปิดรายงานของนักเรียนทั้งหมด ${stus.length} คน?\n\n(จะเปิดหลายหน้าใหม่ — เบราว์เซอร์อาจถามอนุญาต pop-up)`))return;
+    // เปิดทีละคน (ช้าๆ กัน browser ปิด popup)
+    stus.forEach((s,i)=>{setTimeout(()=>openReport(cid,s.id),i*400);});
+    showToast(`กำลังเปิดรายงาน ${stus.length} คน...`);
+    return;
+  }
+  openReport(cid,sid);
 }
 function expClsChange(type){
   const cid=document.getElementById(`ex-${type}-cls`).value;
@@ -4577,15 +4666,29 @@ function submitEditSubject(cid,subid){
   sub.midMax=parseInt(val('mMM2'))||100;sub.finalMax=parseInt(val('mFM2'))||100;
   save();closeMD();renderSubjects();
 }
-function deleteSubject(cid,subid){
-  const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป`))return;
+async function deleteSubject(cid,subid){
+  const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป (เช็คชื่อ คะแนน งาน สอบ)`))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+  try{
+    const {error}=await sb.from('subjects').delete().eq('id',subid);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);
+    alert('ลบไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
   db.subjects[tk(cid)]=(db.subjects[tk(cid)]||[]).filter(s=>s.id!==subid);
   const _attk=tk(cid);if(db.attendance[_attk])delete db.attendance[_attk][subid];
   if(db.assignments[tk(cid)])delete db.assignments[tk(cid)][subid];
   if(db.scores[tk(cid)])delete db.scores[tk(cid)][subid];
   if(db.examScores[tk(cid)])delete db.examScores[tk(cid)][subid];
   Object.keys(P).forEach(p=>{if(P[p].sub===subid)P[p].sub=null;});
-  save();renderSubjects();showToast('ลบวิชาแล้ว');
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  renderSubjects();showToast('ลบวิชาแล้ว');
 }
 function openAddStu(cid){
   showMD(`<div class="mt"><i class="ti ti-user-plus"></i> เพิ่มนักเรียน — ${getCls(cid).name}</div>
@@ -4602,7 +4705,31 @@ function submitAddStu(cid){
 }
 function openEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
 function submitEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;s.no=parseInt(document.getElementById('eSno')?.value)||s.no;s.firstName=val('eSfn')||s.firstName;s.lastName=val('eSln');save();closeMD();renderStudents();}
-function delStu(cid,sid){if(!confirm('ลบนักเรียนคนนี้?'))return;db.students[tk(cid)]=(db.students[tk(cid)]||[]).filter(x=>x.id!==sid);save();renderStudents();showToast('ลบนักเรียนแล้ว');}
+async function delStu(cid,sid){
+  const stu=(db.students[tk(cid)]||[]).find(x=>x.id===sid);
+  if(!stu)return;
+  if(!confirm('ลบนักเรียน "'+stu.firstName+' '+stu.lastName+'"?\n\nข้อมูลที่จะถูกลบ:\n• เช็คชื่อ + คะแนน + งานที่ส่งทั้งหมด\n• รหัสผ่าน\n• การเป็นสมาชิก/หัวหน้ากลุ่ม 5ส'))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
+  try{
+    // ลบใน Supabase — CASCADE จะลบ attendance/scores/exam_scores/submissions/5s_members อัตโนมัติ
+    const {error}=await sb.from('students').delete().eq('id',sid);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);
+    alert('ลบไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
+  // ลบใน local db
+  db.students[tk(cid)]=(db.students[tk(cid)]||[]).filter(x=>x.id!==sid);
+  if(db.studentPasswords)delete db.studentPasswords[sid];
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ ลบแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  renderStudents();
+  showToast('ลบนักเรียนแล้ว');
+}
 
 /* ── INIT DB ── */
 function _initDB(){
