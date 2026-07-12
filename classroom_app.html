@@ -749,7 +749,8 @@ function _dbToRows(){
         rows.assignments.push({
           id:a.id, class_id:cid, subject_id:subId, name:a.name||'',
           max_score:a.maxScore||null, type:a.type||'score',
-          due_date:a.dueDate||null
+          due_date:a.dueDate||null,
+          allow_file_submit:!!a.allowFileSubmit
         });
         validAsgIds.add(a.id);
       });
@@ -968,7 +969,8 @@ async function _rowsToDb(rows){
     if(!d.assignments[tkey][a.subject_id])d.assignments[tkey][a.subject_id]=[];
     d.assignments[tkey][a.subject_id].push({
       id:a.id,name:a.name,maxScore:a.max_score,type:a.type||'score',
-      dueDate:a.due_date||''
+      dueDate:a.due_date||'',
+      allowFileSubmit:!!a.allow_file_submit
     });
     asgId2sub[a.id]={cid:a.class_id,subId:a.subject_id};
   });
@@ -2962,6 +2964,19 @@ function renderScEntry(){
   const el=document.getElementById('sc-entry');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
+  // โหลด submissions ใน background — เมื่อเสร็จ re-render
+  loadTeacherSubmissions(cid,subid).then(()=>{
+    // เช็คว่ายังอยู่หน้านี้ก่อน re-render
+    if(document.getElementById('sc-entry')&&needCS('scores')){
+      // re-render ใหม่โดยเรียก renderScEntry ซ้ำ แต่ไม่วน infinite loop
+      // ใช้ flag เพื่อป้องกัน
+      if(!window._rescRe){
+        window._rescRe=true;
+        renderScEntry();
+        window._rescRe=false;
+      }
+    }
+  });
   const wA=sub.wAssign??70;
   let html=`<div class="prop-box"><div class="prop-title">สัดส่วนคะแนน — ${sub.name}</div>
     <div class="prop-bar"><div class="prop-seg" style="width:${wA}%;background:var(--bl)">${wA}% เก็บ</div><div class="prop-seg" style="width:${100-wA}%;background:var(--tl)">${100-wA}% สอบ</div></div>
@@ -3003,6 +3018,34 @@ function renderScEntry(){
   html+=renderAsgTable(cid,subid,stus,trackAsg,'track');
 
   el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+// ระบบส่งงาน (ครู) — โหลดสถานะการส่งไฟล์
+// ═══════════════════════════════════════════
+let teacherSubs={}; // {asgId: {stuId: {id, status, teacher_note, files}}}
+
+async function loadTeacherSubmissions(cid,subid){
+  const asgs=asgList(cid,subid).map(a=>a.id);
+  if(!asgs.length){teacherSubs={};return;}
+  try{
+    const {data:subs}=await sb.from('submissions').select('*').in('assignment_id',asgs);
+    const subIds=(subs||[]).map(s=>s.id);
+    let files=[];
+    if(subIds.length){
+      const {data:f}=await sb.from('submission_files').select('*').in('submission_id',subIds);
+      files=f||[];
+    }
+    teacherSubs={};
+    (subs||[]).forEach(s=>{
+      if(!teacherSubs[s.assignment_id])teacherSubs[s.assignment_id]={};
+      teacherSubs[s.assignment_id][s.student_id]={
+        id:s.id, status:s.status||'pending',
+        teacher_note:s.teacher_note||'',
+        files:files.filter(f=>f.submission_id===s.id)
+      };
+    });
+  }catch(e){console.error('loadTeacherSubs:',e);}
 }
 
 // ── ตารางบันทึกงาน (ใช้ได้ทั้ง score และ track) ──
@@ -3059,9 +3102,21 @@ function renderAsgTable(cid,subid,stus,asgs,mode){
       <td style="border:1px solid var(--bd);padding:3px 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.firstName} ${s.lastName}</td>`;
     asgs.forEach(a=>{
       const v=scMap(cid,subid,a.id)[s.id];
+      const sub=(teacherSubs[a.id]||{})[s.id];
+      const hasFiles=sub&&(sub.files||[]).length>0;
+      const pending=hasFiles&&sub.status==='pending';
+      const reviewed=hasFiles&&sub.status==='reviewed';
+      // Badge สำหรับสถานะไฟล์
+      let badge='';
+      if(pending){
+        badge=`<div style="position:absolute;top:1px;right:1px;font-size:8.5px;background:var(--rd);color:#fff;border-radius:6px;padding:0 4px;line-height:1.3;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openReviewSubmission('${a.id}','${s.id}','${cid}','${subid}')" title="รอตรวจ">รอ</div>`;
+      } else if(reviewed){
+        badge=`<div style="position:absolute;top:1px;right:1px;font-size:8.5px;background:var(--gn);color:#fff;border-radius:6px;padding:0 4px;line-height:1.3;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openReviewSubmission('${a.id}','${s.id}','${cid}','${subid}')" title="ตรวจแล้ว"><i class="ti ti-check" style="font-size:9px"></i></div>`;
+      }
       if(isScore){
         const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;${disp!==''?'background:#F0F9FF':''}">
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;position:relative;${disp!==''?'background:#F0F9FF':''}${pending?';background:#FEF3C7':''}">
+          ${badge}
           <input type="number" step="0.5" min="0" max="${a.maxScore}" value="${disp}"
             style="width:100%;border:none;background:transparent;text-align:center;padding:5px 2px;font-size:11.5px;font-family:inherit;outline:none;box-sizing:border-box"
             onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore})"
@@ -3070,7 +3125,8 @@ function renderAsgTable(cid,subid,stus,asgs,mode){
       } else {
         const bg=v==='ตรงเวลา'?'#F0FDF4':v==='ส่งช้า'?'#FFFBEB':'';
         const col=v==='ตรงเวลา'?'#15803D':v==='ส่งช้า'?'#92400E':'var(--mu)';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;${bg?'background:'+bg:''}">
+        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;position:relative;${bg?'background:'+bg:''}${pending?';background:#FEF3C7':''}">
+          ${badge}
           <select style="width:100%;border:none;background:transparent;text-align:center;padding:4px 2px;font-size:11px;font-family:inherit;outline:none;color:${col};font-weight:${v?'600':'400'};box-sizing:border-box;-webkit-appearance:none;-moz-appearance:none;appearance:none"
             onchange="saveTrackInline('${cid}','${subid}','${a.id}','${s.id}',this.value)">
             <option value="" ${!v?'selected':''}>—</option>
@@ -3107,17 +3163,135 @@ function showFullName(aid,name,maxScore,isScore){
   `);
 }
 
+// ── ตรวจงานที่นักเรียนส่งไฟล์ ──
+function openReviewSubmission(aid,stuId,cid,subid){
+  const sub=(teacherSubs[aid]||{})[stuId];
+  if(!sub){showToast('ไม่มีไฟล์ที่ส่ง');return;}
+  const asgs=asgList(cid,subid);
+  const asg=asgs.find(a=>a.id===aid);
+  const stu=stuList(cid).find(s=>s.id===stuId);
+  const isTrack=asg?.type==='track';
+  const files=sub.files||[];
+  // rows ของไฟล์ พร้อม download link
+  const fileRows=files.map(f=>{
+    const {data}=sb.storage.from('submissions').getPublicUrl(f.file_path);
+    const url=data.publicUrl;
+    const isImage=(f.file_type||'').startsWith('image/');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--sf2);border-radius:6px;margin-bottom:4px">
+      <div style="flex:1;overflow:hidden">
+        <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.file_name}</div>
+        <div style="font-size:10.5px;color:var(--mu)">${Math.round(f.file_size/1024)} KB · ${f.file_type||'file'}</div>
+      </div>
+      <a class="btn btn-xs btn-tl" href="${url}" target="_blank"><i class="ti ti-${isImage?'photo':'download'}"></i> เปิด</a>
+    </div>`;
+  }).join('');
+
+  // ค่าคะแนน/สถานะปัจจุบัน
+  const curVal=scMap(cid,subid,aid)[stuId];
+  const curScore=(curVal!==undefined&&curVal!==''&&!isNaN(parseFloat(curVal)))?parseFloat(curVal):'';
+  const curStatus=(curVal==='ตรงเวลา'||curVal==='ส่งช้า'||curVal==='ไม่ผ่าน')?curVal:'';
+
+  showMD(`<div class="mt">ตรวจงาน — ${asg?.name||''}</div>
+    <div style="padding:10px;background:#EFF6FF;border-radius:6px;margin-bottom:12px;font-size:12.5px">
+      <b>${stu?.no||''}. ${stu?.firstName||''} ${stu?.lastName||''}</b>
+      <span style="color:var(--mu);margin-left:8px">· ${files.length} ไฟล์</span>
+      <span style="color:${sub.status==='reviewed'?'var(--gn)':'var(--am)'};margin-left:8px;font-weight:600">
+        <i class="ti ti-${sub.status==='reviewed'?'check-circle':'clock'}"></i> ${sub.status==='reviewed'?'ตรวจแล้ว':'รอตรวจ'}
+      </span>
+    </div>
+
+    <div style="font-weight:700;font-size:13px;margin-bottom:6px"><i class="ti ti-files"></i> ไฟล์ที่ส่ง (${files.length})</div>
+    <div style="max-height:200px;overflow:auto;margin-bottom:14px">${fileRows||'<div style="padding:12px;text-align:center;font-size:12px;color:var(--mu)">ไม่มีไฟล์</div>'}</div>
+
+    ${isTrack?`
+    <div class="fg">
+      <label class="fl">สถานะการส่ง</label>
+      <select id="rvStatus">
+        <option value="ตรงเวลา" ${curStatus==='ตรงเวลา'?'selected':''}>✓ ตรงเวลา</option>
+        <option value="ส่งช้า" ${curStatus==='ส่งช้า'?'selected':''}>⚠ ส่งช้า</option>
+        <option value="ไม่ผ่าน" ${curStatus==='ไม่ผ่าน'?'selected':''}>✗ ไม่ผ่าน</option>
+        <option value="" ${!curStatus?'selected':''}>— ยกเลิก —</option>
+      </select>
+    </div>`:`
+    <div class="fg">
+      <label class="fl">คะแนน (เต็ม ${asg?.maxScore||10})</label>
+      <input type="number" id="rvScore" min="0" max="${asg?.maxScore||10}" step="0.5" value="${curScore}" placeholder="ปล่อยว่าง = ล้างคะแนน">
+    </div>`}
+
+    <div class="fg">
+      <label class="fl">โน้ตให้นักเรียน (ถ้ามี)</label>
+      <textarea id="rvNote" rows="2" placeholder="เช่น อ่านชัดเจน / ให้แก้ไข ...">${(sub.teacher_note||'').replace(/</g,'&lt;')}</textarea>
+    </div>
+
+    <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <button class="btn" style="color:var(--rd);border-color:var(--rd)" onclick="markPending('${aid}','${stuId}','${cid}','${subid}')"><i class="ti ti-clock"></i>ยังไม่ตรวจ</button>
+      <div class="f g8">
+        <button class="btn" onclick="closeMD()">ยกเลิก</button>
+        <button class="btn btn-p" onclick="saveReview('${aid}','${stuId}','${cid}','${subid}',${isTrack})"><i class="ti ti-check"></i>บันทึกผลตรวจ</button>
+      </div>
+    </div>
+  `);
+}
+
+async function saveReview(aid,stuId,cid,subid,isTrack){
+  const sub=(teacherSubs[aid]||{})[stuId];
+  if(!sub)return;
+  const note=(document.getElementById('rvNote')?.value||'').trim();
+  // บันทึกคะแนน / สถานะ
+  if(isTrack){
+    const status=document.getElementById('rvStatus').value;
+    saveTrackInline(cid,subid,aid,stuId,status);
+  } else {
+    const score=document.getElementById('rvScore').value;
+    const asg=asgList(cid,subid).find(a=>a.id===aid);
+    saveScoreInline(cid,subid,aid,stuId,score,asg?.maxScore||10);
+  }
+  // อัปเดต submission → reviewed + teacher_note
+  try{
+    const {error}=await sb.from('submissions').update({
+      status:'reviewed',
+      teacher_note:note,
+      reviewed_at:new Date().toISOString()
+    }).eq('id',sub.id);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    sub.status='reviewed';
+    sub.teacher_note=note;
+    showToast('✓ บันทึกผลตรวจแล้ว');
+    closeMD();
+    renderScEntry();
+  }catch(e){
+    console.error(e);
+    alert('บันทึกไม่สำเร็จ: '+e.message);
+  }
+}
+
+async function markPending(aid,stuId,cid,subid){
+  const sub=(teacherSubs[aid]||{})[stuId];
+  if(!sub)return;
+  try{
+    await sb.from('submissions').update({status:'pending',reviewed_at:null}).eq('id',sub.id);
+    _lastSaveTime=Date.now();
+    sub.status='pending';
+    showToast('เปลี่ยนเป็นรอตรวจแล้ว');
+    closeMD();
+    renderScEntry();
+  }catch(e){console.error(e);}
+}
+
 // ── หน้าจัดการงาน (แก้ชื่อ/คะแนนเต็ม/ลบ) ──
 function openManageAsg(cid,subid){
   const asgs=asgList(cid,subid);
   if(!asgs.length){showToast('ยังไม่มีงานให้จัดการ');return;}
   const rows=asgs.map((a,i)=>{
     const isTrack=a.type==='track';
+    const allowFile=!!a.allowFileSubmit;
     return `<tr>
       <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:11px;color:var(--mu)">${i+1}</td>
       <td style="border:1px solid var(--bd);padding:5px 8px;font-size:12.5px">
         <b>${a.name}</b>
         ${isTrack?'<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:8px;margin-left:4px">ติดตาม</span>':`<span style="font-size:11px;color:var(--mu)"> · เต็ม ${a.maxScore}</span>`}
+        ${allowFile?'<span style="font-size:10px;background:#DCFCE7;color:#15803D;padding:1px 6px;border-radius:8px;margin-left:4px"><i class="ti ti-upload"></i> รับไฟล์</span>':''}
         ${a.dueDate?`<div style="font-size:10.5px;color:var(--mu);margin-top:2px"><i class="ti ti-calendar"></i> กำหนดส่ง ${a.dueDate}</div>`:''}
       </td>
       <td style="border:1px solid var(--bd);padding:5px;text-align:center;white-space:nowrap">
@@ -3149,6 +3323,7 @@ function editAsg(cid,subid,aid){
   const a=asgs.find(x=>x.id===aid);
   if(!a)return;
   const isTrack=a.type==='track';
+  const allowFile=!!a.allowFileSubmit;
   closeMD();
   showMD(`<div class="mt">แก้ไขงาน</div>
     <div class="fg"><label class="fl">ชื่องาน</label>
@@ -3159,6 +3334,15 @@ function editAsg(cid,subid,aid){
     </div>`:''}
     <div class="fg"><label class="fl">กำหนดส่ง (ถ้ามี)</label>
       <input type="date" id="edAsgDue" value="${a.dueDate||''}">
+    </div>
+    <div class="fg" style="background:${allowFile?'#F0FDF4':'var(--sf2)'};border:1.5px solid ${allowFile?'var(--gn)':'var(--bd)'};border-radius:8px;padding:12px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="edAsgAllowFile" ${allowFile?'checked':''} style="width:20px;height:20px;cursor:pointer">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13.5px"><i class="ti ti-upload"></i> รับส่งไฟล์งาน</div>
+          <div style="font-size:11.5px;color:var(--mu);margin-top:2px">เปิดให้นักเรียนอัปโหลด รูป / PDF / Word / Excel ในหน้างานได้</div>
+        </div>
+      </label>
     </div>
     <div class="f g8" style="justify-content:space-between;margin-top:10px">
       <button class="btn" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-arrow-left"></i>กลับ</button>
@@ -3180,6 +3364,7 @@ function saveEditAsg(cid,subid,aid,isTrack){
     a.maxScore=max;
   }
   a.dueDate=document.getElementById('edAsgDue').value||'';
+  a.allowFileSubmit=document.getElementById('edAsgAllowFile').checked;
   save();openManageAsg(cid,subid);
   showToast('บันทึกแล้ว ✓');
 }
