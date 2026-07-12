@@ -372,7 +372,7 @@ async function _rowsToDbStu(rows){
     const tkey=(cid2term[s.class_id]||'')+'__'+s.class_id;
     if(!d.subjects[tkey])d.subjects[tkey]=[];
     d.subjects[tkey].push({
-      id:s.id,name:s.name,code:s.code||'',
+      id:s.id,name:s.name,code:s.code||'',teacher:s.teacher||'',
       wAssign:s.w_assign,wExam:s.w_exam,midMax:s.mid_max,finalMax:s.final_max
     });
   });
@@ -1076,10 +1076,13 @@ function renderGrades(){
   });
 
   let html=`
-    <div class="profile-card" style="text-align:center">
+    <div class="profile-card" style="text-align:center;position:relative">
       <div style="font-size:12px;opacity:.85;margin-bottom:4px"><i class="ti ti-award"></i> ผลการเรียน</div>
       <div style="font-weight:700;font-size:16px;margin-bottom:2px">${stu.firstName} ${stu.lastName}</div>
       <div style="font-size:12px;opacity:.85">${cls.name}</div>
+      <button onclick="printParentReport()" style="margin-top:12px;background:rgba(255,255,255,.2);color:#fff;border:1.5px solid rgba(255,255,255,.4);padding:8px 16px;border-radius:8px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
+        <i class="ti ti-printer"></i> พิมพ์ / บันทึกรายงานผู้ปกครอง
+      </button>
     </div>
 
     <div class="card">
@@ -1139,6 +1142,113 @@ function renderGrades(){
     </div>`;
 
   document.getElementById('mainContent').innerHTML=html;
+}
+
+/* ── พิมพ์รายงานผู้ปกครอง (นักเรียนพิมพ์เอง) ── */
+function termCidKey(cid){
+  const cls=db.classes.find(c=>c.id===cid);
+  const tid=cls?.termId||(db.terms||[]).find(t=>t.isCurrent)?.id||'';
+  return tid+'__'+cid;
+}
+
+function printParentReport(){
+  const stu=stuArr(me.classId).find(s=>s.id===me.studentId);
+  const cls=db.classes.find(c=>c.id===me.classId);
+  const subs=subArr(me.classId);
+  const sch=db.school||{};
+  const cur=(db.terms||[]).find(t=>t.isCurrent)||(db.terms||[])[0];
+  const cid=me.classId,sid=me.studentId;
+  if(!stu||!cls)return;
+
+  const rows=subs.map(sub=>{
+    const attSub=((db.attendance[termCidKey(cid)]||{})[sub.id])||{};
+    let ma=0,say=0,la=0,kh=0,tot=0;
+    Object.keys(attSub).forEach(d=>{
+      const st=attSub[d]?.[sid];
+      if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;
+      if(st)tot++;
+    });
+    const attPct=tot?Math.round((ma+say)/tot*100):0;
+    const calc=calcTotal(cid,sub.id,sid);
+    return{sub,ma,say,la,kh,tot,attPct,calc};
+  });
+
+  const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover">`:'';
+  const today=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  let subjTable='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px"><thead><tr style="background:#F1F5F9"><th style="border:1px solid #CBD5E1;padding:6px">วิชา</th><th style="border:1px solid #CBD5E1;padding:6px">มา</th><th style="border:1px solid #CBD5E1;padding:6px">สาย</th><th style="border:1px solid #CBD5E1;padding:6px">ลา</th><th style="border:1px solid #CBD5E1;padding:6px">ขาด</th><th style="border:1px solid #CBD5E1;padding:6px">วันเรียน</th><th style="border:1px solid #CBD5E1;padding:6px">%มาเรียน</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const col=r.attPct>=80?'#059669':r.attPct>=60?'#d97706':'#dc2626';
+    subjTable+=`<tr><td style="border:1px solid #CBD5E1;padding:6px"><b>${r.sub.name}</b></td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${r.ma}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${r.say}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${r.la}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${r.kh}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${r.tot}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center;color:${col};font-weight:700">${r.attPct}%</td></tr>`;
+  });
+  subjTable+='</tbody></table>';
+
+  let gradeTable='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px"><thead><tr style="background:#F1F5F9"><th style="border:1px solid #CBD5E1;padding:6px">วิชา</th><th style="border:1px solid #CBD5E1;padding:6px">คะแนนเก็บ</th><th style="border:1px solid #CBD5E1;padding:6px">คะแนนสอบ</th><th style="border:1px solid #CBD5E1;padding:6px">รวมคะแนน</th><th style="border:1px solid #CBD5E1;padding:6px">เกรด</th><th style="border:1px solid #CBD5E1;padding:6px">หมายเหตุ</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const c=r.calc;
+    const assign=Math.round((c.assignScore||0)*10)/10;
+    const exam=Math.round((c.examScore||0)*10)/10;
+    const total=Math.round((c.totalScore||0)*10)/10;
+    const grade=c.finalGrade||c.grade?.g||'0';
+    const note=c.note||'';
+    const gColor=grade==='0'?'#dc2626':grade==='ร'?'#d97706':grade==='4'?'#059669':'#333';
+    gradeTable+=`<tr><td style="border:1px solid #CBD5E1;padding:6px"><b>${r.sub.name}</b></td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${assign}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center">${exam}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center;font-weight:700">${total}</td><td style="border:1px solid #CBD5E1;padding:6px;text-align:center;font-weight:700;color:${gColor}">${grade}</td><td style="border:1px solid #CBD5E1;padding:6px;font-size:11px;color:#666">${note}</td></tr>`;
+  });
+  gradeTable+='</tbody></table>';
+
+  const teachers=[...new Set(rows.map(r=>r.sub.teacher).filter(t=>t))];
+  let signHtml='<div style="display:flex;flex-wrap:wrap;justify-content:space-around;gap:8px;margin-top:30px;font-size:12px;color:#555;text-align:center">';
+  if(teachers.length){
+    teachers.forEach(tname=>{
+      signHtml+=`<div style="min-width:180px;margin:15px 10px"><div style="border-top:1px solid #333;padding-top:6px;margin-top:40px"><b>ครูประจำวิชา</b><br><span style="font-size:12px">(${tname})</span></div></div>`;
+    });
+  } else {
+    signHtml+=`<div style="min-width:180px;margin:15px 10px"><div style="border-top:1px solid #333;padding-top:6px;margin-top:40px"><b>ครูประจำวิชา</b><br><span style="font-size:12px">(............................................)</span></div></div>`;
+  }
+  signHtml+=`<div style="min-width:180px;margin:15px 10px"><div style="border-top:1px solid #333;padding-top:6px;margin-top:40px"><b>ผู้ปกครอง</b><br><span style="font-size:12px">(............................................)</span></div></div>`;
+  signHtml+='</div>';
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานผู้ปกครอง ${stu.firstName} ${stu.lastName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'Sarabun',sans-serif;background:#f1f5f9;margin:0;padding:0}
+      .report-page{background:#fff;max-width:800px;margin:20px auto;padding:30px;box-shadow:0 2px 20px rgba(0,0,0,.1)}
+      .report-hd{text-align:center;padding-bottom:14px;border-bottom:2px solid #2563EB;margin-bottom:20px}
+      .report-hd h2{margin:6px 0;font-size:20px}
+      .report-hd p{margin:2px 0;font-size:12px;color:#666}
+      .report-title{background:#EFF6FF;color:#1E40AF;padding:8px 12px;border-radius:6px;font-weight:700;font-size:14px;margin:14px 0 10px}
+      .report-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;font-size:13px}
+      .report-info-item{display:flex;justify-content:space-between;padding:6px 10px;background:#F8FAFC;border-radius:6px}
+      .report-info-item span{color:#666}
+      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.3);z-index:100}
+      .print-btn:hover{background:#1e40af}
+      @media print{.print-btn{display:none}body{background:#fff}.report-page{margin:0;box-shadow:none;padding:16px;max-width:100%}@page{size:A4;margin:1.5cm}}
+    </style></head><body>
+    <button class="print-btn" onclick="window.print()">🖨️ พิมพ์ / บันทึกเป็น PDF</button>
+    <div class="report-page">
+      <div class="report-hd">
+        ${logoHtml}
+        <h2>${sch.name||'โรงเรียน'}</h2>
+        <p>${[sch.subdistrict,sch.district,sch.province].filter(Boolean).join(' ')}</p>
+        <p style="margin-top:4px"><b>รายงานผลการเรียนสำหรับผู้ปกครอง</b></p>
+        <p>${cur?cur.label:''}</p>
+      </div>
+      <div class="report-title">📋 ข้อมูลนักเรียน</div>
+      <div class="report-info">
+        <div class="report-info-item"><span>เลขที่</span><b>${stu.no}</b></div>
+        <div class="report-info-item"><span>ห้อง</span><b>${cls.name}</b></div>
+        <div class="report-info-item"><span>ชื่อ-สกุล</span><b>${stu.firstName} ${stu.lastName}</b></div>
+        <div class="report-info-item"><span>วันที่ออกรายงาน</span><b>${today}</b></div>
+      </div>
+      <div class="report-title">📅 เวลาเรียน</div>
+      ${subjTable}
+      <div class="report-title">🏆 ผลการเรียน</div>
+      ${gradeTable}
+      ${signHtml}
+    </div>
+    </body></html>`);
+  w.document.close();
 }
 
 /* ── ASSIGNMENTS ── */
