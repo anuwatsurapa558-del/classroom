@@ -4110,7 +4110,8 @@ function renderQuiz(){
               ${q.time_limit_min?` · ⏰ ${q.time_limit_min} นาที`:' · ⏰ ไม่จำกัดเวลา'}
             </div>
           </div>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-xs" onclick="viewQuizResults('${q.id}')"><i class="ti ti-chart-bar"></i> ผล</button>
             <button class="btn btn-xs" onclick="P.quiz.selQuiz='${q.id}';renderQuiz()"><i class="ti ti-edit"></i> แก้ไข</button>
             <button class="btn btn-xs" onclick="toggleQuizStatus('${q.id}')">${q.status==='published'?'<i class="ti ti-player-pause"></i> ปิด':'<i class="ti ti-player-play"></i> เปิด'}</button>
             <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuiz('${q.id}')"><i class="ti ti-trash"></i></button>
@@ -4512,8 +4513,78 @@ function openEditQuizSettings(quizId){
   `);
 }
 
-async function submitEditQuiz(quizId){
+// ── ดูผลข้อสอบ (ครูดูคะแนนนักเรียน) ──
+async function viewQuizResults(quizId){
   const q=quizData[quizId];
+  if(!q)return;
+  showMD(`<div class="mt"><i class="ti ti-chart-bar"></i> ผลข้อสอบ — ${q.title}</div>
+    <div id="qrLoading" style="padding:20px;text-align:center;color:var(--mu)"><i class="ti ti-loader"></i> กำลังโหลด...</div>
+  `);
+  try{
+    const {data:attempts}=await sb.from('quiz_attempts').select('*').eq('quiz_id',quizId);
+    const stus=stuList(q.class_id);
+    const attMap={};
+    (attempts||[]).forEach(a=>{if(!attMap[a.student_id]||a.attempt_num>attMap[a.student_id].attempt_num)attMap[a.student_id]=a;});
+    // สถิติ
+    const submitted=(attempts||[]).filter(a=>a.status==='submitted');
+    const totalPts=(q.questions||[]).reduce((s,x)=>s+(parseFloat(x.points)||0),0);
+    const scores=submitted.map(a=>a.total_score);
+    const avg=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:0;
+    const max=scores.length?Math.max(...scores):0;
+    const min=scores.length?Math.min(...scores):0;
+
+    let rowsHtml='';
+    stus.forEach(s=>{
+      const a=attMap[s.id];
+      let status='ยังไม่ทำ',score='-',pct='-',rowBg='var(--sf2)';
+      if(a){
+        if(a.status==='submitted'){
+          status='ส่งแล้ว';
+          score=`${a.total_score} / ${a.max_score}`;
+          const p=a.max_score>0?Math.round(a.total_score/a.max_score*100):0;
+          pct=p+'%';
+          rowBg=p>=60?'#F0FDF4':'#FEF2F2';
+        } else if(a.status==='in_progress'){
+          status='กำลังทำ';rowBg='#FEF3C7';
+        }
+      }
+      rowsHtml+=`<tr style="background:${rowBg}">
+        <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:12px">${s.no}</td>
+        <td style="border:1px solid var(--bd);padding:5px 8px;font-size:12px">${s.firstName} ${s.lastName}</td>
+        <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:11.5px">${status}</td>
+        <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:12px;font-weight:600">${score}</td>
+        <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:12px;font-weight:600">${pct}</td>
+      </tr>`;
+    });
+
+    document.querySelector('.mm').innerHTML=`
+      <div class="mt"><i class="ti ti-chart-bar"></i> ผลข้อสอบ — ${q.title}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">ส่งแล้ว</div><div style="font-size:20px;font-weight:700;color:var(--gn)">${submitted.length}/${stus.length}</div></div>
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">เฉลี่ย</div><div style="font-size:20px;font-weight:700">${Math.round(avg*10)/10}</div></div>
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">สูงสุด</div><div style="font-size:20px;font-weight:700;color:var(--gn)">${max}</div></div>
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">ต่ำสุด</div><div style="font-size:20px;font-weight:700;color:var(--rd)">${min}</div></div>
+      </div>
+      <div style="max-height:320px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:var(--sf2);position:sticky;top:0">
+            <th style="border:1px solid var(--bd);padding:5px;width:40px">เลขที่</th>
+            <th style="border:1px solid var(--bd);padding:5px;text-align:left">ชื่อ-สกุล</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:70px">สถานะ</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:80px">คะแนน</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:60px">%</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+        <button class="btn" onclick="closeMD()">ปิด</button>
+      </div>
+    `;
+  }catch(e){console.error(e);document.getElementById('qrLoading').textContent='โหลดไม่สำเร็จ: '+e.message;}
+}
+
+async function submitEditQuiz(quizId){
   if(!q)return;
   const hasTime=document.getElementById('eqHasTime').checked;
   const updates={
