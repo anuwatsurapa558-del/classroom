@@ -5306,7 +5306,7 @@ function _renderBulkReview(){
       </div>
     </div>
   `;
-  document.querySelector('.mm').innerHTML=html;
+  document.getElementById('MC').innerHTML=html;
   // ให้ scope ตัวแปรทำงาน
   window._bulkParsed=parsed;
 }
@@ -5370,6 +5370,113 @@ async function _submitBulk(){
 }
 
 
+// ── ดูคำตอบรายคน + ให้ทำใหม่ ──
+async function _viewStudentAttempt(attemptId,stuId){
+  try{
+    const {data:a}=await sb.from('quiz_attempts').select('*').eq('id',attemptId).single();
+    if(!a){alert('ไม่พบข้อมูล');return;}
+    const {quiz,stus}=window._qrData||{};
+    if(!quiz)return;
+    const stu=stus.find(x=>x.id===stuId);
+    const qs=quiz.questions||[];
+    let ansHtml='';
+    qs.forEach((qq,i)=>{
+      const ans=a.answers?.[qq.id];
+      let correct=false,ansDisp='',corDisp='',isEssay=false;
+      if(qq.type==='mc'){
+        correct=parseInt(ans)===qq.data?.correct;
+        const opts=qq.data?.options||[];
+        ansDisp=ans!==undefined?(opts[ans]||'-'):'ไม่ตอบ';
+        corDisp=opts[qq.data?.correct]||'-';
+      } else if(qq.type==='multi'){
+        const cor=qq.data?.correct||[],given=Array.isArray(ans)?ans:[];
+        correct=cor.length===given.length&&cor.every(c=>given.includes(c));
+        const opts=qq.data?.options||[];
+        ansDisp=given.length?given.map(i=>opts[i]||'-').join(', '):'ไม่ตอบ';
+        corDisp=cor.map(i=>opts[i]||'-').join(', ');
+      } else if(qq.type==='tf'){
+        correct=ans===qq.data?.correct;
+        ansDisp=ans===true?'ถูก':(ans===false?'ผิด':'ไม่ตอบ');
+        corDisp=qq.data?.correct?'ถูก':'ผิด';
+      } else if(qq.type==='fill'){
+        const cleaned=(''+ans).trim().toLowerCase();
+        correct=(qq.data?.answers||[]).some(c=>(''+c).trim().toLowerCase()===cleaned);
+        ansDisp=ans||'ไม่ตอบ';
+        corDisp=(qq.data?.answers||[]).join(' / ');
+      } else if(qq.type==='cloze'){
+        const blanks=qq.data?.blanks||[],given=Array.isArray(ans)?ans:[];
+        correct=blanks.every((b,idx)=>{
+          const u=(given[idx]||'').trim().toLowerCase();
+          return (b.answers||[]).some(x=>(''+x).trim().toLowerCase()===u);
+        });
+        ansDisp=given.map(v=>v||'?').join(' | ');
+        corDisp=blanks.map(b=>(b.answers||[]).join('/')).join(' | ');
+      } else if(qq.type==='essay'){
+        isEssay=true;
+        ansDisp=(ans||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')||'<i>ไม่ตอบ</i>';
+      }
+      const borderCol=isEssay?'var(--am)':(correct?'var(--gn)':'var(--rd)');
+      ansHtml+=`<div style="background:#fff;border:1.5px solid ${borderCol};border-radius:8px;padding:10px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="background:var(--tl);color:#fff;font-size:10.5px;padding:1px 6px;border-radius:5px">ข้อ ${i+1}</span>
+          ${isEssay?'<span style="font-size:10.5px;color:var(--am);font-weight:700"><i class="ti ti-pencil"></i> เขียนตอบ</span>':(correct?'<span style="font-size:10.5px;color:var(--gn);font-weight:700"><i class="ti ti-check"></i> ถูก</span>':'<span style="font-size:10.5px;color:var(--rd);font-weight:700"><i class="ti ti-x"></i> ผิด</span>')}
+          <span style="font-size:10.5px;color:var(--mu);margin-left:auto">${qq.points} คะแนน</span>
+        </div>
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:4px">${qq.question}</div>
+        <div style="font-size:11.5px;padding:4px 6px;background:${isEssay?'#FEF3C7':(correct?'#F0FDF4':'#FEF2F2')};border-radius:4px"><b>ตอบ:</b> ${ansDisp}</div>
+        ${!correct&&!isEssay?`<div style="font-size:11.5px;padding:4px 6px;background:#EFF6FF;border-radius:4px;margin-top:3px"><b>เฉลย:</b> ${corDisp}</div>`:''}
+      </div>`;
+    });
+    document.getElementById('MC').innerHTML=`
+      <div class="mt"><i class="ti ti-eye"></i> คำตอบของ ${stu?.firstName||''} ${stu?.lastName||''}</div>
+      <div style="background:#EFF6FF;padding:8px 10px;border-radius:6px;margin-bottom:8px;font-size:12.5px">
+        คะแนน: <b>${a.total_score} / ${a.max_score}</b> (${a.max_score>0?Math.round(a.total_score/a.max_score*100):0}%)
+      </div>
+      <div style="max-height:400px;overflow:auto">${ansHtml}</div>
+      <div class="f g8" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" onclick="viewQuizResults('${quiz.id}')"><i class="ti ti-arrow-left"></i> กลับ</button>
+        <button class="btn btn-p" style="color:var(--rd);border-color:var(--rd)" onclick="_resetStudentAttempt('${attemptId}','${(stu?.firstName||'')+' '+(stu?.lastName||'')}','${quiz.id}')"><i class="ti ti-refresh"></i> ให้ทำใหม่</button>
+      </div>
+    `;
+  }catch(e){alert('โหลดไม่สำเร็จ: '+e.message);}
+}
+
+async function _resetStudentAttempt(attemptId,stuName,quizId){
+  if(!confirm(`ให้ ${stuName} ทำข้อสอบใหม่?\n\nระบบจะ:\n1. ลบคำตอบครั้งเดิม\n2. ลบคะแนนที่เข้าเกรดไปแล้ว (ถ้ามี)\n3. นักเรียนจะเห็นข้อสอบเป็น "ต้องทำ" อีกครั้ง`))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังรีเซ็ต...';s.style.color='var(--am)';}
+  try{
+    // หา student_id + ลบคะแนนก่อนลบ attempt
+    const q=quizData[quizId];
+    const {stus,attMap}=window._qrData||{};
+    let stuId=null;
+    if(attMap){
+      for(const sid in attMap){if(attMap[sid].id==attemptId){stuId=sid;break;}}
+    }
+    if(q&&stuId){
+      if(q.score_target==='assignment'){
+        const asgId='asg_qz_'+q.id;
+        await sb.from('scores').delete().eq('assignment_id',asgId).eq('student_id',stuId);
+      } else if(q.score_target==='mid'||q.score_target==='final'){
+        const col=q.score_target==='mid'?'mid_score':'final_score';
+        const upd={};upd[col]=null;
+        await sb.from('exam_scores').update(upd).eq('subject_id',q.subject_id).eq('student_id',stuId);
+      }
+    }
+    // ลบ attempt
+    const {error}=await sb.from('quiz_attempts').delete().eq('id',attemptId);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    if(s){s.textContent='✅ รีเซ็ตแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    showToast(`ให้ ${stuName} ทำใหม่ได้แล้ว ✓`);
+    viewQuizResults(quizId);
+  }catch(e){
+    console.error(e);
+    alert('รีเซ็ตไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+  }
+}
+
 // ── ดูผลข้อสอบ (ครูดูคะแนนนักเรียน) ──
 
 
@@ -5395,7 +5502,7 @@ async function viewQuizResults(quizId){
     // Save for use in tabs
     window._qrData={quiz:q,attempts:attempts||[],stus,attMap};
 
-    document.querySelector('.mm').innerHTML=`
+    document.getElementById('MC').innerHTML=`
       <div class="mt"><i class="ti ti-chart-bar"></i> ผลข้อสอบ — ${q.title}</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
         <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">ส่งแล้ว</div><div style="font-size:20px;font-weight:700;color:var(--gn)">${submitted.length}/${stus.length}</div></div>
@@ -5419,7 +5526,7 @@ async function viewQuizResults(quizId){
 }
 
 function _qrTab(tab,btn){
-  if(btn){document.querySelectorAll('.mm .tb').forEach(x=>x.classList.remove('active'));btn.classList.add('active');}
+  if(btn){document.querySelectorAll('#MC .tb').forEach(x=>x.classList.remove('active'));btn.classList.add('active');}
   const {quiz,attempts,stus,attMap}=window._qrData||{};
   if(!quiz)return;
   const el=document.getElementById('qrTabContent');
@@ -5427,7 +5534,7 @@ function _qrTab(tab,btn){
     let rowsHtml='';
     stus.forEach(s=>{
       const a=attMap[s.id];
-      let status='ยังไม่ทำ',score='-',pct='-',rowBg='var(--sf2)';
+      let status='ยังไม่ทำ',score='-',pct='-',rowBg='var(--sf2)',actions='';
       if(a){
         if(a.status==='submitted'||a.status==='graded'){
           status=a.status==='graded'?'ตรวจแล้ว':'รอตรวจข้อเขียน';
@@ -5435,8 +5542,12 @@ function _qrTab(tab,btn){
           const p=a.max_score>0?Math.round(a.total_score/a.max_score*100):0;
           pct=p+'%';
           rowBg=p>=60?'#F0FDF4':'#FEF2F2';
+          actions=`
+            <button class="btn btn-xs" onclick="_viewStudentAttempt('${a.id}','${s.id}')" title="ดูคำตอบ"><i class="ti ti-eye"></i></button>
+            <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="_resetStudentAttempt('${a.id}','${s.firstName} ${s.lastName}','${quiz.id}')" title="ให้ทำใหม่"><i class="ti ti-refresh"></i></button>`;
         } else if(a.status==='in_progress'){
           status='กำลังทำ';rowBg='#FEF3C7';
+          actions=`<button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="_resetStudentAttempt('${a.id}','${s.firstName} ${s.lastName}','${quiz.id}')" title="ยกเลิก + ให้ทำใหม่"><i class="ti ti-x"></i></button>`;
         }
       }
       rowsHtml+=`<tr style="background:${rowBg}">
@@ -5445,6 +5556,7 @@ function _qrTab(tab,btn){
         <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:11.5px">${status}</td>
         <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:12px;font-weight:600">${score}</td>
         <td style="border:1px solid var(--bd);padding:5px;text-align:center;font-size:12px;font-weight:600">${pct}</td>
+        <td style="border:1px solid var(--bd);padding:3px;text-align:center;white-space:nowrap">${actions||'—'}</td>
       </tr>`;
     });
     el.innerHTML=`
@@ -5453,12 +5565,16 @@ function _qrTab(tab,btn){
           <thead><tr style="background:var(--sf2);position:sticky;top:0">
             <th style="border:1px solid var(--bd);padding:5px;width:40px">เลขที่</th>
             <th style="border:1px solid var(--bd);padding:5px;text-align:left">ชื่อ-สกุล</th>
-            <th style="border:1px solid var(--bd);padding:5px;width:110px">สถานะ</th>
-            <th style="border:1px solid var(--bd);padding:5px;width:80px">คะแนน</th>
-            <th style="border:1px solid var(--bd);padding:5px;width:60px">%</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:100px">สถานะ</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:75px">คะแนน</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:50px">%</th>
+            <th style="border:1px solid var(--bd);padding:5px;width:75px">จัดการ</th>
           </tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-top:6px">
+        <i class="ti ti-info-circle"></i> คลิก <i class="ti ti-eye"></i> เพื่อดูคำตอบรายคน · <i class="ti ti-refresh"></i> เพื่อลบการทำและให้นักเรียนสอบใหม่
       </div>`;
   } else if(tab==='insight'){
     // วิเคราะห์รายข้อ — ข้อไหนคนตอบผิดเยอะ
