@@ -4706,13 +4706,30 @@ function openAddQuestion(quizId,type,editingId){
 // ── Image upload helpers ──
 async function _uploadQuizImage(file){
   if(!file)return null;
-  if(file.size>5*1024*1024){showToast('ไฟล์ใหญ่เกิน 5 MB');return null;}
+  if(file.size>5*1024*1024){alert('ไฟล์ใหญ่เกิน 5 MB');return null;}
   const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
   const path=`quiz/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
-  const {error}=await sb.storage.from('quiz_images').upload(path,file,{cacheControl:'3600',upsert:false});
-  if(error){console.error(error);showToast('อัปโหลดล้มเหลว: '+error.message.slice(0,40));return null;}
-  const {data}=sb.storage.from('quiz_images').getPublicUrl(path);
-  return data.publicUrl;
+  try{
+    const {error}=await sb.storage.from('quiz_images').upload(path,file,{cacheControl:'3600',upsert:false});
+    if(error){
+      console.error('Upload error:',error);
+      const msg=error.message||'';
+      let helpText='';
+      if(msg.includes('Bucket not found')||msg.includes('404')){
+        helpText='\n\n🔧 วิธีแก้:\n1. เข้า Supabase Dashboard\n2. เมนู Storage → New bucket\n3. Name: quiz_images (ต้องตรงตัว)\n4. ติ๊ก "Public bucket" ✅\n5. Create bucket';
+      } else if(msg.includes('violates row-level')||msg.includes('policy')||msg.includes('permission')){
+        helpText='\n\n🔧 วิธีแก้:\n1. เข้า SQL Editor\n2. รันคำสั่ง SQL v6 อีกครั้ง (Policy)';
+      }
+      alert('อัปโหลดล้มเหลว:\n'+msg+helpText);
+      return null;
+    }
+    const {data}=sb.storage.from('quiz_images').getPublicUrl(path);
+    return data.publicUrl;
+  }catch(e){
+    console.error(e);
+    alert('เกิดข้อผิดพลาด: '+e.message);
+    return null;
+  }
 }
 
 function _upQImg(){
@@ -5655,6 +5672,7 @@ function _exportQuizCsv(quizId){
 }
 
 async function submitEditQuiz(quizId){
+  const q=quizData[quizId];
   if(!q)return;
   const hasTime=document.getElementById('eqHasTime').checked;
   const updates={
