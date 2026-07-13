@@ -364,6 +364,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="ni" onclick="gotoPage('timetable',this)"><i class="ti ti-calendar-time"></i><span>ตารางสอน</span></button>
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
+    <button class="ni" onclick="gotoPage('quiz',this)"><i class="ti ti-file-text"></i><span>แบบทดสอบ</span></button>
     <button class="ni" onclick="gotoPage('fiveS',this)"><i class="ti ti-sparkles"></i><span>กิจกรรม 5 ส</span></button>
     <div class="nl" style="margin-top:6px">รายงาน</div>
     <button class="ni" onclick="gotoPage('export',this)"><i class="ti ti-file-export"></i><span>ส่งออกข้อมูล</span></button>
@@ -436,6 +437,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   <div class="page" id="page-fiveS">
     <div id="fiveS-selbar"></div><div id="fiveS-content"></div>
   </div>
+
+  <div class="page" id="page-quiz">
+    <div id="quiz-selbar"></div>
+    <div id="quiz-content"></div>
+  </div>
 </main>
 
 <!-- BOTTOM NAV -->
@@ -484,6 +490,7 @@ const P={
   subjects:{cls:null,sub:null},
   attendance:{cls:null,sub:null},
   scores:{cls:null,sub:null},
+  quiz:{cls:null,sub:null,tab:'list',selQuiz:null},
   export:{cls:null,sub:null},
   fiveS:{cls:null,tab:'groups',selDate:null}
 };
@@ -1093,8 +1100,8 @@ function gotoPage(p,btn){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('.ni').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+p+"'"))b.classList.add('active');});
   const bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
-  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',timetable:'ตารางสอน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',export:'ส่งออกข้อมูล'};
-  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',timetable:'ตารางเรียนของแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
+  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',timetable:'ตารางสอน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',quiz:'แบบทดสอบ',fiveS:'กิจกรรม 5 ส',export:'ส่งออกข้อมูล'};
+  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',timetable:'ตารางเรียนของแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',quiz:'สร้างแบบทดสอบออนไลน์ให้นักเรียนทำ',fiveS:'จัดกลุ่มและเช็ค 5 ส',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
   document.getElementById('ttitle').textContent=T[p]||p;
   document.getElementById('tsub').textContent=S[p]||'';
   if(window.innerWidth<768)closeSB();
@@ -1109,6 +1116,7 @@ function renderPage(p){
   else if(p==='subjects')renderSubjects();
   else if(p==='attendance')renderAtt();
   else if(p==='scores')renderSc();
+  else if(p==='quiz')renderQuiz();
   else if(p==='export')renderExport();
   else if(p==='fiveS')renderFiveS();
 }
@@ -4032,6 +4040,504 @@ function fsGroupItems(g){
   if(!g.items||!g.items.length)return ['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'];
   return g.items;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ระบบแบบทดสอบออนไลน์ (Quiz System) — Phase 1
+// ═══════════════════════════════════════════════════════════════
+// State: ข้อสอบทั้งหมดที่โหลดจาก Supabase
+let quizData={}; // {quizId: {...quiz, questions:[...]}}
+
+// โหลดข้อสอบทั้งหมดของครู
+async function loadQuizzes(){
+  try{
+    const {data:quizzes,error:e1}=await sb.from('quizzes').select('*').order('created_at',{ascending:false});
+    if(e1)throw e1;
+    const {data:questions,error:e2}=await sb.from('quiz_questions').select('*').order('order_num');
+    if(e2)throw e2;
+    quizData={};
+    (quizzes||[]).forEach(q=>{
+      quizData[q.id]={...q,questions:(questions||[]).filter(qq=>qq.quiz_id===q.id)};
+    });
+  }catch(e){console.error('loadQuizzes:',e);}
+}
+
+function renderQuiz(){
+  selBar('quiz-selbar','quiz',true);
+  const el=document.getElementById('quiz-content');
+  const cs=needCS('quiz');
+  if(!cs){el.innerHTML=noData('file-text','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;
+  const tab=P.quiz.tab||'list';
+  const selQuiz=P.quiz.selQuiz;
+
+  // Load once per session change
+  const key=cid+'|'+subid;
+  if(window._lastQuizKey!==key){
+    window._lastQuizKey=key;
+    loadQuizzes().then(()=>{if(document.getElementById('quiz-content'))renderQuiz();});
+  }
+
+  // ถ้าเลือกข้อสอบอยู่ → ไปหน้าแก้ไข
+  if(selQuiz){renderQuizEditor(cid,subid,selQuiz);return;}
+
+  // รายการข้อสอบของวิชานี้
+  const quizzes=Object.values(quizData).filter(q=>q.class_id===cid&&q.subject_id===subid);
+  let html=`
+    <div class="tabs" style="margin-bottom:12px">
+      <button class="tb active">รายการข้อสอบ (${quizzes.length})</button>
+      <button class="btn btn-p" style="margin-left:auto" onclick="openNewQuiz('${cid}','${subid}')"><i class="ti ti-plus"></i> สร้างข้อสอบใหม่</button>
+    </div>`;
+
+  if(!quizzes.length){
+    html+=`<div class="empty"><i class="ti ti-file-text"></i><div>ยังไม่มีข้อสอบ</div><p>คลิก "สร้างข้อสอบใหม่" ด้านบน</p></div>`;
+  } else {
+    html+='<div style="display:grid;gap:10px">';
+    quizzes.forEach(q=>{
+      const nQ=(q.questions||[]).length;
+      const totalPts=(q.questions||[]).reduce((s,qq)=>s+(parseFloat(qq.points)||0),0);
+      const statusBadge={draft:'ร่าง',published:'เปิดแล้ว',closed:'ปิดแล้ว'}[q.status]||q.status;
+      const statusColor={draft:'#6B7280',published:'#059669',closed:'#DC2626'}[q.status]||'#6B7280';
+      const scoreTargetLbl={assignment:'งานเก็บคะแนน',mid:'คะแนนกลางภาค',final:'คะแนนปลายภาค',none:'ฝึกทำ (ไม่เข้าเกรด)'}[q.score_target]||q.score_target;
+      html+=`
+        <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <b style="font-size:15px">${q.title||'(ไม่มีชื่อ)'}</b>
+              <span style="font-size:10.5px;background:${statusColor};color:#fff;padding:1px 8px;border-radius:8px">${statusBadge}</span>
+            </div>
+            <div style="font-size:12px;color:var(--mu);margin-top:4px">
+              ${nQ} ข้อ · เต็ม ${totalPts} คะแนน · ${scoreTargetLbl}
+              ${q.time_limit_min?` · ⏰ ${q.time_limit_min} นาที`:' · ⏰ ไม่จำกัดเวลา'}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-xs" onclick="P.quiz.selQuiz='${q.id}';renderQuiz()"><i class="ti ti-edit"></i> แก้ไข</button>
+            <button class="btn btn-xs" onclick="toggleQuizStatus('${q.id}')">${q.status==='published'?'<i class="ti ti-player-pause"></i> ปิด':'<i class="ti ti-player-play"></i> เปิด'}</button>
+            <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuiz('${q.id}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>`;
+    });
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+// ── หน้าสร้างข้อสอบใหม่ ──
+async function openNewQuiz(cid,subid){
+  const id='qz_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  const asgs=asgList(cid,subid);
+  const asgOpts=asgs.filter(a=>a.type!=='track').map(a=>`<option value="${a.id}">${a.name} (เต็ม ${a.maxScore})</option>`).join('');
+
+  showMD(`<div class="mt"><i class="ti ti-file-plus"></i> สร้างข้อสอบใหม่</div>
+    <div class="fg"><label class="fl">ชื่อข้อสอบ</label>
+      <input type="text" id="qzTitle" placeholder="เช่น แบบทดสอบก่อนเรียน บทที่ 1" autofocus>
+    </div>
+    <div class="fg"><label class="fl">คำอธิบาย (ถ้ามี)</label>
+      <textarea id="qzDesc" rows="2" placeholder="คำสั่ง / กติกาการทำ"></textarea>
+    </div>
+
+    <div class="prop-box">
+      <div class="prop-title"><i class="ti ti-clock"></i> เวลา</div>
+      <div class="fg" style="margin-bottom:6px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="qzHasTime" onchange="document.getElementById('qzTimeLim').disabled=!this.checked">
+          <span>จำกัดเวลาทำข้อสอบ</span>
+        </label>
+      </div>
+      <div class="fg"><label class="fl">เวลาที่จำกัด (นาที)</label>
+        <input type="number" id="qzTimeLim" min="1" value="30" disabled placeholder="ไม่จำกัดเวลา">
+      </div>
+    </div>
+
+    <div class="prop-box">
+      <div class="prop-title"><i class="ti ti-target"></i> คะแนนเข้าเกรด</div>
+      <div class="fg"><label class="fl">ประเภทคะแนน</label>
+        <select id="qzScoreTarget" onchange="_updQzAsgVisibility()">
+          <option value="assignment">งานเก็บคะแนน (เพิ่มเป็นงานใหม่)</option>
+          <option value="mid">คะแนนกลางภาค</option>
+          <option value="final">คะแนนปลายภาค</option>
+          <option value="none">ฝึกทำ (ไม่เข้าเกรด)</option>
+        </select>
+      </div>
+      <div class="fg" id="qzMaxScoreWrap"><label class="fl">คะแนนเต็ม (สำหรับเข้าเกรดรวม)</label>
+        <input type="number" id="qzMaxScore" min="1" value="10">
+      </div>
+    </div>
+
+    <div class="prop-box">
+      <div class="prop-title"><i class="ti ti-eye"></i> การแสดงผล</div>
+      <div class="fg"><label class="fl">แสดงเฉลย</label>
+        <select id="qzShowAns">
+          <option value="after_close">หลังปิดข้อสอบ</option>
+          <option value="immediate">ทันทีหลังกดส่ง</option>
+          <option value="never">ไม่แสดงเฉลย</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px">
+          <input type="checkbox" id="qzShuffle">
+          <span>สลับลำดับข้อสอบให้แต่ละคน (กัน copy)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="qzShuffleOpt">
+          <span>สลับตัวเลือก ก/ข/ค/ง ในแต่ละข้อ</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="submitNewQuiz('${cid}','${subid}','${id}')"><i class="ti ti-check"></i> สร้าง + เพิ่มคำถาม</button>
+    </div>
+  `);
+}
+
+function _updQzAsgVisibility(){
+  const v=document.getElementById('qzScoreTarget')?.value;
+  const wrap=document.getElementById('qzMaxScoreWrap');
+  if(wrap)wrap.style.display=(v==='none')?'none':'';
+}
+
+async function submitNewQuiz(cid,subid,id){
+  const title=val('qzTitle');
+  if(!title){showToast('กรุณากรอกชื่อข้อสอบ');return;}
+  const hasTime=document.getElementById('qzHasTime').checked;
+  const timeLim=hasTime?(parseInt(val('qzTimeLim'))||null):null;
+  const scoreTarget=val('qzScoreTarget');
+  const maxScore=parseFloat(val('qzMaxScore'))||10;
+  const row={
+    id, class_id:cid, subject_id:subid,
+    title, description:val('qzDesc'),
+    time_limit_min:timeLim,
+    shuffle_questions:document.getElementById('qzShuffle').checked,
+    shuffle_options:document.getElementById('qzShuffleOpt').checked,
+    max_attempts:1,
+    show_answers:val('qzShowAns'),
+    score_target:scoreTarget,
+    max_score:maxScore,
+    status:'draft'
+  };
+  try{
+    const {error}=await sb.from('quizzes').insert(row);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    quizData[id]={...row,questions:[]};
+    closeMD();
+    P.quiz.selQuiz=id;
+    renderQuiz();
+    showToast('สร้างข้อสอบแล้ว ✓ กรุณาเพิ่มคำถาม');
+  }catch(e){console.error(e);alert('สร้างไม่สำเร็จ: '+e.message);}
+}
+
+// ── หน้าแก้ไข/เพิ่มคำถาม ──
+function renderQuizEditor(cid,subid,quizId){
+  const q=quizData[quizId];
+  if(!q){P.quiz.selQuiz=null;renderQuiz();return;}
+  const el=document.getElementById('quiz-content');
+  const qs=q.questions||[];
+  const totalPts=qs.reduce((s,x)=>s+(parseFloat(x.points)||0),0);
+
+  const typeNames={mc:'เลือกตอบ',multi:'เลือกได้หลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',match:'จับคู่',essay:'เขียนตอบ'};
+
+  let qHtml='';
+  if(!qs.length){
+    qHtml=`<div class="empty" style="padding:24px 12px"><i class="ti ti-plus"></i><div>ยังไม่มีคำถาม</div><p>คลิกปุ่มด้านล่างเพื่อเพิ่มข้อแรก</p></div>`;
+  } else {
+    qs.forEach((qq,i)=>{
+      let detail='';
+      if(qq.type==='mc'){
+        const opts=qq.data?.options||[];
+        const c=qq.data?.correct;
+        detail=opts.map((o,j)=>`<div style="font-size:12px;color:${j===c?'#059669':'var(--mu)'};padding:2px 0">${j===c?'<b><i class="ti ti-check"></i> </b>':'○ '}${['ก','ข','ค','ง','จ','ฉ'][j]||j+1}. ${o}</div>`).join('');
+      } else if(qq.type==='tf'){
+        detail=`<div style="font-size:12px;color:#059669"><b><i class="ti ti-check"></i> เฉลย: ${qq.data?.correct?'ถูก':'ผิด'}</b></div>`;
+      } else if(qq.type==='fill'){
+        detail=`<div style="font-size:12px;color:#059669"><b>เฉลย:</b> ${(qq.data?.answers||[]).join(' / ')}</div>`;
+      }
+      qHtml+=`
+        <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:6px">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="background:var(--tl);color:#fff;font-size:10.5px;padding:1px 6px;border-radius:6px">${i+1}</span>
+                <span style="font-size:10.5px;background:#EEF2FF;color:#4338CA;padding:1px 6px;border-radius:6px">${typeNames[qq.type]||qq.type}</span>
+                <span style="font-size:10.5px;color:var(--mu)">${qq.points} คะแนน</span>
+              </div>
+              <div style="font-size:13.5px;font-weight:600">${qq.question}</div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-xs" onclick="editQuestion('${quizId}','${qq.id}')"><i class="ti ti-edit"></i></button>
+              <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuestion('${quizId}','${qq.id}')"><i class="ti ti-trash"></i></button>
+            </div>
+          </div>
+          ${detail?`<div style="margin-top:6px;padding-left:8px;border-left:2px solid var(--bd)">${detail}</div>`:''}
+        </div>`;
+    });
+  }
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <button class="btn" onclick="P.quiz.selQuiz=null;renderQuiz()"><i class="ti ti-arrow-left"></i> กลับ</button>
+      <div style="flex:1">
+        <b style="font-size:16px">${q.title}</b>
+        <div style="font-size:12px;color:var(--mu)">${qs.length} ข้อ · เต็ม ${totalPts} คะแนน</div>
+      </div>
+      <button class="btn" onclick="openEditQuizSettings('${quizId}')"><i class="ti ti-settings"></i> ตั้งค่า</button>
+    </div>
+    <div id="quiz-questions">${qHtml}</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-p" onclick="openAddQuestion('${quizId}','mc')"><i class="ti ti-plus"></i> เพิ่มเลือกตอบ</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','tf')"><i class="ti ti-plus"></i> ถูก/ผิด</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','fill')"><i class="ti ti-plus"></i> เติมคำ</button>
+    </div>
+  `;
+}
+
+// ── เพิ่ม/แก้คำถาม ──
+function openAddQuestion(quizId,type,editingId){
+  const q=quizData[quizId];
+  const existingQ=editingId?(q.questions||[]).find(x=>x.id===editingId):null;
+  const t=existingQ?existingQ.type:type;
+  const points=existingQ?existingQ.points:1;
+  const question=existingQ?existingQ.question:'';
+  const data=existingQ?existingQ.data:{};
+
+  let typeSpecific='';
+  if(t==='mc'){
+    const opts=data.options||['','','',''];
+    const cor=data.correct;
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">ตัวเลือก (คลิกวงกลมเพื่อเลือกเฉลย)</div>
+        ${opts.map((o,i)=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <input type="radio" name="qMcCor" value="${i}" ${cor===i?'checked':''} style="width:20px;height:20px;cursor:pointer">
+            <span style="font-weight:700;min-width:24px">${['ก','ข','ค','ง'][i]}.</span>
+            <input type="text" class="qMcOpt" data-idx="${i}" value="${(o||'').replace(/"/g,'&quot;')}" style="flex:1" placeholder="ตัวเลือก ${['ก','ข','ค','ง'][i]}">
+          </div>`).join('')}
+      </div>`;
+  } else if(t==='tf'){
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">เฉลย</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px"><input type="radio" name="qTfCor" value="true" ${data.correct===true?'checked':''}><span>ถูก</span></label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="qTfCor" value="false" ${data.correct===false?'checked':''}><span>ผิด</span></label>
+      </div>`;
+  } else if(t==='fill'){
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">คำตอบที่ยอมรับ</div>
+        <div class="fg">
+          <input type="text" id="qFillAns" value="${((data.answers||[]).join(', ')).replace(/"/g,'&quot;')}" placeholder="เช่น กรุงเทพ, Bangkok (คั่นด้วยจุลภาค = ยอมรับหลายคำตอบ)">
+          <div style="font-size:11px;color:var(--mu);margin-top:4px">ระบบจะตัดช่องว่างและเปรียบเทียบไม่แยกตัวพิมพ์ใหญ่/เล็ก</div>
+        </div>
+      </div>`;
+  }
+
+  const typeNames={mc:'เลือกตอบ',tf:'ถูก/ผิด',fill:'เติมคำ'};
+  showMD(`<div class="mt"><i class="ti ti-help"></i> ${editingId?'แก้ไข':'เพิ่ม'}คำถาม — ${typeNames[t]}</div>
+    <div class="fg"><label class="fl">คำถาม</label>
+      <textarea id="qQuestion" rows="2" placeholder="กรอกคำถาม" autofocus>${question}</textarea>
+    </div>
+    <div class="fg"><label class="fl">คะแนนของข้อนี้</label>
+      <input type="number" id="qPoints" min="0.5" step="0.5" value="${points}" style="width:100px">
+    </div>
+    ${typeSpecific}
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="submitQuestion('${quizId}','${t}','${editingId||''}')"><i class="ti ti-check"></i> บันทึก</button>
+    </div>
+  `);
+}
+
+async function submitQuestion(quizId,type,editingId){
+  const question=val('qQuestion');
+  if(!question){showToast('กรุณากรอกคำถาม');return;}
+  const points=parseFloat(val('qPoints'))||1;
+  let data={};
+  if(type==='mc'){
+    const opts=[];
+    document.querySelectorAll('.qMcOpt').forEach(inp=>{opts.push(inp.value||'');});
+    const cor=document.querySelector('[name=qMcCor]:checked');
+    if(!cor){showToast('กรุณาเลือกเฉลย');return;}
+    if(opts.filter(o=>o.trim()).length<2){showToast('ต้องมีตัวเลือกอย่างน้อย 2 ตัว');return;}
+    data={options:opts,correct:parseInt(cor.value)};
+  } else if(type==='tf'){
+    const cor=document.querySelector('[name=qTfCor]:checked');
+    if(!cor){showToast('กรุณาเลือกเฉลย');return;}
+    data={correct:cor.value==='true'};
+  } else if(type==='fill'){
+    const raw=val('qFillAns');
+    const answers=raw.split(',').map(x=>x.trim()).filter(x=>x);
+    if(!answers.length){showToast('กรุณากรอกคำตอบอย่างน้อย 1 คำ');return;}
+    data={answers,case_sensitive:false};
+  }
+
+  const q=quizData[quizId];
+  const nextOrder=(q.questions||[]).length+1;
+  try{
+    if(editingId){
+      // Update
+      const {error}=await sb.from('quiz_questions').update({question,points,data}).eq('id',editingId);
+      if(error)throw error;
+      const qq=q.questions.find(x=>x.id===editingId);
+      if(qq){qq.question=question;qq.points=points;qq.data=data;}
+    } else {
+      // Insert
+      const qId='q_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const row={id:qId,quiz_id:quizId,order_num:nextOrder,type,question,points,data,explanation:''};
+      const {error}=await sb.from('quiz_questions').insert(row);
+      if(error)throw error;
+      if(!q.questions)q.questions=[];
+      q.questions.push(row);
+    }
+    _lastSaveTime=Date.now();
+    closeMD();
+    renderQuiz();
+    showToast('บันทึกคำถามแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+
+function editQuestion(quizId,qId){
+  openAddQuestion(quizId,null,qId);
+}
+
+async function delQuestion(quizId,qId){
+  if(!confirm('ลบคำถามนี้?'))return;
+  try{
+    const {error}=await sb.from('quiz_questions').delete().eq('id',qId);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    const q=quizData[quizId];
+    if(q)q.questions=(q.questions||[]).filter(x=>x.id!==qId);
+    renderQuiz();
+    showToast('ลบแล้ว ✓');
+  }catch(e){alert('ลบไม่สำเร็จ: '+e.message);}
+}
+
+async function toggleQuizStatus(quizId){
+  const q=quizData[quizId];
+  if(!q)return;
+  const newStatus=q.status==='published'?'closed':'published';
+  if(newStatus==='published'){
+    const nQ=(q.questions||[]).length;
+    if(nQ===0){showToast('ต้องมีคำถามอย่างน้อย 1 ข้อ');return;}
+    if(!confirm(`เปิดข้อสอบ "${q.title}" ให้นักเรียนทำ?`))return;
+  } else {
+    if(!confirm(`ปิดข้อสอบ "${q.title}"?\nนักเรียนจะทำต่อไม่ได้`))return;
+  }
+  try{
+    const {error}=await sb.from('quizzes').update({status:newStatus}).eq('id',quizId);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    q.status=newStatus;
+    renderQuiz();
+    showToast(newStatus==='published'?'เปิดข้อสอบแล้ว ✓':'ปิดข้อสอบแล้ว');
+  }catch(e){alert('ไม่สำเร็จ: '+e.message);}
+}
+
+async function delQuiz(quizId){
+  const q=quizData[quizId];
+  if(!q)return;
+  if(!confirm(`ลบข้อสอบ "${q.title}"?\nคำถาม + คำตอบของนักเรียนทั้งหมดจะหายด้วย`))return;
+  try{
+    const {error}=await sb.from('quizzes').delete().eq('id',quizId);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    delete quizData[quizId];
+    renderQuiz();
+    showToast('ลบข้อสอบแล้ว');
+  }catch(e){alert('ลบไม่สำเร็จ: '+e.message);}
+}
+
+// ── แก้ไขตั้งค่าข้อสอบ ──
+function openEditQuizSettings(quizId){
+  const q=quizData[quizId];
+  if(!q)return;
+  showMD(`<div class="mt"><i class="ti ti-settings"></i> ตั้งค่าข้อสอบ</div>
+    <div class="fg"><label class="fl">ชื่อข้อสอบ</label>
+      <input type="text" id="eqTitle" value="${(q.title||'').replace(/"/g,'&quot;')}">
+    </div>
+    <div class="fg"><label class="fl">คำอธิบาย</label>
+      <textarea id="eqDesc" rows="2">${q.description||''}</textarea>
+    </div>
+    <div class="prop-box">
+      <div class="prop-title"><i class="ti ti-clock"></i> เวลา</div>
+      <div class="fg" style="margin-bottom:6px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="eqHasTime" ${q.time_limit_min?'checked':''} onchange="document.getElementById('eqTimeLim').disabled=!this.checked">
+          <span>จำกัดเวลาทำ</span>
+        </label>
+      </div>
+      <div class="fg"><label class="fl">เวลา (นาที)</label>
+        <input type="number" id="eqTimeLim" min="1" value="${q.time_limit_min||30}" ${q.time_limit_min?'':'disabled'}>
+      </div>
+    </div>
+    <div class="prop-box">
+      <div class="prop-title"><i class="ti ti-target"></i> คะแนน</div>
+      <div class="fg"><label class="fl">ประเภทคะแนน</label>
+        <select id="eqScoreTarget">
+          <option value="assignment" ${q.score_target==='assignment'?'selected':''}>งานเก็บคะแนน</option>
+          <option value="mid" ${q.score_target==='mid'?'selected':''}>คะแนนกลางภาค</option>
+          <option value="final" ${q.score_target==='final'?'selected':''}>คะแนนปลายภาค</option>
+          <option value="none" ${q.score_target==='none'?'selected':''}>ฝึกทำ (ไม่เข้าเกรด)</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">คะแนนเต็ม</label>
+        <input type="number" id="eqMaxScore" min="1" value="${q.max_score||10}">
+      </div>
+    </div>
+    <div class="prop-box">
+      <div class="prop-title"><i class="ti ti-eye"></i> การแสดงผล</div>
+      <div class="fg"><label class="fl">แสดงเฉลย</label>
+        <select id="eqShowAns">
+          <option value="after_close" ${q.show_answers==='after_close'?'selected':''}>หลังปิดข้อสอบ</option>
+          <option value="immediate" ${q.show_answers==='immediate'?'selected':''}>ทันทีหลังกดส่ง</option>
+          <option value="never" ${q.show_answers==='never'?'selected':''}>ไม่แสดงเฉลย</option>
+        </select>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px">
+        <input type="checkbox" id="eqShuffle" ${q.shuffle_questions?'checked':''}>
+        <span>สลับลำดับข้อสอบ</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="eqShuffleOpt" ${q.shuffle_options?'checked':''}>
+        <span>สลับตัวเลือก ก/ข/ค/ง</span>
+      </label>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="submitEditQuiz('${quizId}')"><i class="ti ti-check"></i> บันทึก</button>
+    </div>
+  `);
+}
+
+async function submitEditQuiz(quizId){
+  const q=quizData[quizId];
+  if(!q)return;
+  const hasTime=document.getElementById('eqHasTime').checked;
+  const updates={
+    title:val('eqTitle'),
+    description:val('eqDesc'),
+    time_limit_min:hasTime?(parseInt(val('eqTimeLim'))||null):null,
+    score_target:val('eqScoreTarget'),
+    max_score:parseFloat(val('eqMaxScore'))||10,
+    show_answers:val('eqShowAns'),
+    shuffle_questions:document.getElementById('eqShuffle').checked,
+    shuffle_options:document.getElementById('eqShuffleOpt').checked,
+    updated_at:new Date().toISOString()
+  };
+  try{
+    const {error}=await sb.from('quizzes').update(updates).eq('id',quizId);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    Object.assign(q,updates);
+    closeMD();
+    renderQuiz();
+    showToast('บันทึกการตั้งค่าแล้ว ✓');
+  }catch(e){alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+
 
 function renderFiveS(){
   selBar('fiveS-selbar','fiveS',false);
