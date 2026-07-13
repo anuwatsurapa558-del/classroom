@@ -3485,6 +3485,7 @@ function openManageAsg(cid,subid){
       </td>
       <td style="border:1px solid var(--bd);padding:5px;text-align:center;white-space:nowrap">
         <button class="btn btn-xs" onclick="editAsg('${cid}','${subid}','${a.id}')" title="แก้ไข"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-xs" onclick="openCopyAsg('${cid}','${subid}','${a.id}')" title="คัดลอกไปห้องอื่น"><i class="ti ti-copy"></i></button>
         <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}');openManageAsg('${cid}','${subid}')" title="ลบ"><i class="ti ti-trash"></i></button>
       </td>
     </tr>`;
@@ -3711,6 +3712,95 @@ function addAsg(cid,subid){
   document.getElementById('asgName').value='';
   save();renderScEntry();
 }
+function openCopyAsg(cid,subid,aid){
+  const asg=(db.assignments[tk(cid)]||{})[subid]?.find(a=>a.id===aid);
+  if(!asg){showToast('ไม่พบงาน');return;}
+  const currentCls=getCls(cid);
+  const otherClasses=db.classes.filter(c=>c.id!==cid);
+  if(!otherClasses.length){showToast('มีเพียงห้องเดียว ไม่มีห้องอื่นให้คัดลอก');return;}
+
+  let optHtml=otherClasses.map(c=>{
+    const subs=subArr(c.id);
+    if(!subs.length)return `<div style="padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--mu)">
+      <b>${c.name}</b> — ยังไม่มีวิชา ต้องเพิ่มวิชาก่อน
+    </div>`;
+    return `<div style="padding:8px 10px;background:var(--sf2);border-radius:6px;margin-bottom:6px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
+        <input type="checkbox" class="copyCls" data-cid="${c.id}" onchange="_toggleCopyCls('${c.id}')">
+        <b>${c.name}</b>
+      </label>
+      <div id="copySub-${c.id}" style="display:none;margin-left:24px">
+        <label style="font-size:11.5px;color:var(--mu)">เลือกวิชาปลายทาง:</label>
+        <select class="copySub-${c.id}" style="width:100%;padding:4px 6px;font-size:12.5px;margin-top:2px">
+          ${subs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+
+  showMD(`<div class="mt"><i class="ti ti-copy"></i> คัดลอกงานไปห้องอื่น</div>
+    <div style="background:#EFF6FF;padding:10px;border-radius:6px;margin-bottom:10px;font-size:12.5px">
+      <b>งานต้นฉบับ:</b> ${asg.name}<br>
+      <span style="color:var(--mu)">${currentCls?.name} · ${asg.type==='track'?'ติดตาม':'คะแนนเต็ม '+asg.maxScore}</span>
+    </div>
+    <div style="font-size:12.5px;margin-bottom:6px"><b>เลือกห้องปลายทาง:</b></div>
+    <div style="max-height:280px;overflow:auto">${optHtml}</div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="_submitCopyAsg('${cid}','${subid}','${aid}')"><i class="ti ti-check"></i> คัดลอก</button>
+    </div>
+  `);
+}
+
+function _toggleCopyCls(cid){
+  const cb=document.querySelector('input.copyCls[data-cid="'+cid+'"]');
+  const sub=document.getElementById('copySub-'+cid);
+  if(sub)sub.style.display=cb.checked?'block':'none';
+}
+
+async function _submitCopyAsg(cid,subid,aid){
+  const asg=(db.assignments[tk(cid)]||{})[subid]?.find(a=>a.id===aid);
+  if(!asg)return;
+  const targets=[...document.querySelectorAll('input.copyCls:checked')].map(cb=>{
+    const targetCid=cb.dataset.cid;
+    const subSel=document.querySelector('.copySub-'+targetCid);
+    return{cid:targetCid,subid:subSel?.value};
+  }).filter(t=>t.subid);
+  if(!targets.length){showToast('กรุณาเลือกห้องปลายทางอย่างน้อย 1 ห้อง');return;}
+
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังคัดลอก...';s.style.color='var(--am)';}
+
+  try{
+    const rows=targets.map(t=>{
+      const newAsg={...asg,id:'asg_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+t.cid.slice(0,4)};
+      return{
+        row:{
+          id:newAsg.id, class_id:t.cid, subject_id:t.subid,
+          name:asg.name, max_score:asg.maxScore||0, due_date:asg.dueDate||null,
+          type:asg.type||'score', allow_file_submit:!!asg.allowFileSubmit
+        },
+        targetCid:t.cid, targetSubid:t.subid, obj:newAsg
+      };
+    });
+    const {error}=await sb.from('assignments').insert(rows.map(r=>r.row));
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    // Update local db
+    rows.forEach(r=>{
+      const tkey=tk(r.targetCid);
+      if(!db.assignments[tkey])db.assignments[tkey]={};
+      if(!db.assignments[tkey][r.targetSubid])db.assignments[tkey][r.targetSubid]=[];
+      db.assignments[tkey][r.targetSubid].push(r.obj);
+    });
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    if(s){s.textContent='✅ คัดลอกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    closeMD();
+    showToast(`คัดลอกไป ${targets.length} ห้องแล้ว ✓`);
+    renderScEntry();
+  }catch(e){console.error(e);alert('คัดลอกไม่สำเร็จ: '+e.message);}
+}
+
 async function delAsg(cid,subid,aid){
   if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
   const s=document.getElementById('sync-status');
@@ -4054,9 +4144,19 @@ async function loadQuizzes(){
     if(e1)throw e1;
     const {data:questions,error:e2}=await sb.from('quiz_questions').select('*').order('order_num');
     if(e2)throw e2;
+    // โหลด passages (ถ้า table มี)
+    let passages=[];
+    try{
+      const {data:ps}=await sb.from('quiz_passages').select('*').order('order_num');
+      passages=ps||[];
+    }catch(e){/* ไม่มี table ก็ข้าม */}
     quizData={};
     (quizzes||[]).forEach(q=>{
-      quizData[q.id]={...q,questions:(questions||[]).filter(qq=>qq.quiz_id===q.id)};
+      quizData[q.id]={
+        ...q,
+        questions:(questions||[]).filter(qq=>qq.quiz_id===q.id),
+        passages:passages.filter(p=>p.quiz_id===q.id)
+      };
     });
   }catch(e){console.error('loadQuizzes:',e);}
 }
@@ -4113,6 +4213,7 @@ function renderQuiz(){
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-xs" onclick="viewQuizResults('${q.id}')"><i class="ti ti-chart-bar"></i> ผล</button>
             <button class="btn btn-xs" onclick="P.quiz.selQuiz='${q.id}';renderQuiz()"><i class="ti ti-edit"></i> แก้ไข</button>
+            <button class="btn btn-xs" onclick="openCopyQuiz('${q.id}')"><i class="ti ti-copy"></i> คัดลอก</button>
             <button class="btn btn-xs" onclick="toggleQuizStatus('${q.id}')">${q.status==='published'?'<i class="ti ti-player-pause"></i> ปิด':'<i class="ti ti-player-play"></i> เปิด'}</button>
             <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuiz('${q.id}')"><i class="ti ti-trash"></i></button>
           </div>
@@ -4238,7 +4339,7 @@ function renderQuizEditor(cid,subid,quizId){
   const qs=q.questions||[];
   const totalPts=qs.reduce((s,x)=>s+(parseFloat(x.points)||0),0);
 
-  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',match:'จับคู่',essay:'เขียนตอบ'};
+  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',match:'จับคู่',essay:'เขียนตอบ'};
 
   let qHtml='';
   if(!qs.length){
@@ -4260,6 +4361,11 @@ function renderQuizEditor(cid,subid,quizId){
         detail=`<div style="font-size:12px;color:#059669"><b>เฉลย:</b> ${(qq.data?.answers||[]).join(' / ')}</div>`;
       } else if(qq.type==='essay'){
         detail=`<div style="font-size:12px;color:var(--am)"><i class="ti ti-pencil"></i> ครูตรวจให้คะแนนเองในหน้า "ผล"</div>`;
+      } else if(qq.type==='cloze'){
+        const blanks=qq.data?.blanks||[];
+        const template=qq.data?.template||'';
+        detail=`<div style="font-size:12px;color:#0891b2;padding:4px 0"><b>ประโยค:</b> ${template}</div>
+          <div style="font-size:12px;color:#059669;padding:4px 0"><b>เฉลย:</b> ${blanks.map((b,i)=>`[${i+1}] ${(b.answers||[]).join('/')}`).join(' · ')}</div>`;
       }
       qHtml+=`
         <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:8px">
@@ -4294,15 +4400,147 @@ function renderQuizEditor(cid,subid,quizId){
       <button class="btn" onclick="openEditQuizSettings('${quizId}')"><i class="ti ti-settings"></i> ตั้งค่า</button>
     </div>
     <div id="quiz-questions">${qHtml}</div>
+    ${_renderPassagesUI(quizId,q)}
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="openAddQuestion('${quizId}','mc')"><i class="ti ti-plus"></i> เลือกตอบ</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','multi')"><i class="ti ti-plus"></i> เลือกหลายข้อ</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','tf')"><i class="ti ti-plus"></i> ถูก/ผิด</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','fill')"><i class="ti ti-plus"></i> เติมคำ</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','cloze')"><i class="ti ti-plus"></i> เติมคำในช่องว่าง</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','essay')"><i class="ti ti-plus"></i> เขียนตอบ</button>
+      <button class="btn" onclick="openAddPassage('${quizId}')"><i class="ti ti-file-text"></i> เพิ่มส่วนหัว</button>
       <button class="btn btn-t" style="margin-left:auto" onclick="openBulkImport('${quizId}')"><i class="ti ti-file-import"></i> นำเข้าหลายข้อ</button>
     </div>
   `;
+}
+
+function _renderPassagesUI(quizId,q){
+  const passages=q.passages||[];
+  if(!passages.length)return '';
+  return `<div style="background:#F0F9FF;border:1px solid #93C5FD;border-radius:8px;padding:10px;margin-bottom:12px">
+    <div style="font-weight:700;font-size:13px;color:#1E40AF;margin-bottom:6px"><i class="ti ti-file-text"></i> ส่วนหัว/เนื้อหาประกอบ (${passages.length})</div>
+    ${passages.map(p=>{
+      const linkedCount=(q.questions||[]).filter(qq=>qq.passage_id===p.id).length;
+      return `<div style="background:#fff;border:1px solid #DBEAFE;border-radius:6px;padding:8px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
+          <b style="font-size:12.5px">${p.title||'(ไม่มีชื่อ)'}</b>
+          <div style="display:flex;gap:4px">
+            <span style="font-size:10.5px;background:#EFF6FF;color:#1E40AF;padding:1px 6px;border-radius:6px">${linkedCount} ข้อใช้</span>
+            <button class="btn btn-xs" onclick="openEditPassage('${quizId}','${p.id}')"><i class="ti ti-edit"></i></button>
+            <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delPassage('${quizId}','${p.id}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+        ${p.content_text?`<div style="font-size:12px;color:#555;padding:4px 6px;background:#F8FAFC;border-radius:4px">${p.content_text.slice(0,150)}${p.content_text.length>150?'...':''}</div>`:''}
+        ${p.image_url?`<img src="${p.image_url}" style="max-width:120px;max-height:80px;border-radius:4px;border:1px solid var(--bd);margin-top:4px">`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function openAddPassage(quizId,editingId){
+  const q=quizData[quizId];
+  const existing=editingId?(q.passages||[]).find(p=>p.id===editingId):null;
+  window._pCurImage=existing?.image_url||'';
+  const imgPreview=window._pCurImage?`
+    <div style="position:relative;display:inline-block;margin-top:6px">
+      <img src="${window._pCurImage}" id="pImgPreview" style="max-width:200px;max-height:120px;border-radius:6px;border:1px solid var(--bd)">
+      <button type="button" onclick="_delPassageImg()" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:var(--rd);color:#fff;border:none;font-size:12px;cursor:pointer">×</button>
+    </div>`:'';
+
+  showMD(`<div class="mt"><i class="ti ti-file-text"></i> ${editingId?'แก้ไข':'เพิ่ม'}ส่วนหัว/เนื้อหาประกอบ</div>
+    <div style="background:#EFF6FF;padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:12px;color:#1E40AF">
+      💡 ใช้ผูกกับหลายคำถาม เช่น "อ่านบทความต่อไปนี้ แล้วตอบคำถามข้อ 1-5"
+    </div>
+    <div class="fg"><label class="fl">ชื่อส่วนหัว</label>
+      <input type="text" id="pTitle" value="${(existing?.title||'').replace(/"/g,'&quot;')}" placeholder="เช่น: บทที่ 1 การเดินทาง" autofocus>
+    </div>
+    <div class="fg"><label class="fl">เนื้อหา (ข้อความ)</label>
+      <textarea id="pContent" rows="6" placeholder="วางบทความ / โจทย์ / คำอธิบายที่นี่">${(existing?.content_text||'').replace(/</g,'&lt;')}</textarea>
+    </div>
+    <div class="fg">
+      <label class="fl">รูปประกอบ (ถ้ามี)</label>
+      <button type="button" class="btn btn-xs" onclick="_upPassageImg()"><i class="ti ti-photo-plus"></i> อัปโหลดรูป</button>
+      <div id="pImgWrap">${imgPreview}</div>
+    </div>
+    <input type="file" id="_hiddenFileInput2" accept="image/*" style="display:none">
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="submitPassage('${quizId}','${editingId||''}')"><i class="ti ti-check"></i> บันทึก</button>
+    </div>
+  `);
+}
+window.openEditPassage=function(quizId,pId){openAddPassage(quizId,pId);};
+
+function _upPassageImg(){
+  const inp=document.getElementById('_hiddenFileInput2');
+  if(!inp)return;
+  inp.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    showToast('กำลังอัปโหลด...');
+    const url=await _uploadQuizImage(f);
+    if(url){
+      window._pCurImage=url;
+      const wrap=document.getElementById('pImgWrap');
+      if(wrap)wrap.innerHTML=`
+        <div style="position:relative;display:inline-block;margin-top:6px">
+          <img src="${url}" style="max-width:200px;max-height:120px;border-radius:6px;border:1px solid var(--bd)">
+          <button type="button" onclick="_delPassageImg()" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:var(--rd);color:#fff;border:none;font-size:12px;cursor:pointer">×</button>
+        </div>`;
+      showToast('เพิ่มรูปแล้ว ✓');
+    }
+    inp.value='';
+  };
+  inp.click();
+}
+
+function _delPassageImg(){
+  window._pCurImage='';
+  const wrap=document.getElementById('pImgWrap');
+  if(wrap)wrap.innerHTML='';
+}
+
+async function submitPassage(quizId,editingId){
+  const title=val('pTitle');
+  const content=val('pContent');
+  const image_url=window._pCurImage||'';
+  if(!title&&!content&&!image_url){showToast('กรุณากรอกอย่างน้อย 1 อย่าง');return;}
+  const q=quizData[quizId];
+  const order_num=(q.passages||[]).length;
+  try{
+    if(editingId){
+      const {error}=await sb.from('quiz_passages').update({title,content_text:content,image_url}).eq('id',editingId);
+      if(error)throw error;
+      const p=q.passages.find(x=>x.id===editingId);
+      if(p){p.title=title;p.content_text=content;p.image_url=image_url;}
+    } else {
+      const id='ps_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const row={id,quiz_id:quizId,title,content_text:content,image_url,order_num};
+      const {error}=await sb.from('quiz_passages').insert(row);
+      if(error)throw error;
+      if(!q.passages)q.passages=[];
+      q.passages.push(row);
+    }
+    _lastSaveTime=Date.now();
+    closeMD();
+    renderQuiz();
+    showToast('บันทึกส่วนหัวแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+
+async function delPassage(quizId,pId){
+  if(!confirm('ลบส่วนหัวนี้? คำถามที่ผูกอยู่จะไม่ผูกกับส่วนหัวใดๆ'))return;
+  try{
+    const {error}=await sb.from('quiz_passages').delete().eq('id',pId);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    const q=quizData[quizId];
+    if(q){
+      q.passages=(q.passages||[]).filter(p=>p.id!==pId);
+      (q.questions||[]).forEach(qq=>{if(qq.passage_id===pId)qq.passage_id=null;});
+    }
+    renderQuiz();
+    showToast('ลบแล้ว ✓');
+  }catch(e){alert('ลบไม่สำเร็จ: '+e.message);}
 }
 
 // ── เพิ่ม/แก้คำถาม ──
@@ -4312,9 +4550,21 @@ function openAddQuestion(quizId,type,editingId){
   const t=existingQ?existingQ.type:type;
   const points=existingQ?existingQ.points:1;
   const question=existingQ?existingQ.question:'';
-  const data=existingQ?existingQ.data:{};
-  const qImage=existingQ?existingQ.image_url:'';
-  const optImages=existingQ?(existingQ.option_images||[]):[];
+  // parse data: jsonb อาจกลับมาเป็น string ถ้า Supabase JS ยังไม่ auto parse
+  let data={};
+  if(existingQ){
+    if(typeof existingQ.data==='string'){
+      try{data=JSON.parse(existingQ.data);}catch(e){data={};}
+    } else if(existingQ.data){
+      data=existingQ.data;
+    }
+  }
+  const qImage=existingQ?(existingQ.image_url||''):'';
+  let optImagesRaw=existingQ?(existingQ.option_images||[]):[];
+  if(typeof optImagesRaw==='string'){
+    try{optImagesRaw=JSON.parse(optImagesRaw);}catch(e){optImagesRaw=[];}
+  }
+  const optImages=Array.isArray(optImagesRaw)?optImagesRaw:[];
 
   function optImgHtml(i){
     const url=optImages[i];
@@ -4382,9 +4632,30 @@ function openAddQuestion(quizId,type,editingId){
         </div>
         <div style="font-size:11.5px;color:var(--am);padding:8px;background:#FEF3C7;border-radius:6px;margin-top:4px"><b>⚠️ หมายเหตุ:</b> ครูต้องตรวจให้คะแนนเองในหน้า "ผล"</div>
       </div>`;
+  } else if(t==='cloze'){
+    const template=data.template||'';
+    const blanks=data.blanks||[];
+    const mode=data.mode||'input';
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">ประโยคเติมคำ</div>
+        <div class="fg">
+          <label class="fl">เขียนประโยค แทนช่องว่างด้วย <b>[1] [2] [3]</b> ...</label>
+          <textarea id="qClozeTpl" rows="3" placeholder="เช่น: วัน [1] ฉันจะไป [2] กับเธอ">${template}</textarea>
+          <div style="font-size:11px;color:var(--mu);margin-top:4px">💡 กด "แยกช่องว่าง" หลังพิมพ์เสร็จเพื่อสร้างช่องคำตอบ</div>
+        </div>
+        <div class="fg"><label class="fl">รูปแบบการตอบ</label>
+          <select id="qClozeMode">
+            <option value="input" ${mode==='input'?'selected':''}>พิมพ์คำตอบเอง</option>
+            <option value="dropdown" ${mode==='dropdown'?'selected':''}>เลือกจาก dropdown</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-xs" onclick="_parseCloze()"><i class="ti ti-scan"></i> แยกช่องว่าง</button>
+        <div id="qClozeBlanks" style="margin-top:8px">${_renderClozeBlanks(blanks,mode)}</div>
+      </div>`;
   }
 
-  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',essay:'เขียนตอบ'};
+  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',essay:'เขียนตอบ'};
 
   // เก็บ working state ของ option images
   window._qOptImages=[...optImages];
@@ -4392,6 +4663,17 @@ function openAddQuestion(quizId,type,editingId){
   window._qEditingId=editingId||'';
   window._qQuizId=quizId;
   window._qType=t;
+
+  // Passage dropdown
+  const passages=q.passages||[];
+  const curPassageId=existingQ?.passage_id||'';
+  const passageHtml=passages.length?`
+    <div class="fg"><label class="fl"><i class="ti ti-file-text"></i> ผูกกับส่วนหัว (ถ้ามี)</label>
+      <select id="qPassageId">
+        <option value="">— ไม่ผูก —</option>
+        ${passages.map(p=>`<option value="${p.id}" ${curPassageId===p.id?'selected':''}>${p.title||'(ไม่มีชื่อ)'}</option>`).join('')}
+      </select>
+    </div>`:'';
 
   const qImgPreview=qImage?`
     <div style="position:relative;display:inline-block;margin-top:6px">
@@ -4411,6 +4693,7 @@ function openAddQuestion(quizId,type,editingId){
     <div class="fg"><label class="fl">คะแนนของข้อนี้</label>
       <input type="number" id="qPoints" min="0.5" step="0.5" value="${points}" style="width:100px">
     </div>
+    ${passageHtml}
     ${typeSpecific}
     <input type="file" id="_hiddenFileInput" accept="image/*" style="display:none">
     <div class="f g8" style="justify-content:flex-end;margin-top:10px">
@@ -4491,6 +4774,33 @@ function _delOptImg(i){
   }
 }
 
+// ── Cloze helpers ──
+function _renderClozeBlanks(blanks,mode){
+  if(!blanks||!blanks.length)return `<div style="font-size:11.5px;color:var(--mu);padding:6px">ยังไม่มีช่อง — เขียนประโยคแล้วกดปุ่ม "แยกช่องว่าง"</div>`;
+  return blanks.map((b,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:6px;background:#EFF6FF;border-radius:6px">
+      <b style="min-width:36px">[${i+1}]</b>
+      <input type="text" class="clozeAns" data-idx="${i}" value="${((b.answers||[]).join(', ')).replace(/"/g,'&quot;')}" style="flex:1" placeholder="คำตอบที่ยอมรับ (คั่นด้วยจุลภาค)">
+    </div>`).join('')+`<div style="font-size:11px;color:var(--mu);margin-top:4px">💡 แต่ละช่องให้คะแนนเท่าๆกัน รวมเป็นคะแนนเต็มของข้อนี้</div>`;
+}
+
+function _parseCloze(){
+  const tpl=document.getElementById('qClozeTpl')?.value||'';
+  const matches=[...tpl.matchAll(/\[(\d+)\]/g)];
+  if(!matches.length){showToast('กรุณาใส่ [1] [2] ... ในประโยค');return;}
+  const nums=[...new Set(matches.map(m=>parseInt(m[1])))];
+  // Get existing blanks to preserve
+  const existing=[];
+  document.querySelectorAll('.clozeAns').forEach(inp=>{
+    const idx=parseInt(inp.dataset.idx);
+    existing[idx]={answers:inp.value.split(',').map(x=>x.trim()).filter(x=>x)};
+  });
+  const blanks=nums.map((n,i)=>existing[i]||{answers:[]});
+  const mode=document.getElementById('qClozeMode')?.value||'input';
+  const wrap=document.getElementById('qClozeBlanks');
+  if(wrap)wrap.innerHTML=_renderClozeBlanks(blanks,mode);
+}
+
 
 async function submitQuestion(quizId,type,editingId){
   const question=val('qQuestion');
@@ -4522,23 +4832,35 @@ async function submitQuestion(quizId,type,editingId){
     data={answers,case_sensitive:false};
   } else if(type==='essay'){
     data={instruction:val('qEssayInstr')||''};
+  } else if(type==='cloze'){
+    const template=val('qClozeTpl');
+    if(!template){showToast('กรุณาเขียนประโยค');return;}
+    const matches=[...template.matchAll(/\[(\d+)\]/g)];
+    if(!matches.length){showToast('ต้องมีช่องว่างอย่างน้อย 1 ช่อง เช่น [1]');return;}
+    const blanks=[];
+    document.querySelectorAll('.clozeAns').forEach(inp=>{
+      const idx=parseInt(inp.dataset.idx);
+      const answers=inp.value.split(',').map(x=>x.trim()).filter(x=>x);
+      blanks[idx]={answers};
+    });
+    if(blanks.some(b=>!b||!b.answers||!b.answers.length)){showToast('กรุณากรอกคำตอบให้ครบทุกช่อง');return;}
+    data={template,blanks,mode:val('qClozeMode')||'input'};
   }
 
   const q=quizData[quizId];
   const nextOrder=(q.questions||[]).length+1;
   const imageUrl=window._qCurImage||'';
   const optionImages=window._qOptImages||[];
+  const passageId=val('qPassageId')||null;
   try{
     if(editingId){
-      // Update
-      const {error}=await sb.from('quiz_questions').update({question,points,data,image_url:imageUrl,option_images:optionImages}).eq('id',editingId);
+      const {error}=await sb.from('quiz_questions').update({question,points,data,image_url:imageUrl,option_images:optionImages,passage_id:passageId}).eq('id',editingId);
       if(error)throw error;
       const qq=q.questions.find(x=>x.id===editingId);
-      if(qq){qq.question=question;qq.points=points;qq.data=data;qq.image_url=imageUrl;qq.option_images=optionImages;}
+      if(qq){qq.question=question;qq.points=points;qq.data=data;qq.image_url=imageUrl;qq.option_images=optionImages;qq.passage_id=passageId;}
     } else {
-      // Insert
       const qId='q_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-      const row={id:qId,quiz_id:quizId,order_num:nextOrder,type,question,points,data,explanation:'',image_url:imageUrl,option_images:optionImages};
+      const row={id:qId,quiz_id:quizId,order_num:nextOrder,type,question,points,data,explanation:'',image_url:imageUrl,option_images:optionImages,passage_id:passageId};
       const {error}=await sb.from('quiz_questions').insert(row);
       if(error)throw error;
       if(!q.questions)q.questions=[];
@@ -4566,6 +4888,162 @@ async function delQuestion(quizId,qId){
     renderQuiz();
     showToast('ลบแล้ว ✓');
   }catch(e){alert('ลบไม่สำเร็จ: '+e.message);}
+}
+
+// ── คัดลอกข้อสอบไปห้องอื่น ──
+function openCopyQuiz(quizId){
+  const q=quizData[quizId];
+  if(!q){showToast('ไม่พบข้อสอบ');return;}
+  const currentCls=getCls(q.class_id);
+  // ไม่กรอง current เพื่อให้คัดลอกไปวิชาอื่นในห้องเดียวกันก็ได้
+  const allClasses=db.classes;
+  if(!allClasses.length){showToast('ยังไม่มีห้องเรียน');return;}
+  const nQ=(q.questions||[]).length;
+  const nP=(q.passages||[]).length;
+
+  let optHtml=allClasses.map(c=>{
+    const subs=subArr(c.id);
+    if(!subs.length)return `<div style="padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--mu)">
+      <b>${c.name}</b> — ยังไม่มีวิชา ต้องเพิ่มวิชาก่อน
+    </div>`;
+    const isSelf=c.id===q.class_id;
+    return `<div style="padding:8px 10px;background:var(--sf2);border-radius:6px;margin-bottom:6px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
+        <input type="checkbox" class="copyQzCls" data-cid="${c.id}" onchange="_toggleCopyQzCls('${c.id}')">
+        <b>${c.name}</b>${isSelf?' <span style="font-size:10.5px;color:var(--mu)">(ห้องเดิม)</span>':''}
+      </label>
+      <div id="copyQzSub-${c.id}" style="display:none;margin-left:24px">
+        <label style="font-size:11.5px;color:var(--mu)">เลือกวิชาปลายทาง:</label>
+        <select class="copyQzSubSel-${c.id}" style="width:100%;padding:4px 6px;font-size:12.5px;margin-top:2px">
+          ${subs.map(s=>{
+            const isSameSub=isSelf&&s.id===q.subject_id;
+            return `<option value="${s.id}" ${isSameSub?'disabled':''}>${s.name}${isSameSub?' (วิชาเดิม)':''}</option>`;
+          }).join('')}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+
+  showMD(`<div class="mt"><i class="ti ti-copy"></i> คัดลอกข้อสอบไปห้อง/วิชาอื่น</div>
+    <div style="background:#EFF6FF;padding:10px;border-radius:6px;margin-bottom:10px;font-size:12.5px">
+      <b>ข้อสอบต้นฉบับ:</b> ${q.title}<br>
+      <span style="color:var(--mu)">${currentCls?.name||''} · ${nQ} ข้อ${nP?` · ${nP} ส่วนหัว`:''} · เต็ม ${q.max_score||0} คะแนน</span>
+    </div>
+    <div style="font-size:12px;color:var(--am);padding:8px;background:#FEF3C7;border-radius:6px;margin-bottom:8px">
+      💡 <b>หมายเหตุ:</b> ระบบจะคัดลอกคำถามทั้งหมด + รูป + ส่วนหัว → บันทึกเป็น <b>ร่าง (draft)</b> ให้ครูตรวจก่อนเปิด
+    </div>
+    <div style="font-size:12.5px;margin-bottom:6px"><b>เลือกห้อง/วิชาปลายทาง:</b></div>
+    <div style="max-height:280px;overflow:auto">${optHtml}</div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="_submitCopyQuiz('${quizId}')"><i class="ti ti-check"></i> คัดลอก</button>
+    </div>
+  `);
+}
+
+function _toggleCopyQzCls(cid){
+  const cb=document.querySelector('input.copyQzCls[data-cid="'+cid+'"]');
+  const sub=document.getElementById('copyQzSub-'+cid);
+  if(sub)sub.style.display=cb.checked?'block':'none';
+}
+
+async function _submitCopyQuiz(quizId){
+  const q=quizData[quizId];
+  if(!q)return;
+  const targets=[...document.querySelectorAll('input.copyQzCls:checked')].map(cb=>{
+    const targetCid=cb.dataset.cid;
+    const subSel=document.querySelector('.copyQzSubSel-'+targetCid);
+    const targetSubid=subSel?.value;
+    // ป้องกันคัดลอกซ้ำในตัวเอง
+    if(targetCid===q.class_id&&targetSubid===q.subject_id)return null;
+    return{cid:targetCid,subid:targetSubid};
+  }).filter(t=>t&&t.subid);
+  if(!targets.length){showToast('กรุณาเลือกห้อง/วิชาปลายทาง (อย่างน้อย 1 ที่ ที่ไม่ใช่ตัวเดิม)');return;}
+  if(!confirm(`คัดลอกข้อสอบไปยัง ${targets.length} ที่?`))return;
+
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังคัดลอก...';s.style.color='var(--am)';}
+
+  try{
+    for(const t of targets){
+      // 1. สร้าง quiz ใหม่
+      const newQuizId='qz_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+t.cid.slice(0,4);
+      const newQuizRow={
+        id:newQuizId,
+        class_id:t.cid,
+        subject_id:t.subid,
+        title:q.title+' (คัดลอก)',
+        description:q.description||'',
+        time_limit_min:q.time_limit_min,
+        shuffle_questions:!!q.shuffle_questions,
+        shuffle_options:!!q.shuffle_options,
+        max_attempts:q.max_attempts||1,
+        show_answers:q.show_answers||'after_close',
+        score_target:q.score_target||'assignment',
+        max_score:q.max_score||10,
+        status:'draft'  // ต้องเปิดใหม่ ป้องกันข้อมูลผสม
+      };
+      const {error:e1}=await sb.from('quizzes').insert(newQuizRow);
+      if(e1)throw e1;
+
+      // 2. คัดลอก passages + สร้าง mapping oldId → newId
+      const passages=q.passages||[];
+      const passageIdMap={};
+      if(passages.length){
+        const newPassages=passages.map(p=>{
+          const newId='ps_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+          passageIdMap[p.id]=newId;
+          return{
+            id:newId,
+            quiz_id:newQuizId,
+            title:p.title||'',
+            content_text:p.content_text||'',
+            image_url:p.image_url||'',
+            order_num:p.order_num||0
+          };
+        });
+        const {error:e2}=await sb.from('quiz_passages').insert(newPassages);
+        if(e2)throw e2;
+      }
+
+      // 3. คัดลอกคำถาม (mapping passage_id ใหม่)
+      const questions=q.questions||[];
+      if(questions.length){
+        const newQuestions=questions.map((qq,i)=>({
+          id:'q_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+i,
+          quiz_id:newQuizId,
+          order_num:qq.order_num||(i+1),
+          type:qq.type,
+          question:qq.question,
+          points:qq.points||1,
+          data:qq.data||{},
+          explanation:qq.explanation||'',
+          image_url:qq.image_url||'',
+          option_images:qq.option_images||[],
+          passage_id:qq.passage_id?passageIdMap[qq.passage_id]||null:null
+        }));
+        const {error:e3}=await sb.from('quiz_questions').insert(newQuestions);
+        if(e3)throw e3;
+        // Update local state
+        quizData[newQuizId]={
+          ...newQuizRow,
+          questions:newQuestions,
+          passages:passages.map(p=>({...p,id:passageIdMap[p.id],quiz_id:newQuizId}))
+        };
+      } else {
+        quizData[newQuizId]={...newQuizRow,questions:[],passages:[]};
+      }
+    }
+    _lastSaveTime=Date.now();
+    if(s){s.textContent='✅ คัดลอกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    closeMD();
+    showToast(`คัดลอกข้อสอบไป ${targets.length} ที่แล้ว ✓`);
+    renderQuiz();
+  }catch(e){
+    console.error(e);
+    alert('คัดลอกไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+  }
 }
 
 async function toggleQuizStatus(quizId){
@@ -4987,11 +5465,23 @@ function _qrTab(tab,btn){
           const cleaned=(''+ans).trim().toLowerCase();
           if((qq.data?.answers||[]).some(c=>(''+c).trim().toLowerCase()===cleaned))corCount++;
         }
+        else if(qq.type==='cloze'){
+          // นับ "ถูกครบทุกช่อง" เป็นถูก
+          const blanks=qq.data?.blanks||[];
+          const given=Array.isArray(ans)?ans:[];
+          if(blanks.length){
+            const allOk=blanks.every((b,idx)=>{
+              const u=(given[idx]||'').trim().toLowerCase();
+              return (b.answers||[]).some(x=>(''+x).trim().toLowerCase()===u);
+            });
+            if(allOk)corCount++;
+          }
+        }
         else if(qq.type==='essay'){/* ไม่มี auto */}
       });
       const pct=totalAns?Math.round(corCount/totalAns*100):0;
       const barColor=pct>=70?'var(--gn)':(pct>=40?'var(--am)':'var(--rd)');
-      const typeLabel={mc:'เลือกตอบ',multi:'หลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',essay:'เขียนตอบ'}[qq.type]||qq.type;
+      const typeLabel={mc:'เลือกตอบ',multi:'หลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมช่องว่าง',essay:'เขียนตอบ'}[qq.type]||qq.type;
       const isEssay=qq.type==='essay';
       rowsHtml+=`
         <div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:6px">
@@ -5145,6 +5635,7 @@ function _exportQuizCsv(quizId){
           else if(qq.type==='multi'){cell=(Array.isArray(ans)?ans:[]).map(i=>['ก','ข','ค','ง','จ','ฉ'][i]).join('+');}
           else if(qq.type==='tf'){cell=ans?'ถูก':'ผิด';}
           else if(qq.type==='fill'){cell=(''+ans).replace(/"/g,'""');}
+          else if(qq.type==='cloze'){cell=(Array.isArray(ans)?ans:[]).map((v,i)=>`[${i+1}]${(''+(v||'?')).replace(/"/g,'""')}`).join(' ');}
           else if(qq.type==='essay'){cell=((''+ans).slice(0,50)+'...').replace(/"/g,'""');}
         }
         row.push(cell);
@@ -5459,28 +5950,53 @@ function fsTeacherSelAllAvail(all){
   document.querySelectorAll('.fsTAddMem').forEach(cb=>cb.checked=all);
 }
 
-function fsTeacherAddMembers(cid,gid){
+async function fsTeacherAddMembers(cid,gid){
   const ids=[...document.querySelectorAll('.fsTAddMem:checked')].map(cb=>cb.value);
   if(!ids.length){showToast('กรุณาเลือกอย่างน้อย 1 คน');return;}
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังเพิ่ม...';s.style.color='var(--am)';}
+  try{
+    const rows=ids.map(sid=>({group_id:gid,student_id:sid}));
+    const {error}=await sb.from('five_s_members').upsert(rows,{onConflict:'group_id,student_id'});
+    if(error)throw error;
+  }catch(e){
+    console.error(e);alert('เพิ่มไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
   const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
-  if(!g)return;
-  g.memberIds=[...new Set([...(g.memberIds||[]),...ids])];
+  if(g)g.memberIds=[...new Set([...(g.memberIds||[]),...ids])];
   fsSetGroups(cid,groups);
-  save();closeMD();renderFiveS();
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ เพิ่มแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  closeMD();renderFiveS();
   showToast(`เพิ่ม ${ids.length} คนเข้ากลุ่มแล้ว ✓`);
-  // เปิด popup ซ้ำเพื่อเพิ่มต่อได้เลย
   setTimeout(()=>openFsManageMembers(cid,gid),400);
 }
 
-function fsTeacherRemoveMember(cid,gid,stuId){
+async function fsTeacherRemoveMember(cid,gid,stuId){
   if(!confirm('เอาสมาชิกคนนี้ออกจากกลุ่ม?'))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังเอาออก...';s.style.color='var(--am)';}
+  try{
+    const {error}=await sb.from('five_s_members').delete()
+      .eq('group_id',gid).eq('student_id',stuId);
+    if(error)throw error;
+  }catch(e){
+    console.error(e);alert('เอาออกไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+    return;
+  }
+  _lastSaveTime=Date.now();
   const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
-  if(!g)return;
-  g.memberIds=(g.memberIds||[]).filter(id=>id!==stuId);
+  if(g)g.memberIds=(g.memberIds||[]).filter(id=>id!==stuId);
   fsSetGroups(cid,groups);
-  save();closeMD();renderFiveS();
+  try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  if(s){s.textContent='✅ เอาออกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+  closeMD();renderFiveS();
   showToast('เอาออกแล้ว ✓');
   setTimeout(()=>openFsManageMembers(cid,gid),400);
 }

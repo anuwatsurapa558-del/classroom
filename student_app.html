@@ -1303,25 +1303,30 @@ let quizStartTime=null;
 async function loadStuQuizzes(){
   if(!me)return;
   try{
-    // โหลดข้อสอบที่ published หรือ closed ของห้อง (นักเรียนเห็นได้ถ้าเปิด)
     const {data:quizzes,error:e1}=await sb.from('quizzes').select('*').eq('class_id',me.classId).in('status',['published','closed']);
     if(e1)throw e1;
     const qIds=(quizzes||[]).map(q=>q.id);
-    let questions=[];
-    let attempts=[];
+    let questions=[],attempts=[],passages=[];
     if(qIds.length){
       const {data:qs}=await sb.from('quiz_questions').select('*').in('quiz_id',qIds).order('order_num');
       questions=qs||[];
       const {data:at}=await sb.from('quiz_attempts').select('*').eq('student_id',me.studentId).in('quiz_id',qIds);
       attempts=at||[];
+      try{
+        const {data:ps}=await sb.from('quiz_passages').select('*').in('quiz_id',qIds).order('order_num');
+        passages=ps||[];
+      }catch(e){/* ok */}
     }
     stuQuizData={};
     (quizzes||[]).forEach(q=>{
-      stuQuizData[q.id]={...q,questions:questions.filter(x=>x.quiz_id===q.id)};
+      stuQuizData[q.id]={
+        ...q,
+        questions:questions.filter(x=>x.quiz_id===q.id),
+        passages:passages.filter(p=>p.quiz_id===q.id)
+      };
     });
     stuAttempts={};
     attempts.forEach(a=>{
-      // เก็บ attempt ล่าสุด
       if(!stuAttempts[a.quiz_id]||a.attempt_num>stuAttempts[a.quiz_id].attempt_num){
         stuAttempts[a.quiz_id]=a;
       }
@@ -1491,7 +1496,22 @@ function renderTakeQuiz(){
     </div>
     <div style="padding:12px">`;
 
+  const passages=activeQuiz.passages||[];
+  const passageMap={};passages.forEach(p=>passageMap[p.id]=p);
+  let lastPassageId=null;
+
   qs.forEach((qq,i)=>{
+    // แสดง passage ก่อนคำถามที่ผูก (แต่ถ้าคำถามก่อนหน้าผูกอันเดียวกัน ไม่ต้องแสดงซ้ำ)
+    if(qq.passage_id && qq.passage_id!==lastPassageId && passageMap[qq.passage_id]){
+      const p=passageMap[qq.passage_id];
+      html+=`<div style="background:#F0F9FF;border:1.5px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:700;font-size:13px;color:#1E40AF;margin-bottom:6px"><i class="ti ti-book"></i> ${p.title||'ส่วนหัว'}</div>
+        ${p.content_text?`<div style="font-size:14px;line-height:1.6;padding:8px;background:#fff;border-radius:6px;white-space:pre-wrap">${(p.content_text||'').replace(/</g,'&lt;')}</div>`:''}
+        ${p.image_url?`<img src="${p.image_url}" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;border:1px solid var(--bd)">`:''}
+      </div>`;
+    }
+    lastPassageId=qq.passage_id||null;
+
     const cur=a.answers[qq.id];
     const qImgHtml=qq.image_url?`<div style="margin:8px 0"><img src="${qq.image_url}" style="max-width:100%;max-height:250px;border-radius:6px;border:1px solid var(--bd)"></div>`:'';
     const optImgs=qq.option_images||[];
@@ -1527,6 +1547,29 @@ function renderTakeQuiz(){
         </div>`;
     } else if(qq.type==='fill'){
       ansHtml=`<input type="text" value="${(cur||'').replace(/"/g,'&quot;')}" oninput="saveAnswer('${qq.id}',this.value)" placeholder="พิมพ์คำตอบ" style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;font-family:inherit">`;
+    } else if(qq.type==='cloze'){
+      // Render template with blanks as inline inputs/dropdowns
+      const template=qq.data?.template||'';
+      const blanks=qq.data?.blanks||[];
+      const mode=qq.data?.mode||'input';
+      const curArr=Array.isArray(cur)?cur:[];
+      // Split template by [N] markers
+      const parts=template.split(/(\[\d+\])/);
+      const rendered=parts.map(part=>{
+        const m=part.match(/\[(\d+)\]/);
+        if(m){
+          const idx=parseInt(m[1])-1;
+          const b=blanks[idx];
+          const v=(curArr[idx]||'').replace(/"/g,'&quot;');
+          if(mode==='dropdown'&&b){
+            const opts=(b.answers||[]).map(a=>`<option value="${a}" ${v===a?'selected':''}>${a}</option>`).join('');
+            return `<select onchange="saveClozeAnswer('${qq.id}',${idx},this.value)" style="display:inline-block;padding:4px 8px;margin:0 4px;border:1.5px solid var(--bl);border-radius:6px;font-family:inherit;font-size:14px;background:#EFF6FF"><option value="">-- เลือก --</option>${opts}</select>`;
+          }
+          return `<input type="text" value="${v}" oninput="saveClozeAnswer('${qq.id}',${idx},this.value)" placeholder="[${idx+1}]" style="display:inline-block;width:auto;min-width:80px;padding:4px 8px;margin:0 4px;border:1.5px solid var(--bl);border-radius:6px;font-family:inherit;font-size:14px;text-align:center;background:#EFF6FF">`;
+        }
+        return part.replace(/</g,'&lt;');
+      }).join('');
+      ansHtml=`<div style="font-size:15px;line-height:2.2;padding:8px;background:#fff;border:1px solid var(--bd);border-radius:8px">${rendered}</div>`;
     } else if(qq.type==='essay'){
       const inst=qq.data?.instruction||'';
       ansHtml=`
@@ -1574,6 +1617,12 @@ async function saveMultiAnswer(qId,idx,checked){
     if(i>=0)cur.splice(i,1);
   }
   cur.sort((a,b)=>a-b);
+  saveAnswer(qId,cur);
+}
+
+async function saveClozeAnswer(qId,idx,value){
+  const cur=Array.isArray(activeAttempt.answers[qId])?[...activeAttempt.answers[qId]]:[];
+  cur[idx]=value;
   saveAnswer(qId,cur);
 }
 
@@ -1652,6 +1701,19 @@ async function submitQuiz(isTimeout){
       const correct=qq.data?.answers||[];
       const cleaned=(''+ans).trim().toLowerCase();
       if(correct.some(c=>(''+c).trim().toLowerCase()===cleaned))rawScore+=parseFloat(qq.points)||0;
+    } else if(qq.type==='cloze'){
+      // แต่ละช่องให้คะแนนเท่าๆ กัน
+      const blanks=qq.data?.blanks||[];
+      const userAns=Array.isArray(ans)?ans:[];
+      if(blanks.length){
+        const perBlank=(parseFloat(qq.points)||0)/blanks.length;
+        blanks.forEach((b,idx)=>{
+          const u=(userAns[idx]||'').trim().toLowerCase();
+          if(!u)return;
+          const ok=(b.answers||[]).some(x=>(''+x).trim().toLowerCase()===u);
+          if(ok)rawScore+=perBlank;
+        });
+      }
     } else if(qq.type==='essay'){
       hasEssay=true;
       // Essay ไม่ตรวจอัตโนมัติ ครูให้คะแนนเอง
@@ -1755,11 +1817,16 @@ function viewQuizResult(quizId){
   } else {
     qs.forEach((qq,i)=>{
       const ans=a.answers?.[qq.id];
+      const qImgHtml=qq.image_url?`<div style="margin:6px 0"><img src="${qq.image_url}" style="max-width:100%;max-height:200px;border-radius:6px;border:1px solid var(--bd)"></div>`:'';
+      const optImgs=qq.option_images||[];
       let correct=false, ansDisplay='', corDisplay='', isEssay=false;
       if(qq.type==='mc'){
         correct=parseInt(ans)===qq.data?.correct;
-        ansDisplay=ans!==undefined?((qq.data?.options||[])[ans]||'-'):'ไม่ตอบ';
-        corDisplay=(qq.data?.options||[])[qq.data?.correct]||'-';
+        const opts=qq.data?.options||[];
+        const ansIdx=ans!==undefined?ans:-1;
+        ansDisplay=ansIdx>=0?(opts[ansIdx]||'-')+(optImgs[ansIdx]?` <img src="${optImgs[ansIdx]}" style="max-width:60px;max-height:45px;vertical-align:middle;border-radius:3px">`:''):'ไม่ตอบ';
+        const cor=qq.data?.correct;
+        corDisplay=(opts[cor]||'-')+(optImgs[cor]?` <img src="${optImgs[cor]}" style="max-width:60px;max-height:45px;vertical-align:middle;border-radius:3px">`:'');
       } else if(qq.type==='multi'){
         const cor=qq.data?.correct||[];
         const given=Array.isArray(ans)?ans:[];
@@ -1776,6 +1843,19 @@ function viewQuizResult(quizId){
         correct=(qq.data?.answers||[]).some(c=>(''+c).trim().toLowerCase()===cleaned);
         ansDisplay=ans||'ไม่ตอบ';
         corDisplay=(qq.data?.answers||[]).join(' / ');
+      } else if(qq.type==='cloze'){
+        // เติมคำในช่องว่าง
+        const blanks=qq.data?.blanks||[];
+        const userAns=Array.isArray(ans)?ans:[];
+        let allCorrect=true;
+        blanks.forEach((b,idx)=>{
+          const u=(userAns[idx]||'').trim().toLowerCase();
+          const ok=(b.answers||[]).some(x=>(''+x).trim().toLowerCase()===u);
+          if(!ok)allCorrect=false;
+        });
+        correct=allCorrect;
+        ansDisplay=userAns.map(u=>u||'?').join(' | ');
+        corDisplay=blanks.map(b=>(b.answers||[]).join('/')).join(' | ');
       } else if(qq.type==='essay'){
         isEssay=true;
         ansDisplay=(ans||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')||'<i>ไม่ตอบ</i>';
@@ -1789,6 +1869,7 @@ function viewQuizResult(quizId){
             <span style="font-size:11px;color:var(--mu);margin-left:auto">${qq.points} คะแนน</span>
           </div>
           <div style="font-size:13.5px;font-weight:600;margin-bottom:6px">${qq.question}</div>
+          ${qImgHtml}
           <div style="font-size:12.5px;padding:6px 8px;background:${isEssay?'#FEF3C7':(correct?'#F0FDF4':'#FEF2F2')};border-radius:6px;margin-top:4px">
             <b>คำตอบของคุณ:</b> ${ansDisplay}
           </div>
@@ -2512,24 +2593,35 @@ function fsOpenAddMember(cid,gid){
     </div>
   `);
 }
-function fsSubmitAddMembers(cid,gid){
+async function fsSubmitAddMembers(cid,gid){
   const ids=[...document.querySelectorAll('.fsAddMem:checked')].map(cb=>cb.value);
   if(!ids.length){showToast('กรุณาเลือกอย่างน้อย 1 คน');return;}
+  try{
+    const rows=ids.map(sid=>({group_id:gid,student_id:sid}));
+    const {error}=await sb.from('five_s_members').upsert(rows,{onConflict:'group_id,student_id'});
+    if(error)throw error;
+  }catch(e){console.error(e);alert('เพิ่มไม่สำเร็จ: '+e.message);return;}
+  _lastSaveTimeStu=Date.now();
   const groups=fsGroupsStu(cid);
   const g=groups.find(x=>x.id===gid);
-  if(!g)return;
-  g.memberIds=[...new Set([...(g.memberIds||[]),...ids])];
-  saveDbSilent();
+  if(g)g.memberIds=[...new Set([...(g.memberIds||[]),...ids])];
+  try{localStorage.setItem('crStuDB',JSON.stringify(db));}catch(e){}
   closeMD();renderFiveSStu();
   showToast(`เพิ่ม ${ids.length} คนเข้ากลุ่มแล้ว ✓`);
 }
-function fsRemoveMember(cid,gid,stuId){
+async function fsRemoveMember(cid,gid,stuId){
   if(!confirm('เอาสมาชิกคนนี้ออก?'))return;
+  try{
+    const {error}=await sb.from('five_s_members').delete()
+      .eq('group_id',gid).eq('student_id',stuId);
+    if(error)throw error;
+  }catch(e){console.error(e);alert('เอาออกไม่สำเร็จ: '+e.message);return;}
+  _lastSaveTimeStu=Date.now();
   const groups=fsGroupsStu(cid);
   const g=groups.find(x=>x.id===gid);
-  if(!g)return;
-  g.memberIds=(g.memberIds||[]).filter(id=>id!==stuId);
-  saveDbSilent();renderFiveSStu();
+  if(g)g.memberIds=(g.memberIds||[]).filter(id=>id!==stuId);
+  try{localStorage.setItem('crStuDB',JSON.stringify(db));}catch(e){}
+  renderFiveSStu();
   showToast('เอาออกแล้ว');
 }
 
