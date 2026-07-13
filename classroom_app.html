@@ -4337,56 +4337,97 @@ function renderQuizEditor(cid,subid,quizId){
   if(!q){P.quiz.selQuiz=null;renderQuiz();return;}
   const el=document.getElementById('quiz-content');
   const qs=q.questions||[];
+  const ps=q.passages||[];
   const totalPts=qs.reduce((s,x)=>s+(parseFloat(x.points)||0),0);
 
   const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',match:'จับคู่',essay:'เขียนตอบ'};
 
-  let qHtml='';
-  if(!qs.length){
-    qHtml=`<div class="empty" style="padding:24px 12px"><i class="ti ti-plus"></i><div>ยังไม่มีคำถาม</div><p>คลิกปุ่มด้านล่างเพื่อเพิ่มข้อแรก</p></div>`;
+  // Merge questions + passages into one list, sort by order_num
+  const items=[];
+  qs.forEach(x=>items.push({kind:'q',order:x.order_num||0,data:x}));
+  ps.forEach(x=>items.push({kind:'p',order:x.order_num||0,data:x}));
+  items.sort((a,b)=>a.order-b.order);
+
+  let listHtml='';
+  if(!items.length){
+    listHtml=`<div class="empty" style="padding:24px 12px"><i class="ti ti-plus"></i><div>ยังไม่มีคำถามและส่วนหัว</div><p>คลิกปุ่มด้านล่างเพื่อเพิ่ม</p></div>`;
   } else {
-    qs.forEach((qq,i)=>{
-      let detail='';
-      if(qq.type==='mc'){
-        const opts=qq.data?.options||[];
-        const c=qq.data?.correct;
-        detail=opts.map((o,j)=>`<div style="font-size:12px;color:${j===c?'#059669':'var(--mu)'};padding:2px 0">${j===c?'<b><i class="ti ti-check"></i> </b>':'○ '}${['ก','ข','ค','ง','จ','ฉ'][j]||j+1}. ${o}</div>`).join('');
-      } else if(qq.type==='multi'){
-        const opts=qq.data?.options||[];
-        const c=qq.data?.correct||[];
-        detail=opts.map((o,j)=>`<div style="font-size:12px;color:${c.includes(j)?'#059669':'var(--mu)'};padding:2px 0">${c.includes(j)?'<b>☑</b>':'☐'} ${['ก','ข','ค','ง','จ','ฉ'][j]||j+1}. ${o}</div>`).join('');
-      } else if(qq.type==='tf'){
-        detail=`<div style="font-size:12px;color:#059669"><b><i class="ti ti-check"></i> เฉลย: ${qq.data?.correct?'ถูก':'ผิด'}</b></div>`;
-      } else if(qq.type==='fill'){
-        detail=`<div style="font-size:12px;color:#059669"><b>เฉลย:</b> ${(qq.data?.answers||[]).join(' / ')}</div>`;
-      } else if(qq.type==='essay'){
-        detail=`<div style="font-size:12px;color:var(--am)"><i class="ti ti-pencil"></i> ครูตรวจให้คะแนนเองในหน้า "ผล"</div>`;
-      } else if(qq.type==='cloze'){
-        const blanks=qq.data?.blanks||[];
-        const template=qq.data?.template||'';
-        detail=`<div style="font-size:12px;color:#0891b2;padding:4px 0"><b>ประโยค:</b> ${template}</div>
-          <div style="font-size:12px;color:#059669;padding:4px 0"><b>เฉลย:</b> ${blanks.map((b,i)=>`[${i+1}] ${(b.answers||[]).join('/')}`).join(' · ')}</div>`;
-      }
-      qHtml+=`
+    let qNum=0;
+    items.forEach((it,idx)=>{
+      const upDisabled=idx===0?'disabled':'';
+      const downDisabled=idx===items.length-1?'disabled':'';
+      const moveButtons=`
+        <button class="btn btn-xs" ${upDisabled} onclick="_moveItem('${quizId}',${idx},-1)" title="เลื่อนขึ้น"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-xs" ${downDisabled} onclick="_moveItem('${quizId}',${idx},1)" title="เลื่อนลง"><i class="ti ti-arrow-down"></i></button>`;
+
+      if(it.kind==='p'){
+        const p=it.data;
+        listHtml+=`
+        <div style="background:#F0F9FF;border:1.5px solid #93C5FD;border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:4px">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="background:#1E40AF;color:#fff;font-size:10.5px;padding:1px 6px;border-radius:6px"><i class="ti ti-book"></i> ส่วนหัว</span>
+                <b style="font-size:13px;color:#1E40AF">${p.title||'(ไม่มีชื่อ)'}</b>
+              </div>
+              ${p.content_text?`<div style="font-size:12px;color:#555;padding:4px 6px;background:#fff;border-radius:4px;margin-top:4px">${(p.content_text||'').slice(0,150)}${p.content_text.length>150?'...':''}</div>`:''}
+              ${p.image_url?`<img src="${p.image_url}" style="max-width:180px;max-height:100px;border-radius:4px;border:1px solid var(--bd);margin-top:4px">`:''}
+            </div>
+            <div style="display:flex;gap:4px;flex-direction:column">
+              <div style="display:flex;gap:4px">${moveButtons}</div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-xs" onclick="openAddPassage('${quizId}','${p.id}')"><i class="ti ti-edit"></i></button>
+                <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delPassage('${quizId}','${p.id}')"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      } else {
+        qNum++;
+        const qq=it.data;
+        let detail='';
+        if(qq.type==='mc'){
+          const opts=qq.data?.options||[];const c=qq.data?.correct;
+          detail=opts.map((o,j)=>`<div style="font-size:12px;color:${j===c?'#059669':'var(--mu)'};padding:2px 0">${j===c?'<b><i class="ti ti-check"></i> </b>':'○ '}${['ก','ข','ค','ง','จ','ฉ'][j]||j+1}. ${o}</div>`).join('');
+        } else if(qq.type==='multi'){
+          const opts=qq.data?.options||[];const c=qq.data?.correct||[];
+          detail=opts.map((o,j)=>`<div style="font-size:12px;color:${c.includes(j)?'#059669':'var(--mu)'};padding:2px 0">${c.includes(j)?'<b>☑</b>':'☐'} ${['ก','ข','ค','ง','จ','ฉ'][j]||j+1}. ${o}</div>`).join('');
+        } else if(qq.type==='tf'){
+          detail=`<div style="font-size:12px;color:#059669"><b><i class="ti ti-check"></i> เฉลย: ${qq.data?.correct?'ถูก':'ผิด'}</b></div>`;
+        } else if(qq.type==='fill'){
+          detail=`<div style="font-size:12px;color:#059669"><b>เฉลย:</b> ${(qq.data?.answers||[]).join(' / ')}</div>`;
+        } else if(qq.type==='essay'){
+          detail=`<div style="font-size:12px;color:var(--am)"><i class="ti ti-pencil"></i> ครูตรวจให้คะแนนเองในหน้า "ผล"</div>`;
+        } else if(qq.type==='cloze'){
+          const blanks=qq.data?.blanks||[];const template=qq.data?.template||'';
+          detail=`<div style="font-size:12px;color:#0891b2;padding:4px 0"><b>ประโยค:</b> ${template}</div><div style="font-size:12px;color:#059669;padding:4px 0"><b>เฉลย:</b> ${blanks.map((b,i)=>`[${i+1}] ${(b.answers||[]).join('/')}`).join(' · ')}</div>`;
+        }
+        const passageLinkBadge=qq.passage_id?'<span style="font-size:10.5px;color:#1E40AF"><i class="ti ti-book"></i> ผูกส่วนหัว</span>':'';
+        listHtml+=`
         <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:6px">
             <div style="flex:1">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                <span style="background:var(--tl);color:#fff;font-size:10.5px;padding:1px 6px;border-radius:6px">${i+1}</span>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+                <span style="background:var(--tl);color:#fff;font-size:10.5px;padding:1px 6px;border-radius:6px">${qNum}</span>
                 <span style="font-size:10.5px;background:#EEF2FF;color:#4338CA;padding:1px 6px;border-radius:6px">${typeNames[qq.type]||qq.type}</span>
                 <span style="font-size:10.5px;color:var(--mu)">${qq.points} คะแนน</span>
                 ${qq.image_url?'<span style="font-size:10.5px;color:#0891b2"><i class="ti ti-photo"></i></span>':''}
+                ${passageLinkBadge}
               </div>
               <div style="font-size:13.5px;font-weight:600">${qq.question}</div>
               ${qq.image_url?`<img src="${qq.image_url}" style="max-width:180px;max-height:100px;border-radius:4px;border:1px solid var(--bd);margin-top:4px">`:''}
             </div>
-            <div style="display:flex;gap:4px">
-              <button class="btn btn-xs" onclick="editQuestion('${quizId}','${qq.id}')"><i class="ti ti-edit"></i></button>
-              <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuestion('${quizId}','${qq.id}')"><i class="ti ti-trash"></i></button>
+            <div style="display:flex;gap:4px;flex-direction:column">
+              <div style="display:flex;gap:4px">${moveButtons}</div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-xs" onclick="editQuestion('${quizId}','${qq.id}')"><i class="ti ti-edit"></i></button>
+                <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuestion('${quizId}','${qq.id}')"><i class="ti ti-trash"></i></button>
+              </div>
             </div>
           </div>
           ${detail?`<div style="margin-top:6px;padding-left:8px;border-left:2px solid var(--bd)">${detail}</div>`:''}
         </div>`;
+      }
     });
   }
 
@@ -4395,12 +4436,11 @@ function renderQuizEditor(cid,subid,quizId){
       <button class="btn" onclick="P.quiz.selQuiz=null;renderQuiz()"><i class="ti ti-arrow-left"></i> กลับ</button>
       <div style="flex:1">
         <b style="font-size:16px">${q.title}</b>
-        <div style="font-size:12px;color:var(--mu)">${qs.length} ข้อ · เต็ม ${totalPts} คะแนน</div>
+        <div style="font-size:12px;color:var(--mu)">${qs.length} ข้อ · ${ps.length} ส่วนหัว · เต็ม ${totalPts} คะแนน</div>
       </div>
       <button class="btn" onclick="openEditQuizSettings('${quizId}')"><i class="ti ti-settings"></i> ตั้งค่า</button>
     </div>
-    <div id="quiz-questions">${qHtml}</div>
-    ${_renderPassagesUI(quizId,q)}
+    <div id="quiz-questions">${listHtml}</div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="openAddQuestion('${quizId}','mc')"><i class="ti ti-plus"></i> เลือกตอบ</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','multi')"><i class="ti ti-plus"></i> เลือกหลายข้อ</button>
@@ -4413,6 +4453,46 @@ function renderQuizEditor(cid,subid,quizId){
     </div>
   `;
 }
+
+// ── สลับตำแหน่ง question/passage ──
+async function _moveItem(quizId,idx,dir){
+  const q=quizData[quizId];
+  if(!q)return;
+  const items=[];
+  (q.questions||[]).forEach(x=>items.push({kind:'q',data:x}));
+  (q.passages||[]).forEach(x=>items.push({kind:'p',data:x}));
+  items.sort((a,b)=>(a.data.order_num||0)-(b.data.order_num||0));
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=items.length)return;
+
+  // Renumber ALL items sequentially, but swap the two positions
+  [items[idx],items[newIdx]]=[items[newIdx],items[idx]];
+  // Assign new sequential order_num
+  const updates={q:[],p:[]};
+  items.forEach((it,i)=>{
+    const newOrder=i+1;
+    if(it.data.order_num!==newOrder){
+      it.data.order_num=newOrder;
+      updates[it.kind].push({id:it.data.id,order_num:newOrder});
+    }
+  });
+
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังเลื่อน...';s.style.color='var(--am)';}
+  try{
+    // Batch update
+    for(const u of updates.q){
+      await sb.from('quiz_questions').update({order_num:u.order_num}).eq('id',u.id);
+    }
+    for(const u of updates.p){
+      await sb.from('quiz_passages').update({order_num:u.order_num}).eq('id',u.id);
+    }
+    _lastSaveTime=Date.now();
+    if(s){s.textContent='✅';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},1500);}
+    renderQuiz();
+  }catch(e){console.error(e);alert('เลื่อนไม่สำเร็จ: '+e.message);}
+}
+
 
 function _renderPassagesUI(quizId,q){
   const passages=q.passages||[];
@@ -4505,7 +4585,8 @@ async function submitPassage(quizId,editingId){
   const image_url=window._pCurImage||'';
   if(!title&&!content&&!image_url){showToast('กรุณากรอกอย่างน้อย 1 อย่าง');return;}
   const q=quizData[quizId];
-  const order_num=(q.passages||[]).length;
+  const allOrders=[...(q.questions||[]),...(q.passages||[])].map(x=>x.order_num||0);
+  const order_num=(allOrders.length?Math.max(...allOrders):0)+1;
   try{
     if(editingId){
       const {error}=await sb.from('quiz_passages').update({title,content_text:content,image_url}).eq('id',editingId);
@@ -4865,7 +4946,8 @@ async function submitQuestion(quizId,type,editingId){
   }
 
   const q=quizData[quizId];
-  const nextOrder=(q.questions||[]).length+1;
+  const allOrders=[...(q.questions||[]),...(q.passages||[])].map(x=>x.order_num||0);
+  const nextOrder=(allOrders.length?Math.max(...allOrders):0)+1;
   const imageUrl=window._qCurImage||'';
   const optionImages=window._qOptImages||[];
   const passageId=val('qPassageId')||null;

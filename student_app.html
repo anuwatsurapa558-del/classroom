@@ -1498,34 +1498,27 @@ function renderTakeQuiz(){
     </div>
     <div style="padding:12px">`;
 
+  // Merge questions + passages by order_num
   const passages=activeQuiz.passages||[];
-  const passageMap={};passages.forEach(p=>passageMap[p.id]=p);
-  // แสดง passages ที่ไม่มีคำถามผูก (orphan) ที่ด้านบนสุด
-  const usedPassageIds=new Set((qs||[]).map(q=>q.passage_id).filter(Boolean));
-  const orphanPassages=passages.filter(p=>!usedPassageIds.has(p.id));
-  if(orphanPassages.length){
-    orphanPassages.forEach(p=>{
-      html+=`<div style="background:#F0F9FF;border:1.5px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:700;font-size:13px;color:#1E40AF;margin-bottom:6px"><i class="ti ti-book"></i> ${p.title||'ส่วนหัว'}</div>
-        ${p.content_text?`<div style="font-size:14px;line-height:1.6;padding:8px;background:#fff;border-radius:6px;white-space:pre-wrap">${(p.content_text||'').replace(/</g,'&lt;')}</div>`:''}
-        ${p.image_url?`<img src="${p.image_url}" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;border:1px solid var(--bd)">`:''}
-      </div>`;
-    });
-  }
-  let lastPassageId=null;
+  const items=[];
+  qs.forEach(x=>items.push({kind:'q',order:x.order_num||0,data:x}));
+  passages.forEach(x=>items.push({kind:'p',order:x.order_num||0,data:x}));
+  items.sort((a,b)=>a.order-b.order);
 
-  qs.forEach((qq,i)=>{
-    // แสดง passage ก่อนคำถามที่ผูก (แต่ถ้าคำถามก่อนหน้าผูกอันเดียวกัน ไม่ต้องแสดงซ้ำ)
-    if(qq.passage_id && qq.passage_id!==lastPassageId && passageMap[qq.passage_id]){
-      const p=passageMap[qq.passage_id];
+  let qNum=0;
+  items.forEach((it,idx)=>{
+    if(it.kind==='p'){
+      const p=it.data;
       html+=`<div style="background:#F0F9FF;border:1.5px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:12px">
         <div style="font-weight:700;font-size:13px;color:#1E40AF;margin-bottom:6px"><i class="ti ti-book"></i> ${p.title||'ส่วนหัว'}</div>
         ${p.content_text?`<div style="font-size:14px;line-height:1.6;padding:8px;background:#fff;border-radius:6px;white-space:pre-wrap">${(p.content_text||'').replace(/</g,'&lt;')}</div>`:''}
         ${p.image_url?`<img src="${p.image_url}" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;border:1px solid var(--bd)">`:''}
       </div>`;
+      return;
     }
-    lastPassageId=qq.passage_id||null;
-
+    qNum++;
+    const qq=it.data;
+    const i=qNum-1;
     const cur=a.answers[qq.id];
     const qImgHtml=qq.image_url?`<div style="margin:8px 0"><img src="${qq.image_url}" style="max-width:100%;max-height:250px;border-radius:6px;border:1px solid var(--bd)"></div>`:'';
     const optImgs=qq.option_images||[];
