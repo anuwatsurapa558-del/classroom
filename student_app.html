@@ -205,6 +205,7 @@ input[type=password]:focus{border-color:var(--tl);}
     <button class="nav-tab active" onclick="switchTab('home',this)"><i class="ti ti-home"></i> หน้าหลัก</button>
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
     <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
+    <button class="nav-tab" onclick="switchTab('quiz',this)"><i class="ti ti-file-text"></i> แบบทดสอบ</button>
     <button class="nav-tab" id="tab-grades" onclick="switchTab('grades',this)" style="display:none"><i class="ti ti-award"></i> ผลการเรียน</button>
     <button class="nav-tab" id="tab-fiveS" onclick="switchTab('fiveS',this)" style="display:none"><i class="ti ti-sparkles"></i> 5 ส</button>
   </div>
@@ -768,8 +769,11 @@ function renderTab(tab){
   else if(tab==='attendance')renderAttendance();
   else if(tab==='assignments'){
     renderAssignments();
-    // โหลด submissions ใน background
     loadMySubmissions().then(()=>{if(currentTab==='assignments')renderAssignments();});
+  }
+  else if(tab==='quiz'){
+    renderStuQuiz();
+    loadStuQuizzes().then(()=>{if(currentTab==='quiz')renderStuQuiz();});
   }
   else if(tab==='grades')renderGrades();
   else if(tab==='fiveS')renderFiveSStu();
@@ -1284,6 +1288,421 @@ function printParentReport(){
     </div>
     </body></html>`);
   w.document.close();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ระบบแบบทดสอบออนไลน์ (Student) — Phase 2
+   ═══════════════════════════════════════════════════════════════ */
+let stuQuizData={};    // {quizId: {...quiz, questions:[]}}
+let stuAttempts={};    // {quizId: {status, total_score, ...}}
+let activeQuiz=null;   // ข้อสอบที่กำลังทำอยู่
+let activeAttempt=null; // การทำครั้งนี้
+let quizTimer=null;
+let quizStartTime=null;
+
+async function loadStuQuizzes(){
+  if(!me)return;
+  try{
+    // โหลดข้อสอบที่ published หรือ closed ของห้อง (นักเรียนเห็นได้ถ้าเปิด)
+    const {data:quizzes,error:e1}=await sb.from('quizzes').select('*').eq('class_id',me.classId).in('status',['published','closed']);
+    if(e1)throw e1;
+    const qIds=(quizzes||[]).map(q=>q.id);
+    let questions=[];
+    let attempts=[];
+    if(qIds.length){
+      const {data:qs}=await sb.from('quiz_questions').select('*').in('quiz_id',qIds).order('order_num');
+      questions=qs||[];
+      const {data:at}=await sb.from('quiz_attempts').select('*').eq('student_id',me.studentId).in('quiz_id',qIds);
+      attempts=at||[];
+    }
+    stuQuizData={};
+    (quizzes||[]).forEach(q=>{
+      stuQuizData[q.id]={...q,questions:questions.filter(x=>x.quiz_id===q.id)};
+    });
+    stuAttempts={};
+    attempts.forEach(a=>{
+      // เก็บ attempt ล่าสุด
+      if(!stuAttempts[a.quiz_id]||a.attempt_num>stuAttempts[a.quiz_id].attempt_num){
+        stuAttempts[a.quiz_id]=a;
+      }
+    });
+  }catch(e){console.error('loadStuQuizzes:',e);}
+}
+
+function renderStuQuiz(){
+  const el=document.getElementById('mainContent');
+  // ถ้ากำลังทำข้อสอบอยู่ → ใช้หน้าทำข้อสอบ
+  if(activeQuiz&&activeAttempt&&activeAttempt.status==='in_progress'){
+    renderTakeQuiz();
+    return;
+  }
+  const quizzes=Object.values(stuQuizData);
+  if(!quizzes.length){
+    el.innerHTML=`<div class="card"><div class="empty"><i class="ti ti-file-text"></i><div>ยังไม่มีแบบทดสอบ</div><p>รอครูเปิดข้อสอบ</p></div></div>`;
+    return;
+  }
+  // แยกเป็น 3 กลุ่ม: ยังไม่ทำ / ทำเสร็จแล้ว / ปิดแล้ว
+  const cur=quizzes.filter(q=>q.status==='published'&&!(stuAttempts[q.id]&&stuAttempts[q.id].status==='submitted'));
+  const done=quizzes.filter(q=>stuAttempts[q.id]&&stuAttempts[q.id].status==='submitted');
+  const closed=quizzes.filter(q=>q.status==='closed'&&!stuAttempts[q.id]);
+
+  let html=`<div style="padding:12px">`;
+  if(cur.length){
+    html+=`<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--gn)"><i class="ti ti-player-play"></i> ข้อสอบที่ต้องทำ (${cur.length})</div>`;
+    cur.forEach(q=>{
+      const nQ=(q.questions||[]).length;
+      const totalPts=(q.questions||[]).reduce((s,x)=>s+(parseFloat(x.points)||0),0);
+      const subject=subArr(me.classId).find(s=>s.id===q.subject_id);
+      html+=`
+        <div style="background:#F0FDF4;border:1.5px solid var(--gn);border-radius:10px;padding:14px;margin-bottom:8px">
+          <div style="font-weight:700;font-size:14.5px">${q.title}</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:2px">${subject?.name||''} · ${nQ} ข้อ · เต็ม ${totalPts} คะแนน ${q.time_limit_min?` · ⏰ ${q.time_limit_min} นาที`:' · ⏰ ไม่จำกัดเวลา'}</div>
+          ${q.description?`<div style="font-size:12.5px;color:#555;margin-top:6px">${q.description}</div>`:''}
+          <button class="btn btn-p" style="margin-top:10px;width:100%" onclick="startQuiz('${q.id}')"><i class="ti ti-player-play"></i> เริ่มทำข้อสอบ</button>
+        </div>`;
+    });
+  }
+  if(done.length){
+    html+=`<div style="font-weight:700;font-size:14px;margin:16px 0 8px"><i class="ti ti-check"></i> ทำเสร็จแล้ว (${done.length})</div>`;
+    done.forEach(q=>{
+      const a=stuAttempts[q.id];
+      const showAns=q.show_answers==='immediate'||(q.show_answers==='after_close'&&q.status==='closed');
+      const percent=a.max_score>0?Math.round(a.total_score/a.max_score*100):0;
+      html+=`
+        <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:14px">${q.title}</div>
+              <div style="font-size:12px;color:var(--mu);margin-top:2px">คะแนน: <b style="color:${percent>=60?'var(--gn)':'var(--rd)'}">${a.total_score} / ${a.max_score}</b> (${percent}%)</div>
+            </div>
+            ${showAns?`<button class="btn btn-xs" onclick="viewQuizResult('${q.id}')"><i class="ti ti-eye"></i> ดูเฉลย</button>`:'<span style="font-size:11px;color:var(--mu)">รอเฉลย</span>'}
+          </div>
+        </div>`;
+    });
+  }
+  if(closed.length){
+    html+=`<div style="font-weight:700;font-size:14px;margin:16px 0 8px;color:var(--mu)"><i class="ti ti-lock"></i> ปิดแล้ว (${closed.length}) — ไม่ได้ทำ</div>`;
+    closed.forEach(q=>{
+      html+=`<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px;opacity:.7">
+        <div style="font-weight:700;font-size:14px">${q.title}</div>
+      </div>`;
+    });
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ── เริ่มทำข้อสอบ ──
+async function startQuiz(quizId){
+  const q=stuQuizData[quizId];
+  if(!q)return;
+  const nQ=(q.questions||[]).length;
+  if(!nQ){showToast('ข้อสอบนี้ยังไม่มีคำถาม');return;}
+  let msg=`ทำข้อสอบ "${q.title}"?\n\n`;
+  msg+=`• จำนวน ${nQ} ข้อ\n`;
+  if(q.time_limit_min)msg+=`• เวลา ${q.time_limit_min} นาที (จะเริ่มจับเวลาทันทีที่กดตกลง)\n`;
+  msg+=`\nพร้อมทำแล้วใช่ไหม?`;
+  if(!confirm(msg))return;
+  try{
+    // เตรียมคำถาม (สลับถ้าตั้งค่าไว้)
+    let questions=[...(q.questions||[])];
+    if(q.shuffle_questions)questions=_shuffle(questions);
+    if(q.shuffle_options){
+      questions=questions.map(qq=>{
+        if(qq.type==='mc'&&qq.data?.options){
+          const idx=qq.data.options.map((_,i)=>i);
+          const shuf=_shuffle(idx);
+          return{
+            ...qq,
+            data:{
+              ...qq.data,
+              options:shuf.map(i=>qq.data.options[i]),
+              correct:shuf.indexOf(qq.data.correct),
+              _shuffleMap:shuf
+            }
+          };
+        }
+        return qq;
+      });
+    }
+    // สร้าง attempt ใหม่
+    const attempt={
+      quiz_id:quizId, student_id:me.studentId, attempt_num:1,
+      status:'in_progress', answers:{}, raw_score:0, max_score:questions.reduce((s,x)=>s+(parseFloat(x.points)||0),0)
+    };
+    const {data:inserted,error}=await sb.from('quiz_attempts').insert(attempt).select().single();
+    if(error){
+      if(error.message.includes('duplicate')){alert('คุณเคยเริ่มทำข้อสอบนี้แล้ว รีเฟรชหน้าเว็บ');return;}
+      throw error;
+    }
+    activeQuiz={...q,questions};
+    activeAttempt={...inserted,answers:{}};
+    quizStartTime=Date.now();
+    _lastSaveTimeStu=Date.now();
+    renderStuQuiz();
+  }catch(e){console.error(e);alert('เริ่มไม่สำเร็จ: '+e.message);}
+}
+
+function _shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+// ── หน้าทำข้อสอบ ──
+function renderTakeQuiz(){
+  const el=document.getElementById('mainContent');
+  const q=activeQuiz;
+  const a=activeAttempt;
+  const qs=q.questions||[];
+  const answered=Object.keys(a.answers||{}).length;
+
+  // Timer
+  let timerHtml='';
+  if(q.time_limit_min){
+    if(!quizTimer){
+      quizTimer=setInterval(()=>{
+        const timeEl=document.getElementById('qzTimeLeft');
+        if(!timeEl){clearInterval(quizTimer);quizTimer=null;return;}
+        const elapsed=Math.floor((Date.now()-quizStartTime)/1000);
+        const left=q.time_limit_min*60-elapsed;
+        if(left<=0){
+          clearInterval(quizTimer);quizTimer=null;
+          alert('หมดเวลา ระบบจะส่งข้อสอบอัตโนมัติ');
+          submitQuiz(true);
+          return;
+        }
+        const m=Math.floor(left/60),s=left%60;
+        timeEl.textContent=m+':'+String(s).padStart(2,'0');
+        timeEl.style.color=left<60?'var(--rd)':(left<300?'var(--am)':'var(--gn)');
+      },1000);
+    }
+    timerHtml=`<div style="background:var(--sf2);padding:8px 12px;border-radius:8px;font-size:13px;text-align:center"><i class="ti ti-clock"></i> เวลาที่เหลือ: <b id="qzTimeLeft" style="color:var(--gn);font-family:monospace;font-size:16px">${q.time_limit_min}:00</b></div>`;
+  }
+
+  let html=`
+    <div style="padding:10px 12px;background:var(--sf2);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:10">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">
+        <b style="font-size:14px">${q.title}</b>
+        <span style="font-size:12px;color:var(--mu)">ตอบแล้ว ${answered}/${qs.length}</span>
+      </div>
+      ${timerHtml}
+    </div>
+    <div style="padding:12px">`;
+
+  qs.forEach((qq,i)=>{
+    const cur=a.answers[qq.id];
+    let ansHtml='';
+    if(qq.type==='mc'){
+      const opts=qq.data?.options||[];
+      ansHtml=opts.map((o,j)=>`
+        <label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:${cur===j?'#EFF6FF':'#fff'};border:1.5px solid ${cur===j?'var(--bl)':'var(--bd)'};border-radius:8px;margin-bottom:6px;cursor:pointer">
+          <input type="radio" name="qz_${qq.id}" value="${j}" ${cur===j?'checked':''} onchange="saveAnswer('${qq.id}',${j})" style="margin-top:3px">
+          <span><b>${['ก','ข','ค','ง','จ','ฉ'][j]||j+1}.</b> ${o}</span>
+        </label>`).join('');
+    } else if(qq.type==='tf'){
+      ansHtml=`
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;background:${cur===true?'#F0FDF4':'#fff'};border:1.5px solid ${cur===true?'var(--gn)':'var(--bd)'};border-radius:8px;cursor:pointer;gap:6px">
+            <input type="radio" name="qz_${qq.id}" ${cur===true?'checked':''} onchange="saveAnswer('${qq.id}',true)">
+            <b>✓ ถูก</b>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;background:${cur===false?'#FEF2F2':'#fff'};border:1.5px solid ${cur===false?'var(--rd)':'var(--bd)'};border-radius:8px;cursor:pointer;gap:6px">
+            <input type="radio" name="qz_${qq.id}" ${cur===false?'checked':''} onchange="saveAnswer('${qq.id}',false)">
+            <b>✗ ผิด</b>
+          </label>
+        </div>`;
+    } else if(qq.type==='fill'){
+      ansHtml=`<input type="text" value="${(cur||'').replace(/"/g,'&quot;')}" oninput="saveAnswer('${qq.id}',this.value)" placeholder="พิมพ์คำตอบ" style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;font-family:inherit">`;
+    }
+    html+=`
+      <div style="background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="background:var(--tl);color:#fff;font-size:11.5px;padding:2px 8px;border-radius:6px;font-weight:700">ข้อ ${i+1}</span>
+          <span style="font-size:11px;color:var(--mu)">${qq.points} คะแนน</span>
+        </div>
+        <div style="font-size:14.5px;font-weight:600;margin-bottom:10px">${qq.question}</div>
+        ${ansHtml}
+      </div>`;
+  });
+
+  html+=`
+      <button class="btn btn-p" style="width:100%;padding:14px;font-size:15px;margin-top:8px" onclick="submitQuiz(false)"><i class="ti ti-send"></i> ส่งข้อสอบ (ตอบแล้ว ${answered}/${qs.length})</button>
+    </div>`;
+  el.innerHTML=html;
+}
+
+// ── บันทึกคำตอบ (auto-save ทุกครั้ง) ──
+let _saveAnsTimer=null;
+async function saveAnswer(qId,ans){
+  activeAttempt.answers[qId]=ans;
+  // อัปเดต UI (ตอบแล้วเท่าไหร่)
+  const el=document.querySelector('div[style*="ตอบแล้ว"]');
+  if(el){
+    const total=(activeQuiz.questions||[]).length;
+    const answered=Object.keys(activeAttempt.answers).length;
+    el.innerHTML=el.innerHTML.replace(/ตอบแล้ว \d+\/\d+/,`ตอบแล้ว ${answered}/${total}`);
+  }
+  // debounce save
+  clearTimeout(_saveAnsTimer);
+  _saveAnsTimer=setTimeout(async()=>{
+    try{
+      _lastSaveTimeStu=Date.now();
+      await sb.from('quiz_attempts').update({answers:activeAttempt.answers}).eq('id',activeAttempt.id);
+    }catch(e){console.error('save answer:',e);}
+  },800);
+}
+
+// ── ส่งข้อสอบ + Auto-grade ──
+async function submitQuiz(isTimeout){
+  const qs=activeQuiz.questions||[];
+  const answered=Object.keys(activeAttempt.answers).length;
+  if(!isTimeout){
+    const unanswered=qs.length-answered;
+    let msg='ยืนยันส่งข้อสอบ?\n\n';
+    msg+=`ตอบแล้ว: ${answered}/${qs.length} ข้อ\n`;
+    if(unanswered>0)msg+=`⚠️ มีอีก ${unanswered} ข้อที่ยังไม่ตอบ\n`;
+    msg+=`\nหลังกดส่งจะแก้ไขคำตอบไม่ได้`;
+    if(!confirm(msg))return;
+  }
+  // Auto-grade
+  let rawScore=0,maxScore=0;
+  qs.forEach(qq=>{
+    maxScore+=parseFloat(qq.points)||0;
+    const ans=activeAttempt.answers[qq.id];
+    if(ans===undefined||ans===null||ans==='')return;
+    if(qq.type==='mc'){
+      if(parseInt(ans)===qq.data?.correct)rawScore+=parseFloat(qq.points)||0;
+    } else if(qq.type==='tf'){
+      if(ans===qq.data?.correct)rawScore+=parseFloat(qq.points)||0;
+    } else if(qq.type==='fill'){
+      const correct=qq.data?.answers||[];
+      const cleaned=(''+ans).trim().toLowerCase();
+      if(correct.some(c=>(''+c).trim().toLowerCase()===cleaned))rawScore+=parseFloat(qq.points)||0;
+    }
+  });
+  try{
+    if(quizTimer){clearInterval(quizTimer);quizTimer=null;}
+    const {error}=await sb.from('quiz_attempts').update({
+      status:'submitted',
+      submitted_at:new Date().toISOString(),
+      answers:activeAttempt.answers,
+      raw_score:rawScore,
+      total_score:rawScore,
+      max_score:maxScore
+    }).eq('id',activeAttempt.id);
+    if(error)throw error;
+    _lastSaveTimeStu=Date.now();
+
+    // ส่งคะแนนเข้าระบบเกรด (ถ้าตั้งไว้)
+    await _sendQuizScoreToGrade(activeQuiz,rawScore,maxScore);
+
+    activeAttempt.status='submitted';
+    activeAttempt.total_score=rawScore;
+    activeAttempt.max_score=maxScore;
+    stuAttempts[activeQuiz.id]=activeAttempt;
+    activeQuiz=null;
+    activeAttempt=null;
+    // แสดงผลลัพธ์
+    const pct=maxScore>0?Math.round(rawScore/maxScore*100):0;
+    alert(`ส่งข้อสอบสำเร็จ ✓\n\nคะแนน: ${rawScore} / ${maxScore} (${pct}%)`);
+    await loadStuQuizzes();
+    renderStuQuiz();
+  }catch(e){console.error(e);alert('ส่งไม่สำเร็จ: '+e.message);}
+}
+
+// ── ส่งคะแนนเข้าระบบเกรด ──
+async function _sendQuizScoreToGrade(quiz,rawScore,maxScore){
+  const target=quiz.score_target;
+  if(target==='none')return; // ไม่เข้าเกรด
+  // แปลงเป็นคะแนนตามคะแนนเต็มที่ตั้งไว้
+  const finalScore=maxScore>0?(rawScore/maxScore)*quiz.max_score:0;
+  const cid=quiz.class_id,subid=quiz.subject_id,sid=me.studentId;
+  if(target==='assignment'){
+    // สร้างงานใหม่ (ถ้ายังไม่มี) แล้วส่งคะแนน
+    const asgId='asg_qz_'+quiz.id;
+    // เช็คว่ามีงานนี้แล้วยัง
+    const {data:exist}=await sb.from('assignments').select('id').eq('id',asgId).single().then(r=>r,()=>({data:null}));
+    if(!exist){
+      await sb.from('assignments').insert({
+        id:asgId, class_id:cid, subject_id:subid,
+        name:'[ข้อสอบ] '+quiz.title,
+        max_score:quiz.max_score, type:'score'
+      });
+    }
+    await sb.from('scores').upsert({
+      assignment_id:asgId, student_id:sid, value:String(Math.round(finalScore*10)/10)
+    },{onConflict:'assignment_id,student_id'});
+  } else if(target==='mid'||target==='final'){
+    // อัปเดต exam_scores (ทับของเดิม — แต่ให้ครูรู้เตือน)
+    const col=target==='mid'?'mid_score':'final_score';
+    const {data:existing}=await sb.from('exam_scores').select('*').eq('subject_id',subid).eq('student_id',sid).single().then(r=>r,()=>({data:null}));
+    if(existing){
+      const upd={};upd[col]=Math.round(finalScore*10)/10;
+      await sb.from('exam_scores').update(upd).eq('subject_id',subid).eq('student_id',sid);
+    } else {
+      const row={subject_id:subid,student_id:sid};row[col]=Math.round(finalScore*10)/10;
+      await sb.from('exam_scores').insert(row);
+    }
+  }
+}
+
+// ── ดูเฉลยหลังทำเสร็จ ──
+function viewQuizResult(quizId){
+  const q=stuQuizData[quizId];
+  const a=stuAttempts[quizId];
+  if(!q||!a){showToast('ไม่พบข้อมูล');return;}
+  const qs=q.questions||[];
+  const showAns=q.show_answers==='immediate'||(q.show_answers==='after_close'&&q.status==='closed');
+  const pct=a.max_score>0?Math.round(a.total_score/a.max_score*100):0;
+
+  let html=`
+    <div style="padding:12px">
+      <button class="btn" onclick="renderStuQuiz()"><i class="ti ti-arrow-left"></i> กลับ</button>
+      <div style="background:${pct>=60?'#F0FDF4':'#FEF2F2'};border:1.5px solid ${pct>=60?'var(--gn)':'var(--rd)'};border-radius:10px;padding:14px;margin:12px 0">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${q.title}</div>
+        <div style="font-size:13px;color:var(--mu)">คะแนน: <b style="color:${pct>=60?'var(--gn)':'var(--rd)'};font-size:16px">${a.total_score} / ${a.max_score}</b> (${pct}%)</div>
+      </div>`;
+
+  if(!showAns){
+    html+=`<div class="empty"><i class="ti ti-lock"></i><div>ยังไม่แสดงเฉลย</div><p>รอครูปิดข้อสอบก่อน</p></div>`;
+  } else {
+    qs.forEach((qq,i)=>{
+      const ans=a.answers?.[qq.id];
+      let correct=false, ansDisplay='', corDisplay='';
+      if(qq.type==='mc'){
+        correct=parseInt(ans)===qq.data?.correct;
+        ansDisplay=ans!==undefined?((qq.data?.options||[])[ans]||'-'):'ไม่ตอบ';
+        corDisplay=(qq.data?.options||[])[qq.data?.correct]||'-';
+      } else if(qq.type==='tf'){
+        correct=ans===qq.data?.correct;
+        ansDisplay=ans===true?'ถูก':(ans===false?'ผิด':'ไม่ตอบ');
+        corDisplay=qq.data?.correct?'ถูก':'ผิด';
+      } else if(qq.type==='fill'){
+        const cleaned=(''+ans).trim().toLowerCase();
+        correct=(qq.data?.answers||[]).some(c=>(''+c).trim().toLowerCase()===cleaned);
+        ansDisplay=ans||'ไม่ตอบ';
+        corDisplay=(qq.data?.answers||[]).join(' / ');
+      }
+      html+=`
+        <div style="background:#fff;border:1.5px solid ${correct?'var(--gn)':'var(--rd)'};border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:var(--tl);color:#fff;font-size:11px;padding:1px 8px;border-radius:6px">ข้อ ${i+1}</span>
+            ${correct?'<span style="font-size:11px;color:var(--gn);font-weight:700"><i class="ti ti-check"></i> ถูก</span>':'<span style="font-size:11px;color:var(--rd);font-weight:700"><i class="ti ti-x"></i> ผิด</span>'}
+            <span style="font-size:11px;color:var(--mu);margin-left:auto">${qq.points} คะแนน</span>
+          </div>
+          <div style="font-size:13.5px;font-weight:600;margin-bottom:6px">${qq.question}</div>
+          <div style="font-size:12.5px;padding:6px 8px;background:${correct?'#F0FDF4':'#FEF2F2'};border-radius:6px;margin-top:4px">
+            <b>คำตอบของคุณ:</b> ${ansDisplay}
+          </div>
+          ${!correct?`<div style="font-size:12.5px;padding:6px 8px;background:#EFF6FF;border-radius:6px;margin-top:4px">
+            <b>เฉลย:</b> ${corDisplay}
+          </div>`:''}
+        </div>`;
+    });
+  }
+  html+=`</div>`;
+  document.getElementById('mainContent').innerHTML=html;
 }
 
 /* ── ASSIGNMENTS ── */
