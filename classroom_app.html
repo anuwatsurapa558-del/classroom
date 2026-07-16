@@ -5629,11 +5629,35 @@ async function _viewStudentAttempt(attemptId,stuId){
         ${!correct&&!isEssay?`<div style="font-size:11.5px;padding:4px 6px;background:#EFF6FF;border-radius:4px;margin-top:3px"><b>เฉลย:</b> ${corDisp}</div>`:''}
       </div>`;
     });
+    // Detect legacy data issue: คะแนนสูงแต่ view ผิดเยอะ (จาก shuffle bug ก่อนหน้า)
+    let mcCount=0, mcMismatch=0;
+    (quiz.questions||[]).forEach(qq=>{
+      if(qq.type!=='mc'&&qq.type!=='multi')return;
+      mcCount++;
+      const ans=a.answers?.[qq.id];
+      if(ans===undefined||ans===null)return;
+      if(qq.type==='mc'){
+        if(parseInt(ans)!==qq.data?.correct)mcMismatch++;
+      } else {
+        const cor=qq.data?.correct||[];const given=Array.isArray(ans)?ans:[];
+        if(!(cor.length===given.length&&cor.every(c=>given.includes(c))))mcMismatch++;
+      }
+    });
+    const scorePct=a.max_score>0?a.total_score/a.max_score:0;
+    const isLegacy=quiz.shuffle_options&&scorePct>=0.7&&mcCount>0&&(mcMismatch/mcCount)>=0.5;
+    const legacyWarning=isLegacy?`
+      <div style="background:#FEF3C7;border:1.5px solid #F59E0B;padding:10px;border-radius:6px;margin-bottom:8px;font-size:12px">
+        ⚠️ <b>ข้อมูลอาจไม่ตรง (ข้อสอบที่ทำก่อนแก้ bug)</b><br>
+        <span style="color:#78350F">คะแนน <b>${fmtScore(a.total_score)}/${fmtScore(a.max_score)}</b> ที่บันทึกไว้เชื่อถือได้ (ระบบ auto-grade ตอนนักเรียนส่ง)<br>
+        แต่การแสดงคำตอบข้างล่างอาจไม่ตรงเพราะเก็บ index หลัง shuffle → ต้องการดูข้อมูลจริง ให้ "ให้ทำใหม่"</span>
+      </div>`:'';
+
     document.getElementById('MC').innerHTML=`
       <div class="mt"><i class="ti ti-eye"></i> คำตอบของ ${stu?.firstName||''} ${stu?.lastName||''}</div>
       <div style="background:#EFF6FF;padding:8px 10px;border-radius:6px;margin-bottom:8px;font-size:12.5px">
         คะแนน: <b>${fmtScore(a.total_score)} / ${fmtScore(a.max_score)}</b> (${a.max_score>0?Math.round(a.total_score/a.max_score*100):0}%)
       </div>
+      ${legacyWarning}
       <div style="max-height:400px;overflow:auto">${ansHtml}</div>
       <div class="f g8" style="justify-content:flex-end;margin-top:8px">
         <button class="btn" onclick="viewQuizResults('${quiz.id}')"><i class="ti ti-arrow-left"></i> กลับ</button>
@@ -5641,6 +5665,41 @@ async function _viewStudentAttempt(attemptId,stuId){
       </div>
     `;
   }catch(e){alert('โหลดไม่สำเร็จ: '+e.message);}
+}
+
+async function _resetAllAttempts(quizId,cid){
+  const q=quizData[quizId];
+  if(!q)return;
+  const {stus,attMap}=window._qrData||{};
+  if(!stus)return;
+  const affected=stus.filter(s=>attMap[s.id]).length;
+  if(!affected){showToast('ไม่มีนักเรียนที่ต้องรีเซ็ต');return;}
+  if(!confirm(`ให้ทั้งห้องทำข้อสอบใหม่?\n\nจะรีเซ็ต ${affected} คน:\n1. ลบคำตอบครั้งเดิมทั้งหมด\n2. ลบคะแนนที่เข้าเกรดไปแล้ว\n3. นักเรียนทุกคนจะเห็นข้อสอบเป็น "ต้องทำ" อีกครั้ง\n\n⚠️ การกระทำนี้ย้อนกลับไม่ได้`))return;
+  if(!confirm(`ยืนยันอีกครั้ง: รีเซ็ต ${affected} คน?`))return;
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังรีเซ็ต...';s.style.color='var(--am)';}
+  try{
+    const stuIds=stus.filter(s=>attMap[s.id]).map(s=>s.id);
+    // ลบคะแนนที่เข้าเกรด
+    if(q.score_target==='assignment'){
+      const asgId='asg_qz_'+q.id;
+      await sb.from('scores').delete().eq('assignment_id',asgId).in('student_id',stuIds);
+    } else if(q.score_target==='mid'||q.score_target==='final'){
+      const col=q.score_target==='mid'?'mid_score':'final_score';
+      const upd={};upd[col]=null;
+      await sb.from('exam_scores').update(upd).eq('subject_id',q.subject_id).in('student_id',stuIds);
+    }
+    // ลบ attempts ทั้งหมด
+    const {error}=await sb.from('quiz_attempts').delete().eq('quiz_id',quizId).in('student_id',stuIds);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    if(s){s.textContent='✅ รีเซ็ตแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    showToast(`รีเซ็ต ${affected} คน ให้ทำใหม่แล้ว ✓`);
+    viewQuizResults(quizId,cid);
+  }catch(e){
+    console.error(e);alert('รีเซ็ตไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+  }
 }
 
 async function _resetStudentAttempt(attemptId,stuName,quizId){
@@ -5747,9 +5806,12 @@ async function viewQuizResults(quizId,forCid){
         ${hasEssay?`<button class="tb" onclick="_qrTab('essay',this)">ตรวจข้อเขียนตอบ</button>`:''}
       </div>
       <div id="qrTabContent" style="min-height:200px"></div>
-      <div class="f g8" style="justify-content:space-between;margin-top:10px">
+      <div class="f g8" style="justify-content:space-between;margin-top:10px;flex-wrap:wrap">
         <button class="btn" onclick="_exportQuizCsv('${quizId}')"><i class="ti ti-download"></i> ดาวน์โหลด CSV</button>
-        <button class="btn" onclick="closeMD()">ปิด</button>
+        <div class="f g8">
+          <button class="btn" style="color:var(--rd);border-color:var(--rd)" onclick="_resetAllAttempts('${quizId}','${cid}')"><i class="ti ti-refresh"></i> ให้ทำใหม่ทั้งห้อง</button>
+          <button class="btn" onclick="closeMD()">ปิด</button>
+        </div>
       </div>
     `;
     _qrTab('students');
