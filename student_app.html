@@ -1886,7 +1886,7 @@ async function submitQuiz(isTimeout){
 
 // ── ส่งคะแนนเข้าระบบเกรด ──
 async function _sendQuizScoreToGrade(quiz,rawScore,maxScore){
-  const target=quiz.score_target;
+  _lastSaveTimeStu=Date.now();  const target=quiz.score_target;
   if(target==='none')return;
   const finalScore=maxScore>0?(rawScore/maxScore)*quiz.max_score:0;
   const scoreRounded=Math.round(finalScore*10)/10;
@@ -2222,7 +2222,7 @@ async function uploadMyFiles(asgId,asgName){
 }
 
 async function delMyFile(fileId,asgId,asgName){
-  if(!confirm('ลบไฟล์นี้?'))return;
+  _lastSaveTimeStu=Date.now();  if(!confirm('ลบไฟล์นี้?'))return;
   // หา path เพื่อลบใน storage
   const sub=stuSubs[asgId];
   const file=sub?.files?.find(f=>f.id===fileId);
@@ -2727,7 +2727,7 @@ function fsOpenAddMember(cid,gid){
   `);
 }
 async function fsSubmitAddMembers(cid,gid){
-  const ids=[...document.querySelectorAll('.fsAddMem:checked')].map(cb=>cb.value);
+  _lastSaveTimeStu=Date.now();  const ids=[...document.querySelectorAll('.fsAddMem:checked')].map(cb=>cb.value);
   if(!ids.length){showToast('กรุณาเลือกอย่างน้อย 1 คน');return;}
   try{
     const rows=ids.map(sid=>({group_id:gid,student_id:sid}));
@@ -2743,7 +2743,7 @@ async function fsSubmitAddMembers(cid,gid){
   showToast(`เพิ่ม ${ids.length} คนเข้ากลุ่มแล้ว ✓`);
 }
 async function fsRemoveMember(cid,gid,stuId){
-  if(!confirm('เอาสมาชิกคนนี้ออก?'))return;
+  _lastSaveTimeStu=Date.now();  if(!confirm('เอาสมาชิกคนนี้ออก?'))return;
   try{
     const {error}=await sb.from('five_s_members').delete()
       .eq('group_id',gid).eq('student_id',stuId);

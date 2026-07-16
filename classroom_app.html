@@ -513,11 +513,11 @@ function noData(icon,msg,sub=''){return`<div class="card cp"><div class="empty">
 
 /* term key helpers */
 function tk(cid){
-  // อิง termId ของห้องเป็นหลัก (ตรงกับที่นักเรียนบันทึก) แล้วค่อย fallback currentTermId
+  // ต้อง match กับ logic ใน _rowsToDb (บรรทัด 963):
+  // cid2term[c.id] = c.termId || '' → tkey = termId + '__' + cid (termId = '' ถ้าไม่มี)
   const cls2=db.classes.find(c=>c.id===cid);
-  if(cls2&&cls2.termId) return cls2.termId+'__'+cid;
-  if(currentTermId) return currentTermId+'__'+cid;
-  return cid;
+  const termId=cls2?.termId||'';
+  return termId+'__'+cid;
 }
 function curTerm(){return db.terms.find(t=>t.id===currentTermId)||db.terms[0]||null;}
 function termClasses(){return currentTermId?db.classes.filter(c=>c.termId===currentTermId):db.classes;}
@@ -2799,6 +2799,7 @@ function markAll(cid,subid,status){
 }
 const lkmap={'ma':'มา','sa':'สาย','la':'ลา','kh':'ขาด'};
 async function saveAtt(cid,subid){
+  _lastSaveTime=Date.now(); // ป้องกัน realtime เข้ามา overwrite ตั้งแต่เริ่ม save
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
   if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
@@ -2882,7 +2883,7 @@ function renderAttEdit(){
 }
 function pickStEdit(btn){const g=btn.closest('.abtns');g.querySelectorAll('.ab').forEach(b=>b.className='ab');btn.className=`ab${btn.dataset.k?' s-'+btn.dataset.k:''}`;}
 async function deleteAttDay(cid,subid){
-  if(!confirm('ลบข้อมูลการเช็คชื่อทั้งหมดของวันที่ '+thDate(attEditDate)+' ?\nสถิติของวันนี้จะถูกลบออกด้วย'))return;
+  _lastSaveTime=Date.now();  if(!confirm('ลบข้อมูลการเช็คชื่อทั้งหมดของวันที่ '+thDate(attEditDate)+' ?\nสถิติของวันนี้จะถูกลบออกด้วย'))return;
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
   try{
@@ -3500,7 +3501,7 @@ async function saveEditAsg(cid,subid,aid,isTrack){
 
 // ── Inline save (autosave เมื่อพิมพ์/เลือกในตาราง) ──
 async function saveScoreInline(cid,subid,aid,stuId,val,maxScore){
-  const tkey=tk(cid);
+  _lastSaveTime=Date.now();  const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
@@ -3521,7 +3522,7 @@ async function saveScoreInline(cid,subid,aid,stuId,val,maxScore){
   }catch(e){console.error(e);showToast('บันทึกไม่สำเร็จ: '+e.message);}
 }
 async function saveTrackInline(cid,subid,aid,stuId,val){
-  const tkey=tk(cid);
+  _lastSaveTime=Date.now();  const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
@@ -3565,7 +3566,7 @@ function openScorePopup(cid,subid,aid,stuId,maxScore){
   setTimeout(()=>{const el=document.getElementById('scVal');if(el){el.focus();el.select();}},100);
 }
 async function saveScorePopup(cid,subid,aid,stuId,maxScore){
-  const v=document.getElementById('scVal').value.trim();
+  _lastSaveTime=Date.now();  const v=document.getElementById('scVal').value.trim();
   const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
@@ -3589,7 +3590,7 @@ async function saveScorePopup(cid,subid,aid,stuId,maxScore){
   }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 async function clearScore(cid,subid,aid,stuId){
-  const tkey=tk(cid);
+  _lastSaveTime=Date.now();  const tkey=tk(cid);
   if((((db.scores||{})[tkey]||{})[subid]||{})[aid]){
     try{
       delete db.scores[tkey][subid][aid][stuId];
@@ -3627,7 +3628,7 @@ function openTrackPopup(cid,subid,aid,stuId){
   `);
 }
 async function setTrack(cid,subid,aid,stuId,vs){
-  const tkey=tk(cid);
+  _lastSaveTime=Date.now();  const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
@@ -3788,7 +3789,7 @@ async function _submitCopyAsg(cid,subid,aid){
 }
 
 async function delAsg(cid,subid,aid){
-  if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
+  _lastSaveTime=Date.now();  if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
   try{
@@ -3834,7 +3835,7 @@ function renderScExam(){
   el.innerHTML=html;
 }
 async function updateExamMax(cid,subid,type,v){
-  const sub=getSub(cid,subid);if(!sub)return;
+  _lastSaveTime=Date.now();  const sub=getSub(cid,subid);if(!sub)return;
   const val=parseFloat(v)||100;
   if(type==='mid')sub.midMax=val;
   else sub.finalMax=val;
@@ -6226,7 +6227,7 @@ function openAddFsGroup(cid){
   `);
 }
 async function submitAddFsGroup(cid){
-  const name=(document.getElementById('fsGpName').value||'').trim();
+  _lastSaveTime=Date.now();  const name=(document.getElementById('fsGpName').value||'').trim();
   const leaderId=document.getElementById('fsGpLeader').value;
   if(!name){showToast('กรุณากรอกชื่อกลุ่ม');return;}
   if(!leaderId){showToast('กรุณาเลือกหัวหน้ากลุ่ม');return;}
@@ -6315,7 +6316,7 @@ async function saveEditFsGroup(cid,gid){
   }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 async function delFsGroup(cid,gid){
-  const groups=fsGroups(cid);
+  _lastSaveTime=Date.now();  const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
   if(!g)return;
   if(!confirm(`ลบ "${g.name}"? ข้อมูลเช็ค 5 ส ของกลุ่มนี้จะหายทั้งหมด`))return;
@@ -6488,7 +6489,7 @@ function fsRemoveItem(idx){
   if(inputs[idx])inputs[idx].parentElement.remove();
 }
 async function saveFsGroupItems(cid,gid){
-  const groups=fsGroups(cid);
+  _lastSaveTime=Date.now();  const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
   if(!g)return;
   const items=[...document.querySelectorAll('.fsItInp')].map(inp=>inp.value.trim()).filter(v=>v);
@@ -6891,7 +6892,7 @@ function openAddClass(){showMD(`<div class="mt"><i class="ti ti-door-enter"></i>
 function submitAddClass(){const name=val('mCN');if(!name)return;const id=uid();db.classes.push({id,name,termId:currentTermId});db.students[tk(id)]=[];sortClasses();save();closeMD();Object.keys(P).forEach(p=>{if(P[p].cls===undefined)return;if(!P[p].cls)P[p].cls=id;});renderPage(curPage());showToast(`เพิ่มห้อง "${name}" แล้ว`);}
 function openEditCls(cid){const c=getCls(cid);showMD(`<div class="mt">แก้ไขห้องเรียน</div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mCN2" value="${c.name}"></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditCls('${cid}')">บันทึก</button></div>`);}
 async function submitEditCls(cid){
-  const name=val('mCN2');if(!name)return;
+  _lastSaveTime=Date.now();  const name=val('mCN2');if(!name)return;
   const c=getCls(cid);if(!c)return;
   try{
     const {error}=await sb.from('classes').update({name}).eq('id',cid);
@@ -6905,7 +6906,7 @@ async function submitEditCls(cid){
   }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 async function deleteCls(cid){
-  const c=getCls(cid);
+  _lastSaveTime=Date.now();  const c=getCls(cid);
   if(!confirm(`ลบห้อง "${c?.name}"?\nข้อมูลทั้งหมดจะหายไป (นักเรียน วิชา คะแนน เช็คชื่อ งาน)`))return;
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
@@ -6988,7 +6989,7 @@ function submitEditSubject(cid,subid){
   save();closeMD();renderSubjects();
 }
 async function deleteSubject(cid,subid){
-  const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป (เช็คชื่อ คะแนน งาน สอบ)`))return;
+  _lastSaveTime=Date.now();  const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป (เช็คชื่อ คะแนน งาน สอบ)`))return;
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
   try{
@@ -7026,7 +7027,7 @@ function submitAddStu(cid){
 }
 function openEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
 async function submitEditStu(cid,sid){
-  const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);
+  _lastSaveTime=Date.now();  const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);
   if(!s)return;
   const no=parseInt(document.getElementById('eSno')?.value)||s.no;
   const firstName=val('eSfn')||s.firstName;
