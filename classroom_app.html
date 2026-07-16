@@ -1071,9 +1071,14 @@ async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    // โหลดจากทุก table พร้อมกัน
+    // โหลดจากทุก table พร้อมกัน (assignments เรียงตามลำดับที่สร้าง)
     const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks'];
-    const results=await Promise.all(tables.map(t=>sb.from(t).select('*')));
+    const results=await Promise.all(tables.map(t=>{
+      const q=sb.from(t).select('*');
+      // assignments + timetable ต้อง order ตาม created_at เพื่อให้เรียงลำดับที่สร้าง
+      if(t==='assignments'||t==='timetable'||t==='periods')return q.order('created_at',{ascending:true});
+      return q;
+    }));
     const rows={};
     tables.forEach((t,i)=>{
       const key=t; // เก็บ raw name
@@ -3701,7 +3706,7 @@ function openCopyAsg(cid,subid,aid){
   if(!otherClasses.length){showToast('มีเพียงห้องเดียว ไม่มีห้องอื่นให้คัดลอก');return;}
 
   let optHtml=otherClasses.map(c=>{
-    const subs=subArr(c.id);
+    const subs=subList(c.id);
     if(!subs.length)return `<div style="padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--mu)">
       <b>${c.name}</b> — ยังไม่มีวิชา ต้องเพิ่มวิชาก่อน
     </div>`;
@@ -4748,6 +4753,7 @@ function openAddQuestion(quizId,type,editingId){
     const template=data.template||'';
     const blanks=data.blanks||[];
     const mode=data.mode||'input';
+    const dropdownOpts=data.dropdownOptions||[];
     typeSpecific=`
       <div class="prop-box">
         <div class="prop-title">ประโยคเติมคำ</div>
@@ -4757,10 +4763,15 @@ function openAddQuestion(quizId,type,editingId){
           <div style="font-size:11px;color:var(--mu);margin-top:4px">💡 กด "แยกช่องว่าง" หลังพิมพ์เสร็จเพื่อสร้างช่องคำตอบ</div>
         </div>
         <div class="fg"><label class="fl">รูปแบบการตอบ</label>
-          <select id="qClozeMode">
+          <select id="qClozeMode" onchange="_toggleClozeDropdownField(this.value)">
             <option value="input" ${mode==='input'?'selected':''}>พิมพ์คำตอบเอง</option>
             <option value="dropdown" ${mode==='dropdown'?'selected':''}>เลือกจาก dropdown</option>
           </select>
+        </div>
+        <div id="qClozeDropdownWrap" class="fg" style="display:${mode==='dropdown'?'block':'none'};background:#FEF3C7;padding:10px;border-radius:6px;border:1px solid #F59E0B">
+          <label class="fl"><i class="ti ti-list"></i> ตัวเลือกใน dropdown (คั่นด้วยจุลภาค)</label>
+          <input type="text" id="qClozeDropdownOpts" value="${dropdownOpts.join(', ').replace(/"/g,'&quot;')}" placeholder="เช่น: จันทร์, อังคาร, พุธ, พฤหัส, ศุกร์, เสาร์, อาทิตย์">
+          <div style="font-size:11px;color:#92400E;margin-top:4px">💡 <b>ตัวอย่าง:</b> ใส่คำตอบที่ถูก + ตัวลวง (นักเรียนจะเลือกจากตัวเลือกเหล่านี้)</div>
         </div>
         <button type="button" class="btn btn-xs" onclick="_parseCloze()"><i class="ti ti-scan"></i> แยกช่องว่าง</button>
         <div id="qClozeBlanks" style="margin-top:8px">${_renderClozeBlanks(blanks,mode)}</div>
@@ -4913,6 +4924,11 @@ function _renderClozeBlanks(blanks,mode){
     </div>`).join('')+`<div style="font-size:11px;color:var(--mu);margin-top:4px">💡 แต่ละช่องให้คะแนนเท่าๆกัน รวมเป็นคะแนนเต็มของข้อนี้</div>`;
 }
 
+function _toggleClozeDropdownField(mode){
+  const wrap=document.getElementById('qClozeDropdownWrap');
+  if(wrap)wrap.style.display=mode==='dropdown'?'block':'none';
+}
+
 function _parseCloze(){
   const tpl=document.getElementById('qClozeTpl')?.value||'';
   const matches=[...tpl.matchAll(/\[(\d+)\]/g)];
@@ -4973,7 +4989,25 @@ async function submitQuestion(quizId,type,editingId){
       blanks[idx]={answers};
     });
     if(blanks.some(b=>!b||!b.answers||!b.answers.length)){showToast('กรุณากรอกคำตอบให้ครบทุกช่อง');return;}
-    data={template,blanks,mode:val('qClozeMode')||'input'};
+    const mode=val('qClozeMode')||'input';
+    data={template,blanks,mode};
+    if(mode==='dropdown'){
+      const rawOpts=val('qClozeDropdownOpts')||'';
+      const dropdownOptions=rawOpts.split(',').map(x=>x.trim()).filter(x=>x);
+      if(!dropdownOptions.length){showToast('กรุณาใส่ตัวเลือกใน dropdown');return;}
+      // ตรวจว่าคำตอบทุกช่องอยู่ในตัวเลือก dropdown (case-insensitive)
+      const optSet=new Set(dropdownOptions.map(x=>x.toLowerCase()));
+      const missing=[];
+      blanks.forEach((b,i)=>{
+        (b.answers||[]).forEach(a=>{
+          if(!optSet.has(a.toLowerCase()))missing.push(`ช่อง [${i+1}]: "${a}"`);
+        });
+      });
+      if(missing.length){
+        if(!confirm(`⚠️ คำตอบต่อไปนี้ไม่มีใน dropdown:\n${missing.join('\n')}\n\nนักเรียนจะเลือกไม่ได้ ต้องการดำเนินการต่อไหม?`))return;
+      }
+      data.dropdownOptions=dropdownOptions;
+    }
   }
 
   const q=quizData[quizId];
@@ -5055,7 +5089,7 @@ function _renderMcClassesList(){
   const current=window._mcCurrent||[];
   let html='';
   db.classes.forEach(c=>{
-    const subs=subArr(c.id);
+    const subs=subList(c.id);
     if(!subs.length){
       html+=`<div style="padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--mu)"><b>${c.name}</b> — ยังไม่มีวิชา</div>`;
       return;
