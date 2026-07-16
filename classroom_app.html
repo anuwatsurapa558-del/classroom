@@ -645,7 +645,8 @@ let _saveQueue={}; // สิ่งที่ต้อง save {table: true/false}
 
 function save(){
   try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-  // Mark ทุก table ว่าอาจมีการเปลี่ยนแปลง (ค่อยคิดตอน save จริง)
+  // อัปเดต _lastSaveTime ทันที เพื่อ block realtime ที่อาจตามมา (echo protection)
+  _lastSaveTime=Date.now();
   _saveQueue.all=true;
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(_cloudSave,1500);
@@ -2147,106 +2148,6 @@ function renderTimetableAllRooms(){
   return html;
 }
 
-function printTimetableAll(){
-  const cls=termClasses();
-  const sch=db.school||{};
-  const cur=curTerm();
-  const logoHtml=sch.logo?`<img src="${sch.logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover">`:'';
-
-  const all=[];
-  cls.forEach(c2=>{
-    const tt=ttGet(c2.id);
-    const subs=subList(c2.id);
-    tt.forEach(t=>{
-      const name=t.isActivity?t.activityName:(subs.find(s=>s.id===t.subId)?.name||'—');
-      all.push({clsId:c2.id,clsName:c2.name,day:t.day,start:t.start,end:t.end,name,note:t.note||'',isActivity:t.isActivity});
-    });
-  });
-  const clsColors=['#DBEAFE','#FCE7F3','#DCFCE7','#FEF3C7','#E9D5FF','#FED7AA','#FEE2E2','#CCFBF1','#E0E7FF','#F3E8FF'];
-  const clsColorMap={};
-  cls.forEach((c2,i)=>{clsColorMap[c2.id]=clsColors[i%clsColors.length];});
-  // สถิติ
-  const stats={};
-  cls.forEach(c2=>{stats[c2.id]={name:c2.name,periods:all.filter(a=>a.clsId===c2.id).length};});
-
-  // Legend: คำอธิบายสีห้อง
-  let legendHtml='<div style="margin-bottom:12px;padding:10px;background:#F9FAFB;border-radius:6px;border:1px solid #E5E7EB"><div style="font-size:11px;color:#666;margin-bottom:6px"><b>คำอธิบายสีห้อง:</b></div><div style="display:flex;flex-wrap:wrap;gap:6px">';
-  cls.forEach(c2=>{
-    legendHtml+=`<span style="background:${clsColorMap[c2.id]};padding:3px 10px;border-radius:6px;font-size:11px;color:#1a1a1a;border:1px solid rgba(0,0,0,0.1)">${c2.name} <span style="opacity:.6">(${stats[c2.id].periods})</span></span>`;
-  });
-  legendHtml+='</div></div>';
-
-  // ตารางแนวนอน: แถว=วัน คอลัมน์=คาบ (เหมือนหน้าจอ)
-  let tblHtml='<table style="width:100%;border-collapse:separate;border-spacing:3px;font-size:10px;table-layout:fixed"><thead><tr>';
-  tblHtml+='<th style="background:#F1F5F9;padding:6px;border-radius:6px;font-size:11px;width:75px">วัน / เวลา</th>';
-  PERIODS.forEach(p=>{
-    const bg=p.isFixed?(p.color||'#E5E7EB'):'#F8FAFC';
-    const w=p.isFixed?'110px':'auto';
-    tblHtml+=`<th style="background:${bg};padding:5px;border-radius:6px;font-size:10px;color:#1a1a1a;width:${w}">
-      <div style="font-weight:700">${p.isFixed?p.label:p.name}</div>
-      <div style="font-size:9px;font-weight:400;opacity:.8">${p.start}-${p.end}</div>
-    </th>`;
-  });
-  tblHtml+='</tr></thead><tbody>';
-  for(let d=0;d<5;d++){
-    tblHtml+=`<tr><td style="background:${DAY_COLORS[d]};text-align:center;padding:8px 4px;border-radius:6px;font-size:11px;font-weight:700;color:#1a1a1a">${DAYS_TH[d]}</td>`;
-    PERIODS.forEach(p=>{
-      if(p.isFixed){
-        tblHtml+=`<td style="background:${p.color};padding:6px;border-radius:6px;text-align:center;color:#555;font-size:10px;vertical-align:middle"><b>${p.label}</b></td>`;
-        return;
-      }
-      const items=all.filter(a=>a.day===d&&a.start<p.end&&a.end>p.start);
-      if(items.length){
-        items.sort((a,b)=>a.clsName.localeCompare(b.clsName));
-        let cellHtml='';
-        items.forEach(item=>{
-          const isAct=item.isActivity;
-          cellHtml+=`<div style="background:${clsColorMap[item.clsId]};padding:3px 5px;border-radius:4px;margin-bottom:2px;line-height:1.25;${isAct?'border-left:3px solid #F59E0B':''}">
-            <div style="font-weight:700;color:#1a1a1a;font-size:10px">${item.clsName}</div>
-            <div style="color:#333;font-size:9.5px">${isAct?'★ ':''}${item.name}</div>
-            ${item.note?`<div style="font-size:8.5px;color:#666">${item.note}</div>`:''}
-          </div>`;
-        });
-        tblHtml+=`<td style="padding:3px;border-radius:6px;vertical-align:top;background:#FAFAFA">${cellHtml}</td>`;
-      } else {
-        tblHtml+='<td style="background:#F9FAFB;padding:4px;border-radius:6px;color:#CBD5E1;text-align:center;font-size:11px">—</td>';
-      }
-    });
-    tblHtml+='</tr>';
-  }
-  tblHtml+='</tbody></table>';
-
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ตารางสอนรวม</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-      body{font-family:'Sarabun',sans-serif;padding:16px;margin:0;background:#fff}
-      .hd{text-align:center;margin-bottom:14px;border-bottom:2px solid #2563EB;padding-bottom:10px}
-      .hd h1{margin:6px 0;font-size:19px}
-      .hd h2{margin:6px 0;font-size:15px;color:#2563EB}
-      .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
-      .foot{margin-top:14px;font-size:11px;color:#666;text-align:center}
-      @media print{
-        .print-btn{display:none}
-        body{padding:8px}
-        @page{size:A4 landscape;margin:1cm}
-      }
-    </style></head><body>
-    <button class="print-btn" onclick="window.print()">🖨 พิมพ์</button>
-    <div class="hd">
-      ${logoHtml}
-      <h1>${sch.name||'โรงเรียน'}</h1>
-      <h2>ตารางสอนรวมทุกห้อง</h2>
-      <p style="margin:4px 0;font-size:13px;color:#666">${cur?cur.label:''}</p>
-    </div>
-    ${legendHtml}
-    ${tblHtml}
-    <div class="foot">
-      <i>★ = กิจกรรมพิเศษ · แถบสีอ่อน = กิจกรรมประจำ (โฮมรูม/พักเที่ยง/บำเพ็ญประโยชน์)</i>
-    </div>
-    </body></html>`);
-  w.document.close();
-}
 
 // ── พิมพ์ตารางเรียนของห้องเดียว (per-class) ──
 function printTimetableClass(cid){
@@ -2635,18 +2536,6 @@ function printTimetableAll(){
   w.document.close();
 }
 
-function delPeriod(cid,pid){
-  if(!confirm('ลบคาบนี้?'))return;
-  ttSet(cid,ttGet(cid).filter(t=>t.id!==pid));
-  save();renderTimetable();
-}
-
-function clearTimetable(cid){
-  if(!confirm('ล้างตารางสอนทั้งหมดของห้องนี้?\nการกระทำนี้ย้อนกลับไม่ได้'))return;
-  ttSet(cid,[]);
-  save();renderTimetable();
-  showToast('ล้างตารางสอนแล้ว');
-}
 
 function printTimetable(cid){
   // redirect ไป printTimetableClass ที่ใช้สไตล์เดียวกับหน้าจอ
@@ -2904,20 +2793,54 @@ function markAll(cid,subid,status){
   stuList(cid).forEach(s=>{const g=document.getElementById('abg-'+s.id);if(!g)return;g.querySelectorAll('.ab').forEach(b=>b.className='ab');const t=g.querySelector(`[data-k="${km[status]}"]`);if(t)t.className=`ab s-${km[status]}`;});
 }
 const lkmap={'ma':'มา','sa':'สาย','la':'ลา','kh':'ขาด'};
-function saveAtt(cid,subid){
+async function saveAtt(cid,subid){
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
   if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
   if(!db.attendance[tk(cid)][subid])db.attendance[tk(cid)][subid]={};
   if(!db.attendance[tk(cid)][subid][attDate])db.attendance[tk(cid)][subid][attDate]={};
-  stuList(cid).forEach(s=>{
-    const g=document.getElementById('abg-'+s.id);if(!g)return;
-    const a=g.querySelector('[class*="s-"]');if(!a)return;
-    const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');
-    if(k)db.attendance[tk(cid)][subid][attDate][s.id]=lkmap[k]||k;
+  const upsertRows=[];
+  const removedStuIds=[];
+  stuList(cid).forEach(stu=>{
+    const g=document.getElementById('abg-'+stu.id);if(!g)return;
+    const a=g.querySelector('[class*="s-"]');
+    if(a){
+      const k=Array.from(a.classList).find(c=>c.startsWith('s-'))?.replace('s-','');
+      if(k){
+        const status=lkmap[k]||k;
+        db.attendance[tk(cid)][subid][attDate][stu.id]=status;
+        upsertRows.push({class_id:cid,subject_id:subid,student_id:stu.id,date:attDate,status});
+      }
+    } else {
+      // ไม่ได้ติ๊ก - ลบออกถ้าเคยมี
+      if(db.attendance[tk(cid)][subid][attDate][stu.id]!==undefined){
+        delete db.attendance[tk(cid)][subid][attDate][stu.id];
+        removedStuIds.push(stu.id);
+      }
+    }
   });
-  save();showToast('บันทึกการมาเรียนเรียบร้อย ✓');
-  const rec=attRec(cid,subid,attDate),cnt={มา:0,สาย:0,ลา:0,ขาด:0};
-  Object.values(rec).forEach(s=>{if(cnt[s]!==undefined)cnt[s]++;});
-  [['มา','cnt-ma'],['สาย','cnt-sa'],['ลา','cnt-la'],['ขาด','cnt-kh']].forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.textContent=cnt[k];});
+  try{
+    for(const stuId of removedStuIds){
+      await sb.from('attendance').delete()
+        .eq('class_id',cid).eq('subject_id',subid)
+        .eq('student_id',stuId).eq('date',attDate);
+    }
+    if(upsertRows.length){
+      const {error}=await sb.from('attendance').upsert(upsertRows,{onConflict:'class_id,subject_id,student_id,date'});
+      if(error)throw error;
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    showToast('บันทึกการมาเรียนเรียบร้อย ✓');
+    const rec=attRec(cid,subid,attDate),cnt={มา:0,สาย:0,ลา:0,ขาด:0};
+    Object.values(rec).forEach(s=>{if(cnt[s]!==undefined)cnt[s]++;});
+    [['มา','cnt-ma'],['สาย','cnt-sa'],['ลา','cnt-la'],['ขาด','cnt-kh']].forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.textContent=cnt[k];});
+  }catch(e){
+    console.error(e);
+    alert('บันทึกไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+  }
 }
 function shiftDate(d){const dt=new Date(attDate);dt.setDate(dt.getDate()+d);attDate=dt.toISOString().split('T')[0];renderAttCheck();}
 
@@ -3541,52 +3464,77 @@ function editAsg(cid,subid,aid){
   `);
 }
 
-function saveEditAsg(cid,subid,aid,isTrack){
+async function saveEditAsg(cid,subid,aid,isTrack){
   const asgs=asgList(cid,subid);
   const a=asgs.find(x=>x.id===aid);
   if(!a)return;
   const name=(document.getElementById('edAsgName').value||'').trim();
   if(!name){showToast('กรุณากรอกชื่องาน');return;}
-  a.name=name;
+  const upd={name};
   if(!isTrack){
     const max=parseInt(document.getElementById('edAsgMax').value);
     if(!max||max<1){showToast('คะแนนเต็มต้องมากกว่า 0');return;}
-    a.maxScore=max;
+    upd.max_score=max;
   }
-  a.dueDate=document.getElementById('edAsgDue').value||'';
-  a.allowFileSubmit=document.getElementById('edAsgAllowFile').checked;
-  save();openManageAsg(cid,subid);
-  showToast('บันทึกแล้ว ✓');
+  const due=document.getElementById('edAsgDue').value||'';
+  upd.due_date=due||null;
+  upd.allow_file_submit=document.getElementById('edAsgAllowFile').checked;
+  try{
+    const {error}=await sb.from('assignments').update(upd).eq('id',aid);
+    if(error)throw error;
+    a.name=name;
+    if(!isTrack)a.maxScore=upd.max_score;
+    a.dueDate=due;
+    a.allowFileSubmit=upd.allow_file_submit;
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    openManageAsg(cid,subid);
+    showToast('บันทึกแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 
 // ── Inline save (autosave เมื่อพิมพ์/เลือกในตาราง) ──
-function saveScoreInline(cid,subid,aid,stuId,val,maxScore){
+async function saveScoreInline(cid,subid,aid,stuId,val,maxScore){
   const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
   const v=(val||'').toString().trim();
-  if(v===''||isNaN(parseFloat(v))){
-    delete db.scores[tkey][subid][aid][stuId];
-  } else {
-    const n=Math.min(parseFloat(v),maxScore);
-    db.scores[tkey][subid][aid][stuId]=n;
-  }
-  save();
+  try{
+    if(v===''||isNaN(parseFloat(v))){
+      delete db.scores[tkey][subid][aid][stuId];
+      const {error}=await sb.from('scores').delete().eq('assignment_id',aid).eq('student_id',stuId);
+      if(error)throw error;
+    } else {
+      const n=Math.min(parseFloat(v),maxScore);
+      db.scores[tkey][subid][aid][stuId]=n;
+      const {error}=await sb.from('scores').upsert({assignment_id:aid,student_id:stuId,value:String(n)},{onConflict:'assignment_id,student_id'});
+      if(error)throw error;
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  }catch(e){console.error(e);showToast('บันทึกไม่สำเร็จ: '+e.message);}
 }
-function saveTrackInline(cid,subid,aid,stuId,val){
+async function saveTrackInline(cid,subid,aid,stuId,val){
   const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
-  if(!val){
-    delete db.scores[tkey][subid][aid][stuId];
-  } else {
-    db.scores[tkey][subid][aid][stuId]=val;
-  }
-  save();
-  // re-render เพื่ออัปเดตสีพื้นเซลล์
-  renderScEntry();
+  try{
+    if(!val){
+      delete db.scores[tkey][subid][aid][stuId];
+      const {error}=await sb.from('scores').delete().eq('assignment_id',aid).eq('student_id',stuId);
+      if(error)throw error;
+    } else {
+      db.scores[tkey][subid][aid][stuId]=val;
+      const {error}=await sb.from('scores').upsert({assignment_id:aid,student_id:stuId,value:String(val)},{onConflict:'assignment_id,student_id'});
+      if(error)throw error;
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    // re-render เพื่ออัปเดตสีพื้นเซลล์
+    renderScEntry();
+  }catch(e){console.error(e);showToast('บันทึกไม่สำเร็จ: '+e.message);}
 }
 
 // ── Popup: กรอกคะแนนงาน ──
@@ -3611,28 +3559,42 @@ function openScorePopup(cid,subid,aid,stuId,maxScore){
   `);
   setTimeout(()=>{const el=document.getElementById('scVal');if(el){el.focus();el.select();}},100);
 }
-function saveScorePopup(cid,subid,aid,stuId,maxScore){
+async function saveScorePopup(cid,subid,aid,stuId,maxScore){
   const v=document.getElementById('scVal').value.trim();
   const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
-  if(v===''){
-    delete db.scores[tkey][subid][aid][stuId];
-  } else {
-    const n=Math.min(parseFloat(v),maxScore);
-    if(isNaN(n)){showToast('กรุณากรอกตัวเลข');return;}
-    db.scores[tkey][subid][aid][stuId]=n;
-  }
-  save();closeMD();renderScEntry();
-  showToast('✓ บันทึกแล้ว');
+  try{
+    if(v===''){
+      delete db.scores[tkey][subid][aid][stuId];
+      const {error}=await sb.from('scores').delete().eq('assignment_id',aid).eq('student_id',stuId);
+      if(error)throw error;
+    } else {
+      const n=Math.min(parseFloat(v),maxScore);
+      if(isNaN(n)){showToast('กรุณากรอกตัวเลข');return;}
+      db.scores[tkey][subid][aid][stuId]=n;
+      const {error}=await sb.from('scores').upsert({assignment_id:aid,student_id:stuId,value:String(n)},{onConflict:'assignment_id,student_id'});
+      if(error)throw error;
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderScEntry();
+    showToast('✓ บันทึกแล้ว');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
-function clearScore(cid,subid,aid,stuId){
+async function clearScore(cid,subid,aid,stuId){
   const tkey=tk(cid);
   if((((db.scores||{})[tkey]||{})[subid]||{})[aid]){
-    delete db.scores[tkey][subid][aid][stuId];
-    save();closeMD();renderScEntry();
-    showToast('✓ ล้างคะแนนแล้ว');
+    try{
+      delete db.scores[tkey][subid][aid][stuId];
+      const {error}=await sb.from('scores').delete().eq('assignment_id',aid).eq('student_id',stuId);
+      if(error)throw error;
+      _lastSaveTime=Date.now();
+      try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+      closeMD();renderScEntry();
+      showToast('✓ ล้างคะแนนแล้ว');
+    }catch(e){alert('ล้างไม่สำเร็จ: '+e.message);}
   } else { closeMD(); }
 }
 
@@ -3659,18 +3621,26 @@ function openTrackPopup(cid,subid,aid,stuId){
     </div>
   `);
 }
-function setTrack(cid,subid,aid,stuId,vs){
+async function setTrack(cid,subid,aid,stuId,vs){
   const tkey=tk(cid);
   if(!db.scores[tkey])db.scores[tkey]={};
   if(!db.scores[tkey][subid])db.scores[tkey][subid]={};
   if(!db.scores[tkey][subid][aid])db.scores[tkey][subid][aid]={};
-  if(vs===''){
-    delete db.scores[tkey][subid][aid][stuId];
-  } else {
-    db.scores[tkey][subid][aid][stuId]=vs;
-  }
-  save();closeMD();renderScEntry();
-  showToast('✓ บันทึกแล้ว');
+  try{
+    if(vs===''){
+      delete db.scores[tkey][subid][aid][stuId];
+      const {error}=await sb.from('scores').delete().eq('assignment_id',aid).eq('student_id',stuId);
+      if(error)throw error;
+    } else {
+      db.scores[tkey][subid][aid][stuId]=vs;
+      const {error}=await sb.from('scores').upsert({assignment_id:aid,student_id:stuId,value:String(vs)},{onConflict:'assignment_id,student_id'});
+      if(error)throw error;
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderScEntry();
+    showToast('✓ บันทึกแล้ว');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 function setAsgType(t){
   asgType=t;
@@ -3691,26 +3661,37 @@ function setAsgType(t){
     ?'<i class="ti ti-info-circle"></i> งานติดตาม: บันทึกแค่ "ส่งแล้ว / ยังไม่ส่ง" ไม่นำไปคิดคะแนนหรือเกรด'
     :'<i class="ti ti-info-circle"></i> งานเก็บคะแนน: นำไปคำนวณเกรดตามสัดส่วนคะแนนเก็บ';
 }
-function addAsg(cid,subid){
+async function addAsg(cid,subid){
   const name=val('asgName');
   if(!name){showToast('กรุณากรอกชื่องาน');return;}
   if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
   if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
   const id=uid();
+  let localObj,row;
   if(asgType==='track'){
     const due=val('asgDue2')||'';
-    db.assignments[tk(cid)][subid].push({id,name,type:'track',dueDate:due});
+    localObj={id,name,type:'track',dueDate:due};
+    row={id,class_id:cid,subject_id:subid,name,type:'track',due_date:due||null,max_score:0};
     if(document.getElementById('asgDue2'))document.getElementById('asgDue2').value='';
   }else{
     const max=parseInt(val('asgMax'));
     if(!max||max<1){showToast('กรุณากรอกคะแนนเต็ม');return;}
     const due=val('asgDue')||'';
-    db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score',dueDate:due});
+    localObj={id,name,maxScore:max,type:'score',dueDate:due};
+    row={id,class_id:cid,subject_id:subid,name,type:'score',max_score:max,due_date:due||null};
     if(document.getElementById('asgMax'))document.getElementById('asgMax').value='';
     if(document.getElementById('asgDue'))document.getElementById('asgDue').value='';
   }
   document.getElementById('asgName').value='';
-  save();renderScEntry();
+  try{
+    const {error}=await sb.from('assignments').insert(row);
+    if(error)throw error;
+    db.assignments[tk(cid)][subid].push(localObj);
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    renderScEntry();
+    showToast('เพิ่มงานแล้ว ✓');
+  }catch(e){console.error(e);alert('เพิ่มไม่สำเร็จ: '+e.message);}
 }
 function openCopyAsg(cid,subid,aid){
   const asg=(db.assignments[tk(cid)]||{})[subid]?.find(a=>a.id===aid);
@@ -3847,46 +3828,76 @@ function renderScExam(){
   html+=`</tbody></table></div></div>`;
   el.innerHTML=html;
 }
-function updateExamMax(cid,subid,type,v){
+async function updateExamMax(cid,subid,type,v){
   const sub=getSub(cid,subid);if(!sub)return;
-  if(type==='mid')sub.midMax=parseFloat(v)||100;
-  else sub.finalMax=parseFloat(v)||100;
-  save();
+  const val=parseFloat(v)||100;
+  if(type==='mid')sub.midMax=val;
+  else sub.finalMax=val;
+  try{
+    const upd=type==='mid'?{mid_max:val}:{final_max:val};
+    const {error}=await sb.from('subjects').update(upd).eq('id',subid);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+  }catch(e){console.error(e);showToast('บันทึกไม่สำเร็จ');}
 }
-function saveExam(cid,subid){
+async function saveExam(cid,subid){
+  const s=document.getElementById('sync-status');
+  if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
   if(!db.examScores[tk(cid)])db.examScores[tk(cid)]={};
   if(!db.examScores[tk(cid)][subid])db.examScores[tk(cid)][subid]={};
   const sub=getSub(cid,subid);
   const midMax=sub.midMax||100, finMax=sub.finalMax||100;
   const store=db.examScores[tk(cid)][subid];
-  stuList(cid).forEach(s=>{
-    const mi=document.getElementById('mid-'+s.id);
-    const fi=document.getElementById('fin-'+s.id);
-    if(!store[s.id])store[s.id]={};
-    // mid
+  const upsertRows=[];
+  const deleteStuIds=[];
+  stuList(cid).forEach(stu=>{
+    const mi=document.getElementById('mid-'+stu.id);
+    const fi=document.getElementById('fin-'+stu.id);
+    if(!store[stu.id])store[stu.id]={};
     if(mi){
       const v=mi.value.trim();
       if(v===''||isNaN(parseFloat(v))){
-        delete store[s.id].mid; // ล้างคะแนน
+        delete store[stu.id].mid;
       } else {
-        store[s.id].mid=Math.min(parseFloat(v),midMax);
+        store[stu.id].mid=Math.min(parseFloat(v),midMax);
       }
     }
-    // final
     if(fi){
       const v=fi.value.trim();
       if(v===''||isNaN(parseFloat(v))){
-        delete store[s.id].final; // ล้างคะแนน
+        delete store[stu.id].final;
       } else {
-        store[s.id].final=Math.min(parseFloat(v),finMax);
+        store[stu.id].final=Math.min(parseFloat(v),finMax);
       }
     }
-    // ถ้าไม่มีคะแนนอะไรเลย ลบ record ทิ้ง
-    if(store[s.id].mid===undefined && store[s.id].final===undefined){
-      delete store[s.id];
+    if(store[stu.id].mid===undefined && store[stu.id].final===undefined){
+      delete store[stu.id];
+      deleteStuIds.push(stu.id);
+    } else {
+      const row={subject_id:subid,student_id:stu.id};
+      if(store[stu.id].mid!==undefined)row.mid_score=store[stu.id].mid;
+      if(store[stu.id].final!==undefined)row.final_score=store[stu.id].final;
+      upsertRows.push(row);
     }
   });
-  save();showToast('บันทึกคะแนนสอบเรียบร้อย ✓');renderScExam();
+  try{
+    for(const stuId of deleteStuIds){
+      await sb.from('exam_scores').delete().eq('subject_id',subid).eq('student_id',stuId);
+    }
+    if(upsertRows.length){
+      const {error}=await sb.from('exam_scores').upsert(upsertRows,{onConflict:'subject_id,student_id'});
+      if(error)throw error;
+    }
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    showToast('บันทึกคะแนนสอบเรียบร้อย ✓');renderScExam();
+  }catch(e){
+    console.error(e);
+    alert('บันทึกไม่สำเร็จ: '+e.message);
+    if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
+  }
 }
 
 /* ภาพรวมคะแนนทั้งหมด */
@@ -4181,7 +4192,15 @@ function renderQuiz(){
   if(selQuiz){renderQuizEditor(cid,subid,selQuiz);return;}
 
   // รายการข้อสอบของวิชานี้
-  const quizzes=Object.values(quizData).filter(q=>q.class_id===cid&&q.subject_id===subid);
+  // filter: ข้อสอบที่มอบหมายให้ห้อง+วิชานี้ (รองรับ backward compat class_id/subject_id เดิม)
+  const quizzes=Object.values(quizData).filter(q=>{
+    const list=q.assigned_classes||[];
+    if(list.length){
+      return list.some(a=>a.class_id===cid&&a.subject_id===subid);
+    }
+    // fallback: ยังไม่ได้ migrate → ดู class_id/subject_id เดิม
+    return q.class_id===cid&&q.subject_id===subid;
+  });
   let html=`
     <div class="tabs" style="margin-bottom:12px">
       <button class="tb active">รายการข้อสอบ (${quizzes.length})</button>
@@ -4198,12 +4217,16 @@ function renderQuiz(){
       const statusBadge={draft:'ร่าง',published:'เปิดแล้ว',closed:'ปิดแล้ว'}[q.status]||q.status;
       const statusColor={draft:'#6B7280',published:'#059669',closed:'#DC2626'}[q.status]||'#6B7280';
       const scoreTargetLbl={assignment:'งานเก็บคะแนน',mid:'คะแนนกลางภาค',final:'คะแนนปลายภาค',none:'ฝึกทำ (ไม่เข้าเกรด)'}[q.score_target]||q.score_target;
+      const assignedList=q.assigned_classes||[];
+      const nClasses=assignedList.length||1;
+      const classesBadge=nClasses>1?`<span style="font-size:10.5px;background:#DBEAFE;color:#1E40AF;padding:1px 8px;border-radius:8px" title="ใช้กับ ${nClasses} ห้อง"><i class="ti ti-users"></i> ${nClasses} ห้อง</span>`:'';
       html+=`
         <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px">
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <b style="font-size:15px">${q.title||'(ไม่มีชื่อ)'}</b>
               <span style="font-size:10.5px;background:${statusColor};color:#fff;padding:1px 8px;border-radius:8px">${statusBadge}</span>
+              ${classesBadge}
             </div>
             <div style="font-size:12px;color:var(--mu);margin-top:4px">
               ${nQ} ข้อ · เต็ม ${totalPts} คะแนน · ${scoreTargetLbl}
@@ -4211,11 +4234,11 @@ function renderQuiz(){
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-xs" onclick="viewQuizResults('${q.id}')"><i class="ti ti-chart-bar"></i> ผล</button>
+            <button class="btn btn-xs" onclick="viewQuizResults('${q.id}','${cid}')"><i class="ti ti-chart-bar"></i> ผล</button>
             <button class="btn btn-xs" onclick="P.quiz.selQuiz='${q.id}';renderQuiz()"><i class="ti ti-edit"></i> แก้ไข</button>
-            <button class="btn btn-xs" onclick="openCopyQuiz('${q.id}')"><i class="ti ti-copy"></i> คัดลอก</button>
+            <button class="btn btn-xs" onclick="openManageClasses('${q.id}')"><i class="ti ti-users"></i> จัดการห้อง</button>
             <button class="btn btn-xs" onclick="toggleQuizStatus('${q.id}')">${q.status==='published'?'<i class="ti ti-player-pause"></i> ปิด':'<i class="ti ti-player-play"></i> เปิด'}</button>
-            <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuiz('${q.id}')"><i class="ti ti-trash"></i></button>
+            <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delQuiz('${q.id}','${cid}')"><i class="ti ti-trash"></i></button>
           </div>
         </div>`;
     });
@@ -4317,13 +4340,21 @@ async function submitNewQuiz(cid,subid,id){
     show_answers:val('qzShowAns'),
     score_target:scoreTarget,
     max_score:maxScore,
-    status:'draft'
+    status:'draft',
+    assigned_classes:[{class_id:cid,subject_id:subid}]
   };
   try{
     const {error}=await sb.from('quizzes').insert(row);
-    if(error)throw error;
+    if(error){
+      // ถ้า column assigned_classes ยังไม่มี → ลบออกแล้ว insert ใหม่ (fallback)
+      if(error.message.includes('assigned_classes')){
+        delete row.assigned_classes;
+        const {error:e2}=await sb.from('quizzes').insert(row);
+        if(e2)throw e2;
+      } else throw error;
+    }
     _lastSaveTime=Date.now();
-    quizData[id]={...row,questions:[]};
+    quizData[id]={...row,questions:[],passages:[],assigned_classes:row.assigned_classes||[{class_id:cid,subject_id:subid}]};
     closeMD();
     P.quiz.selQuiz=id;
     renderQuiz();
@@ -4989,158 +5020,114 @@ async function delQuestion(quizId,qId){
   }catch(e){alert('ลบไม่สำเร็จ: '+e.message);}
 }
 
-// ── คัดลอกข้อสอบไปห้องอื่น ──
-function openCopyQuiz(quizId){
+
+// ── จัดการห้องที่มอบหมายข้อสอบ (Multi-Class Assignment) ──
+function openManageClasses(quizId){
   const q=quizData[quizId];
   if(!q){showToast('ไม่พบข้อสอบ');return;}
-  const currentCls=getCls(q.class_id);
-  // ไม่กรอง current เพื่อให้คัดลอกไปวิชาอื่นในห้องเดียวกันก็ได้
-  const allClasses=db.classes;
-  if(!allClasses.length){showToast('ยังไม่มีห้องเรียน');return;}
-  const nQ=(q.questions||[]).length;
-  const nP=(q.passages||[]).length;
+  // Normalize: ถ้ายังไม่มี assigned_classes → สร้างจาก class_id เดิม
+  let currentList=q.assigned_classes||[];
+  if(!currentList.length&&q.class_id){
+    currentList=[{class_id:q.class_id,subject_id:q.subject_id}];
+  }
+  window._mcCurrent=[...currentList];
+  window._mcQuizId=quizId;
 
-  let optHtml=allClasses.map(c=>{
-    const subs=subArr(c.id);
-    if(!subs.length)return `<div style="padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--mu)">
-      <b>${c.name}</b> — ยังไม่มีวิชา ต้องเพิ่มวิชาก่อน
-    </div>`;
-    const isSelf=c.id===q.class_id;
-    return `<div style="padding:8px 10px;background:var(--sf2);border-radius:6px;margin-bottom:6px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
-        <input type="checkbox" class="copyQzCls" data-cid="${c.id}" onchange="_toggleCopyQzCls('${c.id}')">
-        <b>${c.name}</b>${isSelf?' <span style="font-size:10.5px;color:var(--mu)">(ห้องเดิม)</span>':''}
-      </label>
-      <div id="copyQzSub-${c.id}" style="display:none;margin-left:24px">
-        <label style="font-size:11.5px;color:var(--mu)">เลือกวิชาปลายทาง:</label>
-        <select class="copyQzSubSel-${c.id}" style="width:100%;padding:4px 6px;font-size:12.5px;margin-top:2px">
-          ${subs.map(s=>{
-            const isSameSub=isSelf&&s.id===q.subject_id;
-            return `<option value="${s.id}" ${isSameSub?'disabled':''}>${s.name}${isSameSub?' (วิชาเดิม)':''}</option>`;
-          }).join('')}
-        </select>
-      </div>
-    </div>`;
-  }).join('');
-
-  showMD(`<div class="mt"><i class="ti ti-copy"></i> คัดลอกข้อสอบไปห้อง/วิชาอื่น</div>
+  showMD(`<div class="mt"><i class="ti ti-users"></i> จัดการห้องที่ใช้ข้อสอบ</div>
     <div style="background:#EFF6FF;padding:10px;border-radius:6px;margin-bottom:10px;font-size:12.5px">
-      <b>ข้อสอบต้นฉบับ:</b> ${q.title}<br>
-      <span style="color:var(--mu)">${currentCls?.name||''} · ${nQ} ข้อ${nP?` · ${nP} ส่วนหัว`:''} · เต็ม ${q.max_score||0} คะแนน</span>
+      <b>ข้อสอบ:</b> ${q.title}<br>
+      <span style="color:var(--mu)">${(q.questions||[]).length} ข้อ · เต็ม ${q.max_score||0} คะแนน</span>
     </div>
-    <div style="font-size:12px;color:var(--am);padding:8px;background:#FEF3C7;border-radius:6px;margin-bottom:8px">
-      💡 <b>หมายเหตุ:</b> ระบบจะคัดลอกคำถามทั้งหมด + รูป + ส่วนหัว → บันทึกเป็น <b>ร่าง (draft)</b> ให้ครูตรวจก่อนเปิด
+    <div style="font-size:12px;color:#1E40AF;padding:8px 10px;background:#DBEAFE;border-radius:6px;margin-bottom:10px">
+      💡 <b>วิธีใช้:</b> ติ๊กห้อง+วิชาที่ต้องการใช้ข้อสอบนี้<br>
+      แก้ไขข้อสอบ 1 ครั้ง = ทุกห้องที่ติ๊กจะได้อัปเดตพร้อมกัน<br>
+      ผลข้อสอบแยกตามห้อง
     </div>
-    <div style="font-size:12.5px;margin-bottom:6px"><b>เลือกห้อง/วิชาปลายทาง:</b></div>
-    <div style="max-height:280px;overflow:auto">${optHtml}</div>
+    <div id="mcClassesList" style="max-height:350px;overflow:auto">${_renderMcClassesList()}</div>
     <div class="f g8" style="justify-content:flex-end;margin-top:10px">
       <button class="btn" onclick="closeMD()">ยกเลิก</button>
-      <button class="btn btn-p" onclick="_submitCopyQuiz('${quizId}')"><i class="ti ti-check"></i> คัดลอก</button>
+      <button class="btn btn-p" onclick="_submitManageClasses()"><i class="ti ti-check"></i> บันทึก</button>
     </div>
   `);
 }
 
-function _toggleCopyQzCls(cid){
-  const cb=document.querySelector('input.copyQzCls[data-cid="'+cid+'"]');
-  const sub=document.getElementById('copyQzSub-'+cid);
-  if(sub)sub.style.display=cb.checked?'block':'none';
+function _renderMcClassesList(){
+  const current=window._mcCurrent||[];
+  let html='';
+  db.classes.forEach(c=>{
+    const subs=subArr(c.id);
+    if(!subs.length){
+      html+=`<div style="padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:6px;font-size:12.5px;color:var(--mu)"><b>${c.name}</b> — ยังไม่มีวิชา</div>`;
+      return;
+    }
+    html+=`<div style="background:var(--sf2);border-radius:6px;margin-bottom:6px;padding:8px 10px">
+      <b style="font-size:13px">${c.name}</b>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">`;
+    subs.forEach(s=>{
+      const checked=current.some(a=>a.class_id===c.id&&a.subject_id===s.id);
+      html+=`<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:${checked?'#EFF6FF':'#fff'};border:1px solid ${checked?'var(--bl)':'var(--bd)'};border-radius:5px;cursor:pointer;font-size:12.5px">
+        <input type="checkbox" class="mcCls" data-cid="${c.id}" data-subid="${s.id}" ${checked?'checked':''} onchange="_toggleMcCls('${c.id}','${s.id}',this.checked)">
+        <span>${s.name}</span>
+      </label>`;
+    });
+    html+='</div></div>';
+  });
+  return html||'<div class="empty">ยังไม่มีห้องเรียน</div>';
 }
 
-async function _submitCopyQuiz(quizId){
-  const q=quizData[quizId];
-  if(!q)return;
-  const targets=[...document.querySelectorAll('input.copyQzCls:checked')].map(cb=>{
-    const targetCid=cb.dataset.cid;
-    const subSel=document.querySelector('.copyQzSubSel-'+targetCid);
-    const targetSubid=subSel?.value;
-    // ป้องกันคัดลอกซ้ำในตัวเอง
-    if(targetCid===q.class_id&&targetSubid===q.subject_id)return null;
-    return{cid:targetCid,subid:targetSubid};
-  }).filter(t=>t&&t.subid);
-  if(!targets.length){showToast('กรุณาเลือกห้อง/วิชาปลายทาง (อย่างน้อย 1 ที่ ที่ไม่ใช่ตัวเดิม)');return;}
-  if(!confirm(`คัดลอกข้อสอบไปยัง ${targets.length} ที่?`))return;
+function _toggleMcCls(cid,subid,checked){
+  const cur=window._mcCurrent||[];
+  if(checked){
+    if(!cur.some(a=>a.class_id===cid&&a.subject_id===subid)){
+      cur.push({class_id:cid,subject_id:subid});
+    }
+  } else {
+    const i=cur.findIndex(a=>a.class_id===cid&&a.subject_id===subid);
+    if(i>=0)cur.splice(i,1);
+  }
+  window._mcCurrent=cur;
+  // Update list UI to show new state
+  const wrap=document.getElementById('mcClassesList');
+  if(wrap)wrap.innerHTML=_renderMcClassesList();
+}
 
+async function _submitManageClasses(){
+  const list=window._mcCurrent||[];
+  const quizId=window._mcQuizId;
+  if(!quizId)return;
+  if(!list.length){
+    if(!confirm('ไม่ได้เลือกห้องใดๆ — ข้อสอบจะไม่แสดงให้ห้องไหนเลย\n\nดำเนินการต่อ?'))return;
+  }
   const s=document.getElementById('sync-status');
-  if(s){s.textContent='☁️ กำลังคัดลอก...';s.style.color='var(--am)';}
-
+  if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
   try{
-    for(const t of targets){
-      // 1. สร้าง quiz ใหม่
-      const newQuizId='qz_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+t.cid.slice(0,4);
-      const newQuizRow={
-        id:newQuizId,
-        class_id:t.cid,
-        subject_id:t.subid,
-        title:q.title+' (คัดลอก)',
-        description:q.description||'',
-        time_limit_min:q.time_limit_min,
-        shuffle_questions:!!q.shuffle_questions,
-        shuffle_options:!!q.shuffle_options,
-        max_attempts:q.max_attempts||1,
-        show_answers:q.show_answers||'after_close',
-        score_target:q.score_target||'assignment',
-        max_score:q.max_score||10,
-        status:'draft'  // ต้องเปิดใหม่ ป้องกันข้อมูลผสม
-      };
-      const {error:e1}=await sb.from('quizzes').insert(newQuizRow);
-      if(e1)throw e1;
-
-      // 2. คัดลอก passages + สร้าง mapping oldId → newId
-      const passages=q.passages||[];
-      const passageIdMap={};
-      if(passages.length){
-        const newPassages=passages.map(p=>{
-          const newId='ps_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-          passageIdMap[p.id]=newId;
-          return{
-            id:newId,
-            quiz_id:newQuizId,
-            title:p.title||'',
-            content_text:p.content_text||'',
-            image_url:p.image_url||'',
-            order_num:p.order_num||0
-          };
-        });
-        const {error:e2}=await sb.from('quiz_passages').insert(newPassages);
-        if(e2)throw e2;
+    // ถ้า assigned_classes ยังไม่มี column → ระบบจะ error → ต้องรัน SQL V9 ก่อน
+    const first=list[0]||null;
+    const upd={
+      assigned_classes:list,
+      // Update class_id + subject_id ให้ตรงกับห้องแรก (backward compat)
+      class_id:first?first.class_id:null,
+      subject_id:first?first.subject_id:null
+    };
+    const {error}=await sb.from('quizzes').update(upd).eq('id',quizId);
+    if(error){
+      if(error.message.includes('column')&&error.message.includes('assigned_classes')){
+        alert('⚠️ ยังไม่ได้รัน SQL V9\n\nกรุณาเข้า Supabase SQL Editor แล้วรันไฟล์ supabase_v9_multi_class.sql ก่อนใช้ฟีเจอร์นี้');
+        return;
       }
-
-      // 3. คัดลอกคำถาม (mapping passage_id ใหม่)
-      const questions=q.questions||[];
-      if(questions.length){
-        const newQuestions=questions.map((qq,i)=>({
-          id:'q_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+i,
-          quiz_id:newQuizId,
-          order_num:qq.order_num||(i+1),
-          type:qq.type,
-          question:qq.question,
-          points:qq.points||1,
-          data:qq.data||{},
-          explanation:qq.explanation||'',
-          image_url:qq.image_url||'',
-          option_images:qq.option_images||[],
-          passage_id:qq.passage_id?passageIdMap[qq.passage_id]||null:null
-        }));
-        const {error:e3}=await sb.from('quiz_questions').insert(newQuestions);
-        if(e3)throw e3;
-        // Update local state
-        quizData[newQuizId]={
-          ...newQuizRow,
-          questions:newQuestions,
-          passages:passages.map(p=>({...p,id:passageIdMap[p.id],quiz_id:newQuizId}))
-        };
-      } else {
-        quizData[newQuizId]={...newQuizRow,questions:[],passages:[]};
-      }
+      throw error;
     }
     _lastSaveTime=Date.now();
-    if(s){s.textContent='✅ คัดลอกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+    const q=quizData[quizId];
+    if(q){
+      q.assigned_classes=list;
+      if(first){q.class_id=first.class_id;q.subject_id=first.subject_id;}
+    }
+    if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
     closeMD();
-    showToast(`คัดลอกข้อสอบไป ${targets.length} ที่แล้ว ✓`);
+    showToast(`บันทึกแล้ว — ใช้กับ ${list.length} ห้อง ✓`);
     renderQuiz();
-  }catch(e){
-    console.error(e);
-    alert('คัดลอกไม่สำเร็จ: '+e.message);
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);
     if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
   }
 }
@@ -5166,10 +5153,44 @@ async function toggleQuizStatus(quizId){
   }catch(e){alert('ไม่สำเร็จ: '+e.message);}
 }
 
-async function delQuiz(quizId){
+async function delQuiz(quizId,forCid){
   const q=quizData[quizId];
   if(!q)return;
-  if(!confirm(`ลบข้อสอบ "${q.title}"?\nคำถาม + คำตอบของนักเรียนทั้งหมดจะหายด้วย`))return;
+  const assignedList=q.assigned_classes||[];
+  const cid=forCid||P.quiz.cls||q.class_id;
+  const currentSubid=P.quiz.sub||q.subject_id;
+
+  // ถ้ามอบหมายหลายห้อง → ถามว่าจะเอาออกจากห้องนี้ หรือลบทั้งข้อสอบ
+  if(assignedList.length>1){
+    const cName=getCls(cid)?.name||'ห้องนี้';
+    const choice=prompt(
+      `ข้อสอบนี้ใช้กับ ${assignedList.length} ห้อง\n\nกดหมายเลข:\n1 = เอาออกจาก "${cName}" เท่านั้น (ห้องอื่นยังใช้ได้)\n2 = ลบข้อสอบทั้งหมด (ทุกห้อง)\n\nพิมพ์ 1 หรือ 2:`,'1'
+    );
+    if(choice==='1'){
+      // เอาออกจากห้องนี้เท่านั้น
+      const newList=assignedList.filter(a=>!(a.class_id===cid&&a.subject_id===currentSubid));
+      const first=newList[0]||null;
+      try{
+        const upd={
+          assigned_classes:newList,
+          class_id:first?first.class_id:null,
+          subject_id:first?first.subject_id:null
+        };
+        const {error}=await sb.from('quizzes').update(upd).eq('id',quizId);
+        if(error)throw error;
+        _lastSaveTime=Date.now();
+        q.assigned_classes=newList;
+        if(first){q.class_id=first.class_id;q.subject_id=first.subject_id;}
+        renderQuiz();
+        showToast(`เอาออกจาก ${cName} แล้ว ✓`);
+      }catch(e){alert('ไม่สำเร็จ: '+e.message);}
+      return;
+    }
+    if(choice!=='2')return; // ยกเลิก
+  }
+
+  // ลบทั้งข้อสอบ
+  if(!confirm(`ลบข้อสอบ "${q.title}" ทั้งหมด?\nคำถาม + คำตอบของนักเรียนทุกห้องจะหายด้วย`))return;
   try{
     const {error}=await sb.from('quizzes').delete().eq('id',quizId);
     if(error)throw error;
@@ -5394,18 +5415,59 @@ function _renderBulkReview(){
 }
 
 // Global accessors
-window._setBulkAns=(i,v)=>{window._bulkParsed[i].correct=v;_renderBulkReview();};
+// Update only the changed item's DOM (no scroll reset)
+window._setBulkAns=(i,v)=>{
+  window._bulkParsed[i].correct=v;
+  // Update background color of options เพื่อ reflect selection
+  const p=window._bulkParsed[i];
+  const container=document.querySelectorAll('#MC > div > div')[i+2]; // approximate; safer to find by label
+  // ใช้วิธีง่ายกว่า — หา radio button ที่ checked แล้ว update parent bg
+  document.querySelectorAll(`input[name="bulk_${i}"]`).forEach(rb=>{
+    const label=rb.closest('label');
+    if(!label)return;
+    const isChecked=rb.checked;
+    if(p.type==='mc'){
+      label.style.background=isChecked?'#F0FDF4':'#fff';
+      label.style.border='1px solid '+(isChecked?'var(--gn)':'var(--bd)');
+    } else if(p.type==='tf'){
+      const isTrue=rb.checked&&p.correct===true;
+      const isFalse=rb.checked&&p.correct===false;
+      if(rb.checked){
+        label.style.background=p.correct===true?'#F0FDF4':'#FEF2F2';
+        label.style.border='1px solid '+(p.correct===true?'var(--gn)':'var(--rd)');
+      } else {
+        label.style.background='#fff';
+        label.style.border='1px solid var(--bd)';
+      }
+    }
+  });
+};
+
 window._changeBulkType=(i,newType)=>{
   window._bulkParsed[i].type=newType;
   if(newType==='essay'){window._bulkParsed[i].options=[];}
   window._bulkParsed[i].correct=null;
+  // Type change needs re-render (options เปลี่ยน) — เก็บ scroll ก่อน + restore
+  const scroller=document.getElementById('MC').querySelector('div[style*="overflow:auto"]');
+  const scrollTop=scroller?scroller.scrollTop:0;
   _renderBulkReview();
+  requestAnimationFrame(()=>{
+    const newScroller=document.getElementById('MC').querySelector('div[style*="overflow:auto"]');
+    if(newScroller)newScroller.scrollTop=scrollTop;
+  });
 };
+
 window._delBulkItem=(i)=>{
   if(!confirm('ลบข้อนี้?'))return;
   window._bulkParsed.splice(i,1);
   if(!window._bulkParsed.length){closeMD();return;}
+  const scroller=document.getElementById('MC').querySelector('div[style*="overflow:auto"]');
+  const scrollTop=scroller?scroller.scrollTop:0;
   _renderBulkReview();
+  requestAnimationFrame(()=>{
+    const newScroller=document.getElementById('MC').querySelector('div[style*="overflow:auto"]');
+    if(newScroller)newScroller.scrollTop=scrollTop;
+  });
 };
 
 async function _submitBulk(){
@@ -5536,7 +5598,7 @@ async function _viewStudentAttempt(attemptId,stuId){
     document.getElementById('MC').innerHTML=`
       <div class="mt"><i class="ti ti-eye"></i> คำตอบของ ${stu?.firstName||''} ${stu?.lastName||''}</div>
       <div style="background:#EFF6FF;padding:8px 10px;border-radius:6px;margin-bottom:8px;font-size:12.5px">
-        คะแนน: <b>${a.total_score} / ${a.max_score}</b> (${a.max_score>0?Math.round(a.total_score/a.max_score*100):0}%)
+        คะแนน: <b>${fmtScore(a.total_score)} / ${fmtScore(a.max_score)}</b> (${a.max_score>0?Math.round(a.total_score/a.max_score*100):0}%)
       </div>
       <div style="max-height:400px;overflow:auto">${ansHtml}</div>
       <div class="f g8" style="justify-content:flex-end;margin-top:8px">
@@ -5583,38 +5645,67 @@ async function _resetStudentAttempt(attemptId,stuName,quizId){
   }
 }
 
+// Format คะแนน — ทศนิยม 1 ตำแหน่งถ้ามี, integer ไม่ใส่ทศนิยม
+function fmtScore(n){
+  if(n===null||n===undefined||n==='')return '-';
+  const num=Number(n);
+  if(isNaN(num))return String(n);
+  return Number.isInteger(num)?String(num):(Math.round(num*10)/10).toString();
+}
+
 // ── ดูผลข้อสอบ (ครูดูคะแนนนักเรียน) ──
 
 
-async function viewQuizResults(quizId){
+async function viewQuizResults(quizId,forCid){
   const q=quizData[quizId];
   if(!q)return;
+  // ถ้าไม่ระบุ classId → ใช้ current ห้อง+วิชาที่กำลังดูอยู่
+  const cid=forCid||P.quiz.cls||q.class_id;
   showMD(`<div class="mt"><i class="ti ti-chart-bar"></i> ผลข้อสอบ — ${q.title}</div>
     <div id="qrLoading" style="padding:20px;text-align:center;color:var(--mu)"><i class="ti ti-loader"></i> กำลังโหลด...</div>
   `);
   try{
-    const {data:attempts}=await sb.from('quiz_attempts').select('*').eq('quiz_id',quizId);
-    const stus=stuList(q.class_id);
+    // ดึงเฉพาะนักเรียนในห้องนี้
+    const stus=stuList(cid);
+    const stuIdSet=new Set(stus.map(s=>s.id));
+    // ดึง attempts ของนักเรียนในห้องนี้เท่านั้น
+    const {data:allAttempts}=await sb.from('quiz_attempts').select('*').eq('quiz_id',quizId);
+    const attempts=(allAttempts||[]).filter(a=>stuIdSet.has(a.student_id));
     const attMap={};
-    (attempts||[]).forEach(a=>{if(!attMap[a.student_id]||a.attempt_num>attMap[a.student_id].attempt_num)attMap[a.student_id]=a;});
-    const submitted=(attempts||[]).filter(a=>a.status==='submitted'||a.status==='graded');
+    attempts.forEach(a=>{if(!attMap[a.student_id]||a.attempt_num>attMap[a.student_id].attempt_num)attMap[a.student_id]=a;});
+    const submitted=attempts.filter(a=>a.status==='submitted'||a.status==='graded');
     const totalPts=(q.questions||[]).reduce((s,x)=>s+(parseFloat(x.points)||0),0);
     const scores=submitted.map(a=>a.total_score);
     const avg=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:0;
     const max=scores.length?Math.max(...scores):0;
     const min=scores.length?Math.min(...scores):0;
     const hasEssay=(q.questions||[]).some(qq=>qq.type==='essay');
+    const clsName=getCls(cid)?.name||'';
 
     // Save for use in tabs
     window._qrData={quiz:q,attempts:attempts||[],stus,attMap};
 
+    // ถ้ามอบหมายหลายห้อง → dropdown เลือกห้อง
+    const assignedList=q.assigned_classes||[];
+    const classSel=assignedList.length>1?`
+      <div style="margin-bottom:10px;padding:8px;background:#DBEAFE;border-radius:6px">
+        <label style="font-size:12px;font-weight:700;color:#1E40AF">📚 ดูผลของห้อง: </label>
+        <select onchange="viewQuizResults('${quizId}',this.value)" style="font-size:13px;padding:3px 6px;margin-left:6px">
+          ${assignedList.map(a=>{
+            const cName=getCls(a.class_id)?.name||a.class_id;
+            return `<option value="${a.class_id}" ${a.class_id===cid?'selected':''}>${cName}</option>`;
+          }).join('')}
+        </select>
+      </div>`:'';
+
     document.getElementById('MC').innerHTML=`
-      <div class="mt"><i class="ti ti-chart-bar"></i> ผลข้อสอบ — ${q.title}</div>
+      <div class="mt"><i class="ti ti-chart-bar"></i> ผลข้อสอบ — ${q.title}${clsName?` <span style="font-size:12px;color:var(--mu);font-weight:400">(${clsName})</span>`:''}</div>
+      ${classSel}
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
         <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">ส่งแล้ว</div><div style="font-size:20px;font-weight:700;color:var(--gn)">${submitted.length}/${stus.length}</div></div>
-        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">เฉลี่ย</div><div style="font-size:20px;font-weight:700">${Math.round(avg*10)/10}</div></div>
-        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">สูงสุด</div><div style="font-size:20px;font-weight:700;color:var(--gn)">${max}</div></div>
-        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">ต่ำสุด</div><div style="font-size:20px;font-weight:700;color:var(--rd)">${min}</div></div>
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">เฉลี่ย</div><div style="font-size:20px;font-weight:700">${fmtScore(avg)}</div></div>
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">สูงสุด</div><div style="font-size:20px;font-weight:700;color:var(--gn)">${fmtScore(max)}</div></div>
+        <div style="background:var(--sf2);padding:10px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--mu)">ต่ำสุด</div><div style="font-size:20px;font-weight:700;color:var(--rd)">${fmtScore(min)}</div></div>
       </div>
       <div class="tabs" style="margin-bottom:8px">
         <button class="tb active" onclick="_qrTab('students',this)">รายชื่อนักเรียน</button>
@@ -5644,7 +5735,7 @@ function _qrTab(tab,btn){
       if(a){
         if(a.status==='submitted'||a.status==='graded'){
           status=a.status==='graded'?'ตรวจแล้ว':'รอตรวจข้อเขียน';
-          score=`${a.total_score} / ${a.max_score}`;
+          score=`${fmtScore(a.total_score)} / ${fmtScore(a.max_score)}`;
           const p=a.max_score>0?Math.round(a.total_score/a.max_score*100):0;
           pct=p+'%';
           rowBg=p>=60?'#F0FDF4':'#FEF2F2';
@@ -5754,7 +5845,7 @@ function _qrTab(tab,btn){
       html+=`<div style="background:var(--sf2);border-radius:8px;padding:10px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
           <b style="font-size:13px">${s.no}. ${s.firstName} ${s.lastName}</b>
-          <span style="font-size:11px;color:var(--mu)">คะแนนรวม ${a.total_score}/${a.max_score}</span>
+          <span style="font-size:11px;color:var(--mu)">คะแนนรวม ${fmtScore(a.total_score)}/${fmtScore(a.max_score)}</span>
         </div>`;
       essayQs.forEach(qq=>{
         const ans=(a.answers?.[qq.id]||'').replace(/</g,'&lt;').replace(/\n/g,'<br>');
@@ -5827,24 +5918,16 @@ async function _sendQuizScoreToTeacherGrade(quiz,rawScore,maxScore,studentId){
   const target=quiz.score_target;
   if(target==='none')return;
   const finalScore=maxScore>0?(rawScore/maxScore)*quiz.max_score:0;
+  const scoreRounded=Math.round(finalScore*10)/10;
   const cid=quiz.class_id,subid=quiz.subject_id;
   if(target==='assignment'){
     const asgId='asg_qz_'+quiz.id;
-    const {data:exist}=await sb.from('assignments').select('id').eq('id',asgId).single().then(r=>r,()=>({data:null}));
-    if(!exist){
-      await sb.from('assignments').insert({id:asgId,class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,max_score:quiz.max_score,type:'score'});
-    }
-    await sb.from('scores').upsert({assignment_id:asgId,student_id:studentId,value:String(Math.round(finalScore*10)/10)},{onConflict:'assignment_id,student_id'});
+    await sb.from('assignments').upsert({id:asgId,class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,max_score:quiz.max_score,type:'score'},{onConflict:'id'});
+    await sb.from('scores').upsert({assignment_id:asgId,student_id:studentId,value:String(scoreRounded)},{onConflict:'assignment_id,student_id'});
   } else if(target==='mid'||target==='final'){
     const col=target==='mid'?'mid_score':'final_score';
-    const {data:existing}=await sb.from('exam_scores').select('*').eq('subject_id',subid).eq('student_id',studentId).single().then(r=>r,()=>({data:null}));
-    if(existing){
-      const upd={};upd[col]=Math.round(finalScore*10)/10;
-      await sb.from('exam_scores').update(upd).eq('subject_id',subid).eq('student_id',studentId);
-    } else {
-      const row={subject_id:subid,student_id:studentId};row[col]=Math.round(finalScore*10)/10;
-      await sb.from('exam_scores').insert(row);
-    }
+    const row={subject_id:subid,student_id:studentId};row[col]=scoreRounded;
+    await sb.from('exam_scores').upsert(row,{onConflict:'subject_id,student_id'});
   }
 }
 
@@ -6046,16 +6129,24 @@ function openAddFsGroup(cid){
     </div>
   `);
 }
-function submitAddFsGroup(cid){
+async function submitAddFsGroup(cid){
   const name=(document.getElementById('fsGpName').value||'').trim();
   const leaderId=document.getElementById('fsGpLeader').value;
   if(!name){showToast('กรุณากรอกชื่อกลุ่ม');return;}
   if(!leaderId){showToast('กรุณาเลือกหัวหน้ากลุ่ม');return;}
   const groups=fsGroups(cid);
-  groups.push({id:uid(),name,leaderId,memberIds:[]});
-  fsSetGroups(cid,groups);
-  save();closeMD();renderFiveS();
-  showToast('✓ สร้างกลุ่มแล้ว');
+  const gid=uid();
+  const newGroup={id:gid,name,leaderId,memberIds:[]};
+  try{
+    const {error}=await sb.from('five_s_groups').insert({id:gid,class_id:cid,name,leader_id:leaderId});
+    if(error)throw error;
+    groups.push(newGroup);
+    fsSetGroups(cid,groups);
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderFiveS();
+    showToast('✓ สร้างกลุ่มแล้ว');
+  }catch(e){console.error(e);alert('สร้างกลุ่มไม่สำเร็จ: '+e.message);}
 }
 
 // ── แก้กลุ่ม (ชื่อ + เปลี่ยนหัวหน้า) ──
@@ -6089,7 +6180,7 @@ function openEditFsGroup(cid,gid){
     </div>
   `);
 }
-function saveEditFsGroup(cid,gid){
+async function saveEditFsGroup(cid,gid){
   const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
   if(!g)return;
@@ -6097,18 +6188,35 @@ function saveEditFsGroup(cid,gid){
   const leaderId=document.getElementById('fsGpLeader').value;
   if(!name){showToast('กรุณากรอกชื่อ');return;}
   if(!leaderId){showToast('กรุณาเลือกหัวหน้า');return;}
+  const oldLeaderId=g.leaderId;
+  const oldMemberIds=[...(g.memberIds||[])];
+  // Compute new state
   g.name=name;
-  // ถ้าเปลี่ยนหัวหน้าใหม่ให้ย้ายคนเก่ามาเป็นสมาชิก และเอาคนใหม่ออกจาก memberIds
   if(g.leaderId!==leaderId){
-    if(g.leaderId && !g.memberIds.includes(g.leaderId)){
-      g.memberIds.push(g.leaderId);
-    }
+    if(g.leaderId && !g.memberIds.includes(g.leaderId))g.memberIds.push(g.leaderId);
     g.memberIds=g.memberIds.filter(id=>id!==leaderId);
     g.leaderId=leaderId;
   }
-  fsSetGroups(cid,groups);
-  save();closeMD();renderFiveS();
-  showToast('✓ บันทึกแล้ว');
+  try{
+    const {error}=await sb.from('five_s_groups').update({name,leader_id:leaderId}).eq('id',gid);
+    if(error)throw error;
+    // Sync member changes if leader changed (five_s_members table)
+    if(oldLeaderId!==leaderId){
+      // Old leader → member (if not already)
+      if(oldLeaderId && !oldMemberIds.includes(oldLeaderId)){
+        await sb.from('five_s_members').upsert({group_id:gid,student_id:oldLeaderId},{onConflict:'group_id,student_id'});
+      }
+      // New leader → remove from members
+      if(oldMemberIds.includes(leaderId)){
+        await sb.from('five_s_members').delete().eq('group_id',gid).eq('student_id',leaderId);
+      }
+    }
+    fsSetGroups(cid,groups);
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderFiveS();
+    showToast('✓ บันทึกแล้ว');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 async function delFsGroup(cid,gid){
   const groups=fsGroups(cid);
@@ -6283,16 +6391,22 @@ function fsRemoveItem(idx){
   const inputs=document.querySelectorAll('.fsItInp');
   if(inputs[idx])inputs[idx].parentElement.remove();
 }
-function saveFsGroupItems(cid,gid){
+async function saveFsGroupItems(cid,gid){
   const groups=fsGroups(cid);
   const g=groups.find(x=>x.id===gid);
   if(!g)return;
   const items=[...document.querySelectorAll('.fsItInp')].map(inp=>inp.value.trim()).filter(v=>v);
   if(!items.length){showToast('กรุณากรอกหัวข้ออย่างน้อย 1 หัวข้อ');return;}
-  g.items=items;
-  fsSetGroups(cid,groups);
-  save();closeMD();renderFiveS();
-  showToast('บันทึกหัวข้อแล้ว ✓');
+  try{
+    const {error}=await sb.from('five_s_groups').update({items}).eq('id',gid);
+    if(error)throw error;
+    g.items=items;
+    fsSetGroups(cid,groups);
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderFiveS();
+    showToast('บันทึกหัวข้อแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 
 // ── หน้า 3: สรุปผล ──
@@ -6680,7 +6794,20 @@ function closeMD(){document.getElementById('MO').classList.remove('open');}
 function openAddClass(){showMD(`<div class="mt"><i class="ti ti-door-enter"></i> เพิ่มห้องเรียน</div><div class="fg"><label class="fl">ชื่อห้องเรียน</label><input type="text" id="mCN" placeholder="เช่น ม.1/1, ป.4/2" autofocus></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddClass()">เพิ่ม</button></div>`);}
 function submitAddClass(){const name=val('mCN');if(!name)return;const id=uid();db.classes.push({id,name,termId:currentTermId});db.students[tk(id)]=[];sortClasses();save();closeMD();Object.keys(P).forEach(p=>{if(P[p].cls===undefined)return;if(!P[p].cls)P[p].cls=id;});renderPage(curPage());showToast(`เพิ่มห้อง "${name}" แล้ว`);}
 function openEditCls(cid){const c=getCls(cid);showMD(`<div class="mt">แก้ไขห้องเรียน</div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mCN2" value="${c.name}"></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditCls('${cid}')">บันทึก</button></div>`);}
-function submitEditCls(cid){const name=val('mCN2');if(!name)return;const c=getCls(cid);if(c)c.name=name;sortClasses();save();closeMD();renderStudents();}
+async function submitEditCls(cid){
+  const name=val('mCN2');if(!name)return;
+  const c=getCls(cid);if(!c)return;
+  try{
+    const {error}=await sb.from('classes').update({name}).eq('id',cid);
+    if(error)throw error;
+    c.name=name;
+    sortClasses();
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderStudents();
+    showToast('บันทึกแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
 async function deleteCls(cid){
   const c=getCls(cid);
   if(!confirm(`ลบห้อง "${c?.name}"?\nข้อมูลทั้งหมดจะหายไป (นักเรียน วิชา คะแนน เช็คชื่อ งาน)`))return;
@@ -6802,7 +6929,22 @@ function submitAddStu(cid){
   save();closeMD();renderStudents();showToast('เพิ่มนักเรียนแล้ว');
 }
 function openEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
-function submitEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;s.no=parseInt(document.getElementById('eSno')?.value)||s.no;s.firstName=val('eSfn')||s.firstName;s.lastName=val('eSln');save();closeMD();renderStudents();}
+async function submitEditStu(cid,sid){
+  const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);
+  if(!s)return;
+  const no=parseInt(document.getElementById('eSno')?.value)||s.no;
+  const firstName=val('eSfn')||s.firstName;
+  const lastName=val('eSln')||'';
+  try{
+    const {error}=await sb.from('students').update({no,first_name:firstName,last_name:lastName}).eq('id',sid);
+    if(error)throw error;
+    s.no=no;s.firstName=firstName;s.lastName=lastName;
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderStudents();
+    showToast('บันทึกแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
 async function delStu(cid,sid){
   const stu=(db.students[tk(cid)]||[]).find(x=>x.id===sid);
   if(!stu)return;
@@ -6865,17 +7007,19 @@ function _setupRealtime(){
   const channel=sb.channel('all-tables-changes');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
-      // Echo protection: ถ้าเราเพิ่งบันทึกภายใน 2 วินาที ข้าม
-      if(Date.now()-_lastSaveTime<2000)return;
-      // Debounce: รอ 500ms ก่อน reload (กรณีมี event ซ้อน)
+      // Echo protection: ถ้าเราเพิ่งบันทึกภายใน 5 วินาที ข้าม (กันไม่ให้ realtime ทับค่าที่เพิ่งแก้)
+      if(Date.now()-_lastSaveTime<5000)return;
+      // Debounce: รอ 800ms ก่อน reload (กรณีมี event ซ้อน)
       clearTimeout(window._rtReload);
       window._rtReload=setTimeout(async()=>{
+        // Double-check: ถ้าระหว่างรอมีการ save → ข้าม
+        if(Date.now()-_lastSaveTime<5000)return;
         await load();
         const cur=curPage();
         if(cur){renderPage(cur);updateSidebarLogo();}
         const s=document.getElementById('sync-status');
         if(s){s.textContent='🔄 อัปเดตจากที่อื่น';s.style.color='var(--tl)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-      },500);
+      },800);
     });
   });
   channel.subscribe(status=>{console.log('Realtime status:',status);});
