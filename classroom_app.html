@@ -2817,13 +2817,9 @@ async function saveAtt(cid,subid){
         db.attendance[tk(cid)][subid][attDate][stu.id]=status;
         upsertRows.push({class_id:cid,subject_id:subid,student_id:stu.id,date:attDate,status});
       }
-    } else {
-      // ไม่ได้ติ๊ก - ลบออกถ้าเคยมี
-      if(db.attendance[tk(cid)][subid][attDate][stu.id]!==undefined){
-        delete db.attendance[tk(cid)][subid][attDate][stu.id];
-        removedStuIds.push(stu.id);
-      }
     }
+    // ถ้าไม่ได้ติ๊ก → ปล่อยตามเดิม (ไม่ลบ) — ป้องกันข้อมูลหาย
+    // การลบต้องใช้ปุ่ม "ล้างทั้งหมด" หรือหน้าแก้ไขเช็คชื่อ (deleteAttDay)
   });
   try{
     for(const stuId of removedStuIds){
