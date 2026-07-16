@@ -1890,10 +1890,15 @@ async function _sendQuizScoreToGrade(quiz,rawScore,maxScore){
   if(target==='none')return;
   const finalScore=maxScore>0?(rawScore/maxScore)*quiz.max_score:0;
   const scoreRounded=Math.round(finalScore*10)/10;
-  const cid=quiz.class_id,subid=quiz.subject_id,sid=me.studentId;
+  const sid=me.studentId;
+  // หา class+subject ที่ตรงกับห้องของนักเรียน (รองรับ multi-class assignment)
+  const assignedList=quiz.assigned_classes||[];
+  const myAssign=assignedList.find(a=>a.class_id===me.classId);
+  const cid=myAssign?myAssign.class_id:quiz.class_id;
+  const subid=myAssign?myAssign.subject_id:quiz.subject_id;
   if(target==='assignment'){
-    const asgId='asg_qz_'+quiz.id;
-    // ใช้ upsert เพื่อป้องกัน race condition (2 คนพร้อมกัน)
+    // แยก assignment_id ตามห้อง เพื่อไม่ให้คะแนนของ ม.1 กับ ม.2 ปนกัน
+    const asgId='asg_qz_'+quiz.id+'_'+cid;
     await sb.from('assignments').upsert({
       id:asgId, class_id:cid, subject_id:subid,
       name:'[ข้อสอบ] '+quiz.title,
@@ -1903,7 +1908,6 @@ async function _sendQuizScoreToGrade(quiz,rawScore,maxScore){
       assignment_id:asgId, student_id:sid, value:String(scoreRounded)
     },{onConflict:'assignment_id,student_id'});
   } else if(target==='mid'||target==='final'){
-    // upsert exam_scores directly (unique key: subject_id,student_id)
     const col=target==='mid'?'mid_score':'final_score';
     const row={subject_id:subid,student_id:sid};row[col]=scoreRounded;
     await sb.from('exam_scores').upsert(row,{onConflict:'subject_id,student_id'});

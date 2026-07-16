@@ -2821,25 +2821,57 @@ async function saveAtt(cid,subid){
     // ถ้าไม่ได้ติ๊ก → ปล่อยตามเดิม (ไม่ลบ) — ป้องกันข้อมูลหาย
     // การลบต้องใช้ปุ่ม "ล้างทั้งหมด" หรือหน้าแก้ไขเช็คชื่อ (deleteAttDay)
   });
+  console.log('[saveAtt] คลาส',cid,'วิชา',subid,'วันที่',attDate,'| upsert',upsertRows.length,'rows');
+  if(!upsertRows.length){
+    if(s){s.textContent='';}
+    showToast('ยังไม่ได้เลือกสถานะ');
+    return;
+  }
   try{
-    for(const stuId of removedStuIds){
-      await sb.from('attendance').delete()
-        .eq('class_id',cid).eq('subject_id',subid)
-        .eq('student_id',stuId).eq('date',attDate);
-    }
-    if(upsertRows.length){
+    // ── Upsert with verification retry ──
+    let saved=false;
+    for(let attempt=1;attempt<=2;attempt++){
       const {error}=await sb.from('attendance').upsert(upsertRows,{onConflict:'class_id,subject_id,student_id,date'});
-      if(error)throw error;
+      if(error){
+        console.error('[saveAtt] upsert error attempt',attempt,error);
+        if(attempt===2)throw error;
+        await new Promise(r=>setTimeout(r,500));
+        continue;
+      }
+      // Verify: re-fetch what's in Supabase for this class+subject+date
+      const {data:verify,error:verifyErr}=await sb.from('attendance').select('student_id,status')
+        .eq('class_id',cid).eq('subject_id',subid).eq('date',attDate);
+      if(verifyErr){console.warn('[saveAtt] verify error',verifyErr);break;}
+      const verifiedIds=new Set((verify||[]).map(r=>r.student_id));
+      const missingIds=upsertRows.filter(r=>!verifiedIds.has(r.student_id)).map(r=>r.student_id);
+      if(missingIds.length){
+        console.warn('[saveAtt] verify FAILED: missing',missingIds.length,'of',upsertRows.length,'| retry',attempt);
+        if(attempt===2){
+          alert(`⚠️ บันทึกไม่ครบ!\n${missingIds.length} จาก ${upsertRows.length} คน ไม่บันทึกลง Supabase\n\nลองใหม่อีกครั้ง หรือ refresh แล้วลองใหม่`);
+        } else {
+          await new Promise(r=>setTimeout(r,500));
+        }
+      } else {
+        saved=true;
+        console.log('[saveAtt] ✓ verified all',upsertRows.length,'rows');
+        // Sync local db with truth from Supabase
+        const supabaseMap={};
+        (verify||[]).forEach(r=>supabaseMap[r.student_id]=r.status);
+        db.attendance[tk(cid)][subid][attDate]=supabaseMap;
+        break;
+      }
     }
     _lastSaveTime=Date.now();
     try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-    if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-    showToast('บันทึกการมาเรียนเรียบร้อย ✓');
+    if(saved){
+      if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+      showToast('บันทึกการมาเรียนเรียบร้อย ✓');
+    }
     const rec=attRec(cid,subid,attDate),cnt={มา:0,สาย:0,ลา:0,ขาด:0};
-    Object.values(rec).forEach(s=>{if(cnt[s]!==undefined)cnt[s]++;});
+    Object.values(rec).forEach(st=>{if(cnt[st]!==undefined)cnt[st]++;});
     [['มา','cnt-ma'],['สาย','cnt-sa'],['ลา','cnt-la'],['ขาด','cnt-kh']].forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.textContent=cnt[k];});
   }catch(e){
-    console.error(e);
+    console.error('[saveAtt] final error',e);
     alert('บันทึกไม่สำเร็จ: '+e.message);
     if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
   }
@@ -2909,6 +2941,7 @@ async function deleteAttDay(cid,subid){
   renderAtt();
 }
 async function saveAttEdit(cid,subid){
+  _lastSaveTime=Date.now();
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังบันทึก...';s.style.color='var(--am)';}
   if(!db.attendance[tk(cid)])db.attendance[tk(cid)]={};
@@ -2937,6 +2970,8 @@ async function saveAttEdit(cid,subid){
     }
   });
 
+  console.log('[saveAttEdit] คลาส',cid,'วิชา',subid,'วันที่',attEditDate,'| upsert',upsertRows.length,'| delete',removedStuIds.length);
+
   try{
     // ── ลบสถานะที่ถูกเอาออกใน Supabase ──
     for(const stuId of removedStuIds){
@@ -2944,10 +2979,36 @@ async function saveAttEdit(cid,subid){
         .eq('class_id',cid).eq('subject_id',subid)
         .eq('student_id',stuId).eq('date',attEditDate);
     }
-    // ── upsert สถานะที่มี ──
+    // ── upsert สถานะที่มี พร้อม retry + verify ──
+    let saved=true;
     if(upsertRows.length){
-      const {error}=await sb.from('attendance').upsert(upsertRows,{onConflict:'class_id,subject_id,student_id,date'});
-      if(error)throw error;
+      for(let attempt=1;attempt<=2;attempt++){
+        const {error}=await sb.from('attendance').upsert(upsertRows,{onConflict:'class_id,subject_id,student_id,date'});
+        if(error){
+          console.error('[saveAttEdit] upsert error',attempt,error);
+          if(attempt===2)throw error;
+          await new Promise(r=>setTimeout(r,500));
+          continue;
+        }
+        const {data:verify}=await sb.from('attendance').select('student_id,status')
+          .eq('class_id',cid).eq('subject_id',subid).eq('date',attEditDate);
+        const verifiedIds=new Set((verify||[]).map(r=>r.student_id));
+        const missing=upsertRows.filter(r=>!verifiedIds.has(r.student_id));
+        if(!missing.length){
+          console.log('[saveAttEdit] ✓ verified all',upsertRows.length,'rows');
+          const supabaseMap={};
+          (verify||[]).forEach(r=>supabaseMap[r.student_id]=r.status);
+          db.attendance[tk(cid)][subid][attEditDate]=supabaseMap;
+          break;
+        }
+        console.warn('[saveAttEdit] verify FAILED: missing',missing.length,'| retry',attempt);
+        if(attempt===2){
+          saved=false;
+          alert(`⚠️ บันทึกไม่ครบ!\n${missing.length} คน ไม่บันทึกลง Supabase — ลอง refresh แล้วลองใหม่`);
+        } else {
+          await new Promise(r=>setTimeout(r,500));
+        }
+      }
     }
     // ── ถ้าวันนี้ไม่มีสถานะเหลือ ลบข้อมูลวันนั้นทั้งหมดใน DB (กันสถิติค้าง) ──
     if(Object.keys(db.attendance[tk(cid)][subid][attEditDate]).length===0){
@@ -2960,11 +3021,13 @@ async function saveAttEdit(cid,subid){
     }
     _lastSaveTime=Date.now();
     try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-    if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
-    showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');
+    if(saved){
+      if(s){s.textContent='✅ บันทึกแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
+      showToast('แก้ไขการเช็คชื่อเรียบร้อย ✓');
+    }
     renderAtt();
   }catch(e){
-    console.error(e);
+    console.error('[saveAttEdit] final error',e);
     alert('บันทึกไม่สำเร็จ: '+e.message);
     if(s){s.textContent='❌ '+e.message.slice(0,40);s.style.color='var(--rd)';}
   }
@@ -5677,10 +5740,13 @@ async function _resetAllAttempts(quizId,cid){
   if(s){s.textContent='☁️ กำลังรีเซ็ต...';s.style.color='var(--am)';}
   try{
     const stuIds=stus.filter(s=>attMap[s.id]).map(s=>s.id);
-    // ลบคะแนนที่เข้าเกรด
+    // ลบคะแนนที่เข้าเกรด (asgId แยกตามห้อง)
     if(q.score_target==='assignment'){
-      const asgId='asg_qz_'+q.id;
+      const asgId='asg_qz_'+q.id+'_'+cid;
       await sb.from('scores').delete().eq('assignment_id',asgId).in('student_id',stuIds);
+      // ลบคะแนนจาก asgId แบบเก่า (ถ้ามี) เพื่อ backward compat
+      const asgIdOld='asg_qz_'+q.id;
+      await sb.from('scores').delete().eq('assignment_id',asgIdOld).in('student_id',stuIds);
     } else if(q.score_target==='mid'||q.score_target==='final'){
       const col=q.score_target==='mid'?'mid_score':'final_score';
       const upd={};upd[col]=null;
@@ -5713,8 +5779,20 @@ async function _resetStudentAttempt(attemptId,stuName,quizId){
     }
     if(q&&stuId){
       if(q.score_target==='assignment'){
-        const asgId='asg_qz_'+q.id;
+        // หา class ของนักเรียนคนนี้เพื่อลบ asgId ที่ถูกต้อง
+        let stuClassId=q.class_id;
+        for(const tkey in db.students){
+          if((db.students[tkey]||[]).some(s=>s.id===stuId)){
+            const parts=tkey.split('__');
+            stuClassId=parts.length>=2?parts.slice(1).join('__'):tkey;
+            break;
+          }
+        }
+        const asgId='asg_qz_'+q.id+'_'+stuClassId;
         await sb.from('scores').delete().eq('assignment_id',asgId).eq('student_id',stuId);
+        // ลบจาก asgId แบบเก่า (backward compat)
+        const asgIdOld='asg_qz_'+q.id;
+        await sb.from('scores').delete().eq('assignment_id',asgIdOld).eq('student_id',stuId);
       } else if(q.score_target==='mid'||q.score_target==='final'){
         const col=q.score_target==='mid'?'mid_score':'final_score';
         const upd={};upd[col]=null;
@@ -6012,9 +6090,24 @@ async function _sendQuizScoreToTeacherGrade(quiz,rawScore,maxScore,studentId){
   if(target==='none')return;
   const finalScore=maxScore>0?(rawScore/maxScore)*quiz.max_score:0;
   const scoreRounded=Math.round(finalScore*10)/10;
-  const cid=quiz.class_id,subid=quiz.subject_id;
+  // หา class ของนักเรียนคนนี้จริงๆ (ไม่ใช่ h้องหลักของ quiz)
+  let stuClassId=quiz.class_id;
+  for(const tkey in db.students){
+    const arr=db.students[tkey]||[];
+    if(arr.some(s=>s.id===studentId)){
+      // parse cid จาก tkey format: termId__cid
+      const parts=tkey.split('__');
+      stuClassId=parts.length>=2?parts.slice(1).join('__'):tkey;
+      break;
+    }
+  }
+  const assignedList=quiz.assigned_classes||[];
+  const myAssign=assignedList.find(a=>a.class_id===stuClassId);
+  const cid=myAssign?myAssign.class_id:quiz.class_id;
+  const subid=myAssign?myAssign.subject_id:quiz.subject_id;
   if(target==='assignment'){
-    const asgId='asg_qz_'+quiz.id;
+    // แยก assignment_id ตามห้อง
+    const asgId='asg_qz_'+quiz.id+'_'+cid;
     await sb.from('assignments').upsert({id:asgId,class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,max_score:quiz.max_score,type:'score'},{onConflict:'id'});
     await sb.from('scores').upsert({assignment_id:asgId,student_id:studentId,value:String(scoreRounded)},{onConflict:'assignment_id,student_id'});
   } else if(target==='mid'||target==='final'){
