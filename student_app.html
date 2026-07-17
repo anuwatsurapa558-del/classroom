@@ -455,9 +455,24 @@ async function _rowsToDbStu(rows){
 async function loadData(){
   try{
     const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks'];
-    const results=await Promise.all(tables.map(t=>sb.from(t).select('*')));
+    // ── Pagination (Supabase default limit = 1000) ──
+    async function fetchAll(t){
+      const rows=[];
+      const pageSize=1000;
+      let from=0;
+      while(true){
+        const {data,error}=await sb.from(t).select('*').range(from,from+pageSize-1);
+        if(error){console.error(`Load ${t} error:`,error);break;}
+        if(!data||!data.length)break;
+        rows.push(...data);
+        if(data.length<pageSize)break;
+        from+=pageSize;
+      }
+      return rows;
+    }
+    const results=await Promise.all(tables.map(t=>fetchAll(t)));
     const rows={};
-    tables.forEach((t,i)=>{rows[t]=results[i].data||[];});
+    tables.forEach((t,i)=>{rows[t]=results[i]||[];});
     db=await _rowsToDbStu(rows);
     _normalizeDB();
     setSync('ok');

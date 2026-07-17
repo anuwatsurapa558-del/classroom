@@ -1071,20 +1071,30 @@ async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    // โหลดจากทุก table พร้อมกัน (assignments เรียงตามลำดับที่สร้าง)
     const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks'];
-    const results=await Promise.all(tables.map(t=>{
-      const q=sb.from(t).select('*');
-      // assignments + timetable ต้อง order ตาม created_at เพื่อให้เรียงลำดับที่สร้าง
-      if(t==='assignments'||t==='timetable'||t==='periods')return q.order('created_at',{ascending:true});
-      return q;
-    }));
+    // ── Fetch all rows with pagination (Supabase default limit = 1000) ──
+    async function fetchAll(t){
+      const rows=[];
+      const pageSize=1000;
+      let from=0;
+      while(true){
+        let q=sb.from(t).select('*').range(from,from+pageSize-1);
+        if(t==='assignments'||t==='timetable'||t==='periods')q=q.order('created_at',{ascending:true});
+        const {data,error}=await q;
+        if(error){console.error(`Load ${t} error:`,error);break;}
+        if(!data||!data.length)break;
+        rows.push(...data);
+        if(data.length<pageSize)break;
+        from+=pageSize;
+      }
+      return rows;
+    }
+    const results=await Promise.all(tables.map(t=>fetchAll(t)));
     const rows={};
-    tables.forEach((t,i)=>{
-      const key=t; // เก็บ raw name
-      rows[key]=results[i].data||[];
-      if(results[i].error)console.error(`Load ${t} error:`,results[i].error);
-    });
+    tables.forEach((t,i)=>{rows[t]=results[i]||[];});
+    // Log สำหรับ debug
+    const counts=tables.map((t,i)=>`${t}=${(results[i]||[]).length}`).join(' ');
+    console.log('[load] rows counts:',counts);
     db=await _rowsToDb(rows);
     _initDB();
     if(s){s.textContent='✅ โหลดแล้ว';s.style.color='var(--gn)';setTimeout(()=>{if(s)s.textContent='';},3000);}
