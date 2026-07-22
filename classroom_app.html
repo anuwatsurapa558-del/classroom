@@ -3192,6 +3192,12 @@ function renderScEntry(){
       <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
       <input type="date" id="asgDue2">
     </div>
+    <div class="fg" style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px">
+        <input type="checkbox" id="asgAllowFile" style="width:16px;height:16px;cursor:pointer">
+        <span><i class="ti ti-upload"></i> เปิดให้นักเรียนส่งไฟล์ (รูป/PDF/Word/Excel)</span>
+      </label>
+    </div>
     <div class="f g8" style="justify-content:space-between;margin-top:8px">
       <button class="btn btn-sm" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-adjustments"></i>จัดการงาน</button>
       <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่มงาน</button>
@@ -3742,22 +3748,24 @@ async function addAsg(cid,subid){
   if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
   if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
   const id=uid();
+  const allowFile=!!document.getElementById('asgAllowFile')?.checked;
   let localObj,row;
   if(asgType==='track'){
     const due=val('asgDue2')||'';
-    localObj={id,name,type:'track',dueDate:due};
-    row={id,class_id:cid,subject_id:subid,name,type:'track',due_date:due||null,max_score:0};
+    localObj={id,name,type:'track',dueDate:due,allowFileSubmit:allowFile};
+    row={id,class_id:cid,subject_id:subid,name,type:'track',due_date:due||null,max_score:0,allow_file_submit:allowFile};
     if(document.getElementById('asgDue2'))document.getElementById('asgDue2').value='';
   }else{
     const max=parseInt(val('asgMax'));
     if(!max||max<1){showToast('กรุณากรอกคะแนนเต็ม');return;}
     const due=val('asgDue')||'';
-    localObj={id,name,maxScore:max,type:'score',dueDate:due};
-    row={id,class_id:cid,subject_id:subid,name,type:'score',max_score:max,due_date:due||null};
+    localObj={id,name,maxScore:max,type:'score',dueDate:due,allowFileSubmit:allowFile};
+    row={id,class_id:cid,subject_id:subid,name,type:'score',max_score:max,due_date:due||null,allow_file_submit:allowFile};
     if(document.getElementById('asgMax'))document.getElementById('asgMax').value='';
     if(document.getElementById('asgDue'))document.getElementById('asgDue').value='';
   }
   document.getElementById('asgName').value='';
+  const cbAllow=document.getElementById('asgAllowFile');if(cbAllow)cbAllow.checked=false;
   try{
     const {error}=await sb.from('assignments').insert(row);
     if(error)throw error;
@@ -4446,7 +4454,7 @@ function renderQuizEditor(cid,subid,quizId){
   const ps=q.passages||[];
   const totalPts=qs.reduce((s,x)=>s+(parseFloat(x.points)||0),0);
 
-  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',match:'จับคู่',essay:'เขียนตอบ'};
+  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',essay:'เขียนตอบ',match:'จับคู่',order:'เรียงลำดับ',wordbank:'เติมคำจากคลัง',categorize:'จัดกลุ่ม'};
 
   // Merge questions + passages into one list, sort by order_num
   const items=[];
@@ -4507,6 +4515,22 @@ function renderQuizEditor(cid,subid,quizId){
         } else if(qq.type==='cloze'){
           const blanks=qq.data?.blanks||[];const template=qq.data?.template||'';
           detail=`<div style="font-size:12px;color:#0891b2;padding:4px 0"><b>ประโยค:</b> ${template}</div><div style="font-size:12px;color:#059669;padding:4px 0"><b>เฉลย:</b> ${blanks.map((b,i)=>`[${i+1}] ${(b.answers||[]).join('/')}`).join(' · ')}</div>`;
+        } else if(qq.type==='match'){
+          const pairs=qq.data?.pairs||[];
+          detail=`<div style="font-size:12px;color:#059669;padding:4px 0"><b>คู่:</b><br>${pairs.map((p,i)=>`&nbsp;&nbsp;${i+1}. <b>${p.left}</b> ↔ ${p.right}`).join('<br>')}</div>`;
+        } else if(qq.type==='order'){
+          const items=qq.data?.items||[];
+          detail=`<div style="font-size:12px;color:#059669;padding:4px 0"><b>ลำดับที่ถูก:</b> ${items.map((it,i)=>`${i+1}. ${it}`).join(' → ')}</div>`;
+        } else if(qq.type==='wordbank'){
+          const template=qq.data?.template||'';const answers=qq.data?.answers||[];const bank=qq.data?.bank||[];
+          detail=`<div style="font-size:12px;color:#0891b2;padding:4px 0"><b>ประโยค:</b> ${template}</div><div style="font-size:12px;color:#059669;padding:2px 0"><b>เฉลย:</b> ${answers.map((a,i)=>`[${i+1}] ${a}`).join(' · ')}</div><div style="font-size:11px;color:var(--mu);padding:2px 0"><b>คลังคำ:</b> ${bank.join(', ')}</div>`;
+        } else if(qq.type==='categorize'){
+          const cats=qq.data?.categories||[];const items=qq.data?.items||[];
+          const grouped=cats.map((c,ci)=>{
+            const inCat=items.filter(it=>it.cat===ci).map(it=>it.name).join(', ');
+            return `<b>${c}:</b> ${inCat||'(ไม่มี)'}`;
+          }).join('<br>');
+          detail=`<div style="font-size:12px;color:#059669;padding:4px 0">${grouped}</div>`;
         }
         const passageLinkBadge=qq.passage_id?'<span style="font-size:10.5px;color:#1E40AF"><i class="ti ti-book"></i> ผูกส่วนหัว</span>':'';
         listHtml+=`
@@ -4554,6 +4578,10 @@ function renderQuizEditor(cid,subid,quizId){
       <button class="btn" onclick="openAddQuestion('${quizId}','fill')"><i class="ti ti-plus"></i> เติมคำ</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','cloze')"><i class="ti ti-plus"></i> เติมคำในช่องว่าง</button>
       <button class="btn" onclick="openAddQuestion('${quizId}','essay')"><i class="ti ti-plus"></i> เขียนตอบ</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','match')"><i class="ti ti-arrows-shuffle"></i> จับคู่</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','order')"><i class="ti ti-list-numbers"></i> เรียงลำดับ</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','wordbank')"><i class="ti ti-tag"></i> เติมคำจากคลัง</button>
+      <button class="btn" onclick="openAddQuestion('${quizId}','categorize')"><i class="ti ti-layout-grid"></i> จัดกลุ่ม</button>
       <button class="btn" onclick="openAddPassage('${quizId}')"><i class="ti ti-file-text"></i> เพิ่มส่วนหัว</button>
       <button class="btn btn-t" style="margin-left:auto" onclick="openBulkImport('${quizId}')"><i class="ti ti-file-import"></i> นำเข้าหลายข้อ</button>
     </div>
@@ -4846,9 +4874,65 @@ function openAddQuestion(quizId,type,editingId){
         <button type="button" class="btn btn-xs" onclick="_parseCloze()"><i class="ti ti-scan"></i> แยกช่องว่าง</button>
         <div id="qClozeBlanks" style="margin-top:8px">${_renderClozeBlanks(blanks,mode)}</div>
       </div>`;
+  } else if(t==='match'){
+    const pairs=data.pairs||[{left:'',right:''},{left:'',right:''}];
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">คู่ที่จะจับ (ซ้าย ↔ ขวา)</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:6px">💡 นักเรียนจะแตะซ้าย แล้วแตะขวาที่ตรงกัน (ลำดับสุ่ม)</div>
+        <div id="qMatchPairs">${_renderMatchPairs(pairs)}</div>
+        <button type="button" class="btn btn-xs" onclick="_addMatchPair()"><i class="ti ti-plus"></i> เพิ่มคู่</button>
+      </div>`;
+  } else if(t==='order'){
+    const items=data.items||['',''];
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">รายการที่ต้องเรียงลำดับ</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:6px">💡 เขียนตามลำดับที่ถูกต้อง (นักเรียนจะเห็นลำดับสุ่ม แล้วต้องเรียงให้ถูก)</div>
+        <div id="qOrderItems">${_renderOrderItems(items)}</div>
+        <button type="button" class="btn btn-xs" onclick="_addOrderItem()"><i class="ti ti-plus"></i> เพิ่มรายการ</button>
+      </div>`;
+  } else if(t==='wordbank'){
+    const template=data.template||'';
+    const bank=data.bank||[];
+    const answers=data.answers||[];
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">เติมคำจากคลังคำ</div>
+        <div class="fg">
+          <label class="fl">ประโยค แทนช่องว่างด้วย <b>[1] [2] [3]</b></label>
+          <textarea id="qWbTpl" rows="3" placeholder="เช่น: ดวงอาทิตย์ขึ้นทาง [1] และตกทาง [2]">${template}</textarea>
+        </div>
+        <div class="fg">
+          <label class="fl">คำตอบตามลำดับช่อง (คั่นด้วยจุลภาค)</label>
+          <input type="text" id="qWbAnswers" value="${answers.join(', ').replace(/"/g,'&quot;')}" placeholder="เช่น: ทิศตะวันออก, ทิศตะวันตก">
+        </div>
+        <div class="fg" style="background:#EFF6FF;padding:10px;border-radius:6px;border:1px solid var(--bl)">
+          <label class="fl"><i class="ti ti-list"></i> คลังคำทั้งหมด (คั่นด้วยจุลภาค)</label>
+          <input type="text" id="qWbBank" value="${bank.join(', ').replace(/"/g,'&quot;')}" placeholder="เช่น: ทิศเหนือ, ทิศตะวันออก, ทิศใต้, ทิศตะวันตก">
+          <div style="font-size:11px;color:#1E40AF;margin-top:4px">💡 ใส่คำตอบที่ถูก + ตัวลวง (นักเรียนจะเลือกจากคลังคำนี้)</div>
+        </div>
+      </div>`;
+  } else if(t==='categorize'){
+    const categories=data.categories||['',''];
+    const items=data.items||[{name:'',cat:0}];
+    typeSpecific=`
+      <div class="prop-box">
+        <div class="prop-title">จัดกลุ่ม</div>
+        <div class="fg">
+          <label class="fl">กลุ่ม/หมวดหมู่ (คั่นด้วยจุลภาค)</label>
+          <input type="text" id="qCatCategories" value="${categories.join(', ').replace(/"/g,'&quot;')}" placeholder="เช่น: สัตว์เลี้ยงลูกด้วยนม, สัตว์ปีก">
+          <div style="font-size:11px;color:var(--mu);margin-top:4px">💡 กรอกกลุ่มก่อน แล้วค่อยเพิ่มสิ่งที่ต้องจัด</div>
+        </div>
+        <div class="fg">
+          <label class="fl">สิ่งที่ต้องจัดกลุ่ม</label>
+          <div id="qCatItems">${_renderCatItems(items,categories)}</div>
+          <button type="button" class="btn btn-xs" onclick="_addCatItem()" style="margin-top:6px"><i class="ti ti-plus"></i> เพิ่มรายการ</button>
+        </div>
+      </div>`;
   }
 
-  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',essay:'เขียนตอบ'};
+  const typeNames={mc:'เลือกตอบ',multi:'เลือกหลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมคำในช่องว่าง',essay:'เขียนตอบ',match:'จับคู่',order:'เรียงลำดับ',wordbank:'เติมคำจากคลัง',categorize:'จัดกลุ่ม'};
 
   // เก็บ working state ของ option images
   window._qOptImages=[...optImages];
@@ -4999,6 +5083,94 @@ function _toggleClozeDropdownField(mode){
   if(wrap)wrap.style.display=mode==='dropdown'?'block':'none';
 }
 
+// ── Helpers: match/order/categorize UI ──
+function _renderMatchPairs(pairs){
+  if(!pairs||!pairs.length)return '';
+  return pairs.map((p,i)=>`
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <b style="min-width:24px">${i+1}.</b>
+      <input type="text" class="matchLeft" data-idx="${i}" value="${(p.left||'').replace(/"/g,'&quot;')}" placeholder="ซ้าย" style="flex:1">
+      <span style="font-size:14px;color:var(--mu)">↔</span>
+      <input type="text" class="matchRight" data-idx="${i}" value="${(p.right||'').replace(/"/g,'&quot;')}" placeholder="ขวา" style="flex:1">
+      <button type="button" class="btn btn-xs" onclick="_delMatchPair(${i})" title="ลบ"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+function _addMatchPair(){
+  const wrap=document.getElementById('qMatchPairs');if(!wrap)return;
+  const pairs=_collectMatchPairs();
+  pairs.push({left:'',right:''});
+  wrap.innerHTML=_renderMatchPairs(pairs);
+}
+function _delMatchPair(i){
+  const pairs=_collectMatchPairs();
+  pairs.splice(i,1);
+  if(pairs.length<2)pairs.push({left:'',right:''});
+  const wrap=document.getElementById('qMatchPairs');if(wrap)wrap.innerHTML=_renderMatchPairs(pairs);
+}
+function _collectMatchPairs(){
+  const lefts=[...document.querySelectorAll('.matchLeft')];
+  const rights=[...document.querySelectorAll('.matchRight')];
+  return lefts.map((l,i)=>({left:l.value.trim(),right:(rights[i]?.value||'').trim()}));
+}
+
+function _renderOrderItems(items){
+  if(!items||!items.length)return '';
+  return items.map((it,i)=>`
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <b style="min-width:24px;color:var(--bl)">${i+1}.</b>
+      <input type="text" class="orderItem" data-idx="${i}" value="${(it||'').replace(/"/g,'&quot;')}" placeholder="รายการที่ ${i+1}" style="flex:1">
+      <button type="button" class="btn btn-xs" onclick="_delOrderItem(${i})" title="ลบ"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+function _addOrderItem(){
+  const wrap=document.getElementById('qOrderItems');if(!wrap)return;
+  const items=_collectOrderItems();
+  items.push('');
+  wrap.innerHTML=_renderOrderItems(items);
+}
+function _delOrderItem(i){
+  const items=_collectOrderItems();
+  items.splice(i,1);
+  if(items.length<2)items.push('');
+  const wrap=document.getElementById('qOrderItems');if(wrap)wrap.innerHTML=_renderOrderItems(items);
+}
+function _collectOrderItems(){
+  return [...document.querySelectorAll('.orderItem')].map(inp=>inp.value.trim());
+}
+
+function _renderCatItems(items,categories){
+  if(!items||!items.length)return '<div style="font-size:11.5px;color:var(--mu);padding:6px">ยังไม่มีรายการ กด "เพิ่มรายการ"</div>';
+  const catList=(categories||[]).filter(c=>c);
+  return items.map((it,i)=>`
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <b style="min-width:24px">${i+1}.</b>
+      <input type="text" class="catName" data-idx="${i}" value="${(it.name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อสิ่งของ" style="flex:1">
+      <span style="font-size:11px;color:var(--mu)">→</span>
+      <select class="catCat" data-idx="${i}" style="flex:1">
+        ${catList.map((c,ci)=>`<option value="${ci}" ${it.cat===ci?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <button type="button" class="btn btn-xs" onclick="_delCatItem(${i})" title="ลบ"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+function _addCatItem(){
+  const wrap=document.getElementById('qCatItems');if(!wrap)return;
+  const items=_collectCatItems();
+  const categories=(document.getElementById('qCatCategories')?.value||'').split(',').map(x=>x.trim()).filter(x=>x);
+  items.push({name:'',cat:0});
+  wrap.innerHTML=_renderCatItems(items,categories);
+}
+function _delCatItem(i){
+  const items=_collectCatItems();
+  items.splice(i,1);
+  const categories=(document.getElementById('qCatCategories')?.value||'').split(',').map(x=>x.trim()).filter(x=>x);
+  const wrap=document.getElementById('qCatItems');if(wrap)wrap.innerHTML=_renderCatItems(items,categories);
+}
+function _collectCatItems(){
+  const names=[...document.querySelectorAll('.catName')];
+  const cats=[...document.querySelectorAll('.catCat')];
+  return names.map((n,i)=>({name:n.value.trim(),cat:parseInt(cats[i]?.value||0)}));
+}
+
 function _parseCloze(){
   const tpl=document.getElementById('qClozeTpl')?.value||'';
   const matches=[...tpl.matchAll(/\[(\d+)\]/g)];
@@ -5078,6 +5250,44 @@ async function submitQuestion(quizId,type,editingId){
       }
       data.dropdownOptions=dropdownOptions;
     }
+  } else if(type==='match'){
+    const pairs=_collectMatchPairs().filter(p=>p.left&&p.right);
+    if(pairs.length<2){showToast('กรุณาใส่คู่อย่างน้อย 2 คู่');return;}
+    data={pairs};
+  } else if(type==='order'){
+    const items=_collectOrderItems().filter(x=>x);
+    if(items.length<2){showToast('กรุณาใส่รายการอย่างน้อย 2 รายการ');return;}
+    data={items};
+  } else if(type==='wordbank'){
+    const template=(val('qWbTpl')||'').trim();
+    if(!template){showToast('กรุณาใส่ประโยค');return;}
+    const rawA=(val('qWbAnswers')||'').trim();
+    const answers=rawA.split(',').map(x=>x.trim()).filter(x=>x);
+    const nBlanks=(template.match(/\[\d+\]/g)||[]).length;
+    if(answers.length!==nBlanks){showToast(`มีช่องว่าง ${nBlanks} ช่อง แต่คำตอบ ${answers.length} — ไม่ตรงกัน`);return;}
+    const rawB=(val('qWbBank')||'').trim();
+    const bank=rawB.split(',').map(x=>x.trim()).filter(x=>x);
+    if(!bank.length){showToast('กรุณาใส่คลังคำ');return;}
+    // ตรวจว่าทุก answer อยู่ใน bank
+    const bankSet=new Set(bank.map(x=>x.toLowerCase()));
+    const missing=answers.filter(a=>!bankSet.has(a.toLowerCase()));
+    if(missing.length){
+      if(!confirm(`⚠️ คำตอบต่อไปนี้ไม่มีในคลังคำ:\n${missing.join(', ')}\n\nต้องการดำเนินการต่อไหม?`))return;
+    }
+    data={template,answers,bank};
+  } else if(type==='categorize'){
+    const rawC=(val('qCatCategories')||'').trim();
+    const categories=rawC.split(',').map(x=>x.trim()).filter(x=>x);
+    if(categories.length<2){showToast('กรุณาใส่กลุ่มอย่างน้อย 2 กลุ่ม');return;}
+    const items=_collectCatItems().filter(it=>it.name);
+    if(items.length<2){showToast('กรุณาใส่รายการอย่างน้อย 2 รายการ');return;}
+    // ตรวจว่ามีทุกกลุ่มอย่างน้อย 1 รายการ
+    const usedCats=new Set(items.map(it=>it.cat));
+    const unused=categories.map((c,i)=>i).filter(i=>!usedCats.has(i));
+    if(unused.length){
+      if(!confirm(`⚠️ กลุ่มต่อไปนี้ไม่มีรายการ:\n${unused.map(i=>categories[i]).join(', ')}\n\nต้องการดำเนินการต่อไหม?`))return;
+    }
+    data={categories,items};
   }
 
   const q=quizData[quizId];
@@ -5685,6 +5895,50 @@ async function _viewStudentAttempt(attemptId,stuId){
       } else if(qq.type==='essay'){
         isEssay=true;
         ansDisp=(ans||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')||'<i>ไม่ตอบ</i>';
+      } else if(qq.type==='match'){
+        const pairs=qq.data?.pairs||[];
+        const userMap=ans&&typeof ans==='object'?ans:{};
+        // ans format: {leftIdx: rightIdx}
+        correct=pairs.every((p,i)=>parseInt(userMap[i])===i);
+        ansDisp=pairs.map((p,i)=>{
+          const uIdx=userMap[i];
+          const uRight=uIdx!==undefined&&pairs[uIdx]?pairs[uIdx].right:'?';
+          const ok=parseInt(uIdx)===i;
+          return `<b>${p.left}</b> ↔ ${ok?'<span style="color:#059669">'+uRight+' ✓</span>':'<span style="color:#dc2626">'+uRight+' ✗</span>'}`;
+        }).join('<br>');
+        corDisp=pairs.map(p=>`<b>${p.left}</b> ↔ ${p.right}`).join(' · ');
+      } else if(qq.type==='order'){
+        const items=qq.data?.items||[];
+        const given=Array.isArray(ans)?ans:[];
+        // ans format: [indices in user's order]  → check if [0,1,2,...] (i.e., matches original)
+        correct=items.every((it,i)=>parseInt(given[i])===i);
+        ansDisp=given.map((idx,i)=>{
+          const item=items[idx];
+          const ok=parseInt(idx)===i;
+          return `${i+1}. ${ok?'<span style="color:#059669">'+item+' ✓</span>':'<span style="color:#dc2626">'+(item||'?')+' ✗</span>'}`;
+        }).join(' → ');
+        corDisp=items.map((it,i)=>`${i+1}. ${it}`).join(' → ');
+      } else if(qq.type==='wordbank'){
+        const answers=qq.data?.answers||[];
+        const given=Array.isArray(ans)?ans:[];
+        correct=answers.every((a,i)=>(given[i]||'').trim().toLowerCase()===(a||'').trim().toLowerCase());
+        ansDisp=given.map((v,i)=>{
+          const ok=(v||'').trim().toLowerCase()===(answers[i]||'').trim().toLowerCase();
+          return ok?`<span style="color:#059669">${v||'?'} ✓</span>`:`<span style="color:#dc2626">${v||'?'} ✗</span>`;
+        }).join(' | ');
+        corDisp=answers.join(' | ');
+      } else if(qq.type==='categorize'){
+        const cats=qq.data?.categories||[];
+        const items=qq.data?.items||[];
+        const given=Array.isArray(ans)?ans:[];
+        // ans format: [category assigned per item]
+        correct=items.every((it,i)=>parseInt(given[i])===parseInt(it.cat));
+        ansDisp=items.map((it,i)=>{
+          const gCat=given[i]!==undefined?cats[given[i]]||'?':'ไม่จัด';
+          const ok=parseInt(given[i])===parseInt(it.cat);
+          return `${it.name}: ${ok?'<span style="color:#059669">'+gCat+' ✓</span>':'<span style="color:#dc2626">'+gCat+' ✗</span>'}`;
+        }).join('<br>');
+        corDisp=items.map(it=>`${it.name}: ${cats[it.cat]||'?'}`).join(' · ');
       }
       const borderCol=isEssay?'var(--am)':(correct?'var(--gn)':'var(--rd)');
       ansHtml+=`<div style="background:#fff;border:1.5px solid ${borderCol};border-radius:8px;padding:10px;margin-bottom:6px">
@@ -5989,10 +6243,30 @@ function _qrTab(tab,btn){
           }
         }
         else if(qq.type==='essay'){/* ไม่มี auto */}
+        else if(qq.type==='match'){
+          const pairs=qq.data?.pairs||[];
+          const userMap=ans&&typeof ans==='object'?ans:{};
+          if(pairs.every((p,idx)=>parseInt(userMap[idx])===idx))corCount++;
+        }
+        else if(qq.type==='order'){
+          const items=qq.data?.items||[];
+          const given=Array.isArray(ans)?ans:[];
+          if(items.every((it,idx)=>parseInt(given[idx])===idx))corCount++;
+        }
+        else if(qq.type==='wordbank'){
+          const answers=qq.data?.answers||[];
+          const given=Array.isArray(ans)?ans:[];
+          if(answers.every((a,idx)=>(given[idx]||'').trim().toLowerCase()===(a||'').trim().toLowerCase()))corCount++;
+        }
+        else if(qq.type==='categorize'){
+          const items=qq.data?.items||[];
+          const given=Array.isArray(ans)?ans:[];
+          if(items.every((it,idx)=>parseInt(given[idx])===parseInt(it.cat)))corCount++;
+        }
       });
       const pct=totalAns?Math.round(corCount/totalAns*100):0;
       const barColor=pct>=70?'var(--gn)':(pct>=40?'var(--am)':'var(--rd)');
-      const typeLabel={mc:'เลือกตอบ',multi:'หลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมช่องว่าง',essay:'เขียนตอบ'}[qq.type]||qq.type;
+      const typeLabel={mc:'เลือกตอบ',multi:'หลายข้อ',tf:'ถูก/ผิด',fill:'เติมคำ',cloze:'เติมช่องว่าง',essay:'เขียนตอบ',match:'จับคู่',order:'เรียงลำดับ',wordbank:'เติมคลัง',categorize:'จัดกลุ่ม'}[qq.type]||qq.type;
       const isEssay=qq.type==='essay';
       rowsHtml+=`
         <div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:6px">
@@ -6155,6 +6429,22 @@ function _exportQuizCsv(quizId){
           else if(qq.type==='fill'){cell=(''+ans).replace(/"/g,'""');}
           else if(qq.type==='cloze'){cell=(Array.isArray(ans)?ans:[]).map((v,i)=>`[${i+1}]${(''+(v||'?')).replace(/"/g,'""')}`).join(' ');}
           else if(qq.type==='essay'){cell=((''+ans).slice(0,50)+'...').replace(/"/g,'""');}
+          else if(qq.type==='match'){
+            const pairs=qq.data?.pairs||[];const um=ans&&typeof ans==='object'?ans:{};
+            cell=pairs.map((p,i)=>{const uIdx=um[i];const uRight=uIdx!==undefined&&pairs[uIdx]?pairs[uIdx].right:'?';return `${p.left}→${uRight}`;}).join(' | ').replace(/"/g,'""');
+          }
+          else if(qq.type==='order'){
+            const items=qq.data?.items||[];const g=Array.isArray(ans)?ans:[];
+            cell=g.map((idx,i)=>`${i+1}.${items[idx]||'?'}`).join(' > ').replace(/"/g,'""');
+          }
+          else if(qq.type==='wordbank'){
+            const g=Array.isArray(ans)?ans:[];
+            cell=g.map((v,i)=>`[${i+1}]${(''+(v||'?')).replace(/"/g,'""')}`).join(' ');
+          }
+          else if(qq.type==='categorize'){
+            const cats=qq.data?.categories||[];const items=qq.data?.items||[];const g=Array.isArray(ans)?ans:[];
+            cell=items.map((it,i)=>`${it.name}:${cats[g[i]]||'?'}`).join(' | ').replace(/"/g,'""');
+          }
         }
         row.push(cell);
       });

@@ -784,6 +784,9 @@ function renderTab(tab){
   else if(tab==='attendance')renderAttendance();
   else if(tab==='assignments'){
     renderAssignments();
+    // Refresh assignment fields (allow_file_submit, dueDate, name, etc.) จาก Supabase ทุกครั้งที่เปิด
+    // เพื่อให้เห็นการเปลี่ยนแปลงล่าสุดของครู (แม้ realtime อาจไม่ทำงาน)
+    refreshAssignmentsFresh().then(()=>{if(currentTab==='assignments')renderAssignments();});
     loadMySubmissions().then(()=>{if(currentTab==='assignments')renderAssignments();});
   }
   else if(tab==='quiz'){
@@ -1681,6 +1684,107 @@ function renderTakeQuiz(){
         ${inst?`<div style="font-size:12px;color:var(--mu);padding:6px 10px;background:#FEF3C7;border-radius:6px;margin-bottom:6px">💡 ${inst}</div>`:''}
         <textarea rows="5" oninput="saveAnswer('${qq.id}',this.value)" placeholder="เขียนคำตอบที่นี่..." style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;font-family:inherit;line-height:1.5">${(cur||'').replace(/</g,'&lt;')}</textarea>
         <div style="font-size:11px;color:var(--am);margin-top:2px">⚠️ ครูจะตรวจให้คะแนนเอง (ไม่ตรวจอัตโนมัติ)</div>`;
+    } else if(qq.type==='match'){
+      // shuffle right column ครั้งเดียวต่อคำถาม
+      const pairs=qq.data?.pairs||[];
+      if(!qq._matchRShuf){
+        qq._matchRShuf=_shuffle(pairs.map((_,idx)=>idx));
+      }
+      const userMap=cur&&typeof cur==='object'?cur:{};
+      // แสดง lefts (in order) ↔ rights (shuffled)
+      const leftsHtml=pairs.map((p,li)=>{
+        const chosenIdx=userMap[li];
+        return `<button class="btn ${activeAttempt._matchSelLeft===li?'btn-p':''}" data-li="${li}" onclick="_matchClickLeft('${qq.id}',${li})" style="width:100%;text-align:left;padding:10px;margin-bottom:6px">
+          <b>${li+1}.</b> ${p.left}
+          ${chosenIdx!==undefined?`<span style="float:right;color:var(--gn);font-size:12px">→ ${pairs[chosenIdx]?.right||'?'}</span>`:''}
+        </button>`;
+      }).join('');
+      const rightsHtml=qq._matchRShuf.map(ri=>{
+        const p=pairs[ri];
+        const usedBy=Object.entries(userMap).find(([,v])=>parseInt(v)===ri);
+        return `<button class="btn ${usedBy?'btn-t':''}" onclick="_matchClickRight('${qq.id}',${ri})" style="width:100%;text-align:left;padding:10px;margin-bottom:6px${usedBy?';opacity:.5':''}">
+          ${p.right}${usedBy?` <span style="font-size:11px;color:var(--mu)">(ข้อ ${parseInt(usedBy[0])+1})</span>`:''}
+        </button>`;
+      }).join('');
+      ansHtml=`
+        <div style="font-size:11.5px;color:var(--mu);margin-bottom:8px">💡 แตะซ้าย แล้วแตะขวาที่ตรงกัน</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><b style="font-size:12px;color:var(--mu)">ซ้าย</b>${leftsHtml}</div>
+          <div><b style="font-size:12px;color:var(--mu)">ขวา</b>${rightsHtml}</div>
+        </div>
+        <div style="text-align:center;margin-top:6px"><button class="btn btn-xs" onclick="_matchReset('${qq.id}')"><i class="ti ti-refresh"></i> ล้าง</button></div>`;
+    } else if(qq.type==='order'){
+      const items=qq.data?.items||[];
+      // ผสม order เริ่มต้น (ถ้ายังไม่มี)
+      if(!qq._orderShuf){
+        qq._orderShuf=_shuffle(items.map((_,i)=>i));
+      }
+      const given=Array.isArray(cur)?cur:qq._orderShuf.slice();
+      if(!Array.isArray(cur)){
+        // Save initial order
+        activeAttempt.answers[qq.id]=given;
+      }
+      ansHtml=`
+        <div style="font-size:11.5px;color:var(--mu);margin-bottom:8px">💡 แตะ ↑/↓ เพื่อเรียงลำดับ (ก่อน → หลัง)</div>
+        <div>
+          ${given.map((idx,pos)=>`
+            <div style="display:flex;align-items:center;gap:6px;padding:10px;background:#EFF6FF;border:1.5px solid var(--bl);border-radius:8px;margin-bottom:6px">
+              <b style="min-width:24px;color:var(--bl)">${pos+1}.</b>
+              <span style="flex:1;font-weight:600">${items[idx]||'?'}</span>
+              <button class="btn btn-xs" ${pos===0?'disabled':''} onclick="_orderMove('${qq.id}',${pos},-1)"><i class="ti ti-arrow-up"></i></button>
+              <button class="btn btn-xs" ${pos===given.length-1?'disabled':''} onclick="_orderMove('${qq.id}',${pos},1)"><i class="ti ti-arrow-down"></i></button>
+            </div>`).join('')}
+        </div>`;
+    } else if(qq.type==='wordbank'){
+      const template=qq.data?.template||'';
+      const bank=qq.data?.bank||[];
+      const answers=qq.data?.answers||[];
+      const given=Array.isArray(cur)?cur:new Array(answers.length).fill('');
+      // shuffle bank once
+      if(!qq._wbShuf){qq._wbShuf=_shuffle([...bank]);}
+      const usedSet=new Set(given.filter(x=>x));
+      const parts=template.split(/(\[\d+\])/);
+      const rendered=parts.map(part=>{
+        const m=part.match(/\[(\d+)\]/);
+        if(m){
+          const idx=parseInt(m[1])-1;
+          const v=given[idx]||'';
+          return `<button onclick="_wbClearBlank('${qq.id}',${idx})" style="display:inline-block;padding:4px 12px;margin:0 4px;border:1.5px dashed ${v?'var(--gn)':'var(--bl)'};border-radius:6px;background:${v?'#F0FDF4':'#EFF6FF'};font-family:inherit;font-size:14px;cursor:pointer">${v||`[${idx+1}]`}</button>`;
+        }
+        return part.replace(/</g,'&lt;');
+      }).join('');
+      const bankHtml=qq._wbShuf.map(w=>{
+        const used=usedSet.has(w);
+        return `<button class="btn ${used?'btn-t':'btn-p'}" ${used?'disabled':''} onclick="_wbPickWord('${qq.id}','${w.replace(/'/g,"\\'")}')" style="margin:3px;opacity:${used?'.4':'1'}">${w}</button>`;
+      }).join('');
+      ansHtml=`
+        <div style="font-size:15px;line-height:2.2;padding:12px;background:#fff;border:1px solid var(--bd);border-radius:8px;margin-bottom:10px">${rendered}</div>
+        <div style="font-size:11.5px;color:var(--mu);margin-bottom:6px">📚 คลังคำ (แตะเพื่อเลือก แตะช่องเพื่อยกเลิก):</div>
+        <div style="text-align:center">${bankHtml}</div>`;
+    } else if(qq.type==='categorize'){
+      const cats=qq.data?.categories||[];
+      const items=qq.data?.items||[];
+      // shuffle items once
+      if(!qq._catShuf){qq._catShuf=_shuffle(items.map((_,i)=>i));}
+      const given=Array.isArray(cur)?cur:new Array(items.length).fill(-1);
+      if(!Array.isArray(cur)){activeAttempt.answers[qq.id]=given;}
+      const catColors=['#EFF6FF','#F0FDF4','#FEF3C7','#FEE2E2','#EDE9FE','#FCE7F3'];
+      const unassigned=qq._catShuf.filter(idx=>given[idx]===-1||given[idx]===undefined);
+      ansHtml=`
+        <div style="font-size:11.5px;color:var(--mu);margin-bottom:8px">💡 แตะสิ่งของ แล้วแตะกลุ่ม (หรือแตะกลุ่มก่อน แล้วสิ่งของ)</div>
+        <div style="background:#fff;border:1px dashed var(--bd);padding:10px;border-radius:8px;margin-bottom:10px">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:6px">ยังไม่จัดกลุ่ม (${unassigned.length}):</div>
+          ${unassigned.length?unassigned.map(idx=>`<button class="btn ${activeAttempt._catSelIdx===idx?'btn-p':''}" onclick="_catClickItem('${qq.id}',${idx})" style="margin:3px">${items[idx].name}</button>`).join(''):'<span style="font-size:12px;color:var(--gn)">✓ จัดครบแล้ว</span>'}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+          ${cats.map((c,ci)=>{
+            const inCat=items.map((it,idx)=>({it,idx})).filter(x=>given[x.idx]===ci);
+            return `<div onclick="_catClickCat('${qq.id}',${ci})" style="padding:10px;background:${catColors[ci%catColors.length]};border:1.5px solid var(--bd);border-radius:8px;cursor:pointer;min-height:100px">
+              <div style="font-weight:700;font-size:13px;margin-bottom:6px">${c}</div>
+              ${inCat.map(x=>`<button onclick="event.stopPropagation();_catUnassign('${qq.id}',${x.idx})" style="display:inline-block;padding:3px 8px;margin:2px;background:#fff;border:1px solid var(--bd);border-radius:5px;font-size:11.5px;cursor:pointer">${x.it.name} <span style="color:var(--mu)">×</span></button>`).join('')}
+            </div>`;
+          }).join('')}
+        </div>`;
     }
     html+=`
       <div style="background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px">
@@ -1751,6 +1855,95 @@ async function saveClozeAnswer(qId,idx,value){
   cur[idx]=value;
   // cloze ไม่มี shuffle → save ตรงๆ
   _persistAnswer(qId,cur);
+}
+
+// ── match ──
+function _matchClickLeft(qId,li){
+  activeAttempt._matchSelLeft=li;
+  activeAttempt._matchQid=qId;
+  renderTakeQuiz();
+}
+function _matchClickRight(qId,ri){
+  const li=activeAttempt._matchSelLeft;
+  if(li===undefined||activeAttempt._matchQid!==qId){showToast('กดฝั่งซ้ายก่อน');return;}
+  const cur=activeAttempt.answers[qId]&&typeof activeAttempt.answers[qId]==='object'?{...activeAttempt.answers[qId]}:{};
+  // ถ้า ri ถูกจับกับ leftIdx อื่นอยู่ → ปลดออก
+  Object.keys(cur).forEach(k=>{if(parseInt(cur[k])===ri)delete cur[k];});
+  cur[li]=ri;
+  activeAttempt._matchSelLeft=undefined;
+  _persistAnswer(qId,cur);
+  renderTakeQuiz();
+}
+function _matchReset(qId){
+  activeAttempt._matchSelLeft=undefined;
+  _persistAnswer(qId,{});
+  renderTakeQuiz();
+}
+
+// ── order ──
+function _orderMove(qId,pos,dir){
+  const cur=Array.isArray(activeAttempt.answers[qId])?[...activeAttempt.answers[qId]]:[];
+  const newPos=pos+dir;
+  if(newPos<0||newPos>=cur.length)return;
+  [cur[pos],cur[newPos]]=[cur[newPos],cur[pos]];
+  _persistAnswer(qId,cur);
+  renderTakeQuiz();
+}
+
+// ── wordbank ──
+function _wbPickWord(qId,word){
+  const qq=(activeQuiz.questions||[]).find(x=>x.id===qId);
+  const nBlanks=(qq?.data?.answers||[]).length;
+  const cur=Array.isArray(activeAttempt.answers[qId])?[...activeAttempt.answers[qId]]:new Array(nBlanks).fill('');
+  // หา blank แรกที่ยังว่าง
+  const emptyIdx=cur.findIndex(x=>!x);
+  if(emptyIdx===-1){showToast('เต็มแล้ว — กดช่องเพื่อลบก่อน');return;}
+  cur[emptyIdx]=word;
+  _persistAnswer(qId,cur);
+  renderTakeQuiz();
+}
+function _wbClearBlank(qId,idx){
+  const cur=Array.isArray(activeAttempt.answers[qId])?[...activeAttempt.answers[qId]]:[];
+  cur[idx]='';
+  _persistAnswer(qId,cur);
+  renderTakeQuiz();
+}
+
+// ── categorize ──
+function _catClickItem(qId,idx){
+  if(activeAttempt._catSelCat!==undefined&&activeAttempt._catQid===qId){
+    // Cat already selected → assign
+    _catAssign(qId,idx,activeAttempt._catSelCat);
+    activeAttempt._catSelCat=undefined;
+    return;
+  }
+  activeAttempt._catSelIdx=idx;
+  activeAttempt._catQid=qId;
+  renderTakeQuiz();
+}
+function _catClickCat(qId,ci){
+  if(activeAttempt._catSelIdx!==undefined&&activeAttempt._catQid===qId){
+    _catAssign(qId,activeAttempt._catSelIdx,ci);
+    activeAttempt._catSelIdx=undefined;
+    return;
+  }
+  activeAttempt._catSelCat=ci;
+  activeAttempt._catQid=qId;
+  renderTakeQuiz();
+}
+function _catAssign(qId,itemIdx,catIdx){
+  const qq=(activeQuiz.questions||[]).find(x=>x.id===qId);
+  const n=(qq?.data?.items||[]).length;
+  const cur=Array.isArray(activeAttempt.answers[qId])?[...activeAttempt.answers[qId]]:new Array(n).fill(-1);
+  cur[itemIdx]=catIdx;
+  _persistAnswer(qId,cur);
+  renderTakeQuiz();
+}
+function _catUnassign(qId,itemIdx){
+  const cur=Array.isArray(activeAttempt.answers[qId])?[...activeAttempt.answers[qId]]:[];
+  cur[itemIdx]=-1;
+  _persistAnswer(qId,cur);
+  renderTakeQuiz();
 }
 
 function _updateProgressCounter(){
@@ -1857,6 +2050,43 @@ async function submitQuiz(isTimeout){
     } else if(qq.type==='essay'){
       hasEssay=true;
       // Essay ไม่ตรวจอัตโนมัติ ครูให้คะแนนเอง
+    } else if(qq.type==='match'){
+      const pairs=qq.data?.pairs||[];
+      const userMap=ans&&typeof ans==='object'&&!Array.isArray(ans)?ans:{};
+      if(pairs.length){
+        const perPair=(parseFloat(qq.points)||0)/pairs.length;
+        pairs.forEach((p,i)=>{
+          if(parseInt(userMap[i])===i)rawScore+=perPair;
+        });
+      }
+    } else if(qq.type==='order'){
+      const items=qq.data?.items||[];
+      const given=Array.isArray(ans)?ans:[];
+      if(items.length){
+        // เต็มคะแนนเมื่อเรียงถูกทั้งหมด
+        if(items.every((it,i)=>parseInt(given[i])===i)){
+          rawScore+=parseFloat(qq.points)||0;
+        }
+      }
+    } else if(qq.type==='wordbank'){
+      const answers=qq.data?.answers||[];
+      const given=Array.isArray(ans)?ans:[];
+      if(answers.length){
+        const perBlank=(parseFloat(qq.points)||0)/answers.length;
+        answers.forEach((a,idx)=>{
+          const u=(given[idx]||'').trim().toLowerCase();
+          if(u&&u===(''+a).trim().toLowerCase())rawScore+=perBlank;
+        });
+      }
+    } else if(qq.type==='categorize'){
+      const items=qq.data?.items||[];
+      const given=Array.isArray(ans)?ans:[];
+      if(items.length){
+        const perItem=(parseFloat(qq.points)||0)/items.length;
+        items.forEach((it,i)=>{
+          if(parseInt(given[i])===parseInt(it.cat))rawScore+=perItem;
+        });
+      }
     }
   });
   try{
@@ -2011,6 +2241,45 @@ function viewQuizResult(quizId){
       } else if(qq.type==='essay'){
         isEssay=true;
         ansDisplay=(ans||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')||'<i>ไม่ตอบ</i>';
+      } else if(qq.type==='match'){
+        const pairs=qq.data?.pairs||[];
+        const um=ans&&typeof ans==='object'&&!Array.isArray(ans)?ans:{};
+        correct=pairs.every((p,idx)=>parseInt(um[idx])===idx);
+        ansDisplay=pairs.map((p,idx)=>{
+          const uIdx=um[idx];const uRight=uIdx!==undefined&&pairs[uIdx]?pairs[uIdx].right:'?';
+          const ok=parseInt(uIdx)===idx;
+          return `<b>${p.left}</b> ↔ ${ok?'<span style="color:#059669">'+uRight+' ✓</span>':'<span style="color:#dc2626">'+uRight+' ✗</span>'}`;
+        }).join('<br>');
+        corDisplay=pairs.map(p=>`<b>${p.left}</b> ↔ ${p.right}`).join('<br>');
+      } else if(qq.type==='order'){
+        const items=qq.data?.items||[];
+        const given=Array.isArray(ans)?ans:[];
+        correct=items.every((it,idx)=>parseInt(given[idx])===idx);
+        ansDisplay=given.map((idx,pos)=>{
+          const ok=parseInt(idx)===pos;
+          return `${pos+1}. ${ok?'<span style="color:#059669">'+(items[idx]||'?')+' ✓</span>':'<span style="color:#dc2626">'+(items[idx]||'?')+' ✗</span>'}`;
+        }).join('<br>');
+        corDisplay=items.map((it,i)=>`${i+1}. ${it}`).join('<br>');
+      } else if(qq.type==='wordbank'){
+        const answers=qq.data?.answers||[];
+        const given=Array.isArray(ans)?ans:[];
+        correct=answers.every((a,i)=>(given[i]||'').trim().toLowerCase()===(''+a).trim().toLowerCase());
+        ansDisplay=given.map((v,i)=>{
+          const ok=(v||'').trim().toLowerCase()===(''+(answers[i]||'')).trim().toLowerCase();
+          return `[${i+1}] ${ok?'<span style="color:#059669">'+(v||'?')+' ✓</span>':'<span style="color:#dc2626">'+(v||'?')+' ✗</span>'}`;
+        }).join(' · ');
+        corDisplay=answers.map((a,i)=>`[${i+1}] ${a}`).join(' · ');
+      } else if(qq.type==='categorize'){
+        const cats=qq.data?.categories||[];
+        const items=qq.data?.items||[];
+        const given=Array.isArray(ans)?ans:[];
+        correct=items.every((it,idx)=>parseInt(given[idx])===parseInt(it.cat));
+        ansDisplay=items.map((it,idx)=>{
+          const gCat=given[idx]!==undefined&&given[idx]>=0?cats[given[idx]]||'?':'(ไม่จัด)';
+          const ok=parseInt(given[idx])===parseInt(it.cat);
+          return `${it.name}: ${ok?'<span style="color:#059669">'+gCat+' ✓</span>':'<span style="color:#dc2626">'+gCat+' ✗</span>'}`;
+        }).join('<br>');
+        corDisplay=items.map(it=>`${it.name}: ${cats[it.cat]||'?'}`).join('<br>');
       }
       const borderCol=isEssay?'var(--am)':(correct?'var(--gn)':'var(--rd)');
       html+=`
@@ -2134,6 +2403,30 @@ function renderAssignments(){
 // ระบบส่งงาน (นักเรียน)
 // ═══════════════════════════════════════════
 let stuSubs={}; // {asgId: {id, status, teacher_note, files:[]}}
+
+async function refreshAssignmentsFresh(){
+  if(!me)return;
+  try{
+    const {data:asgs,error}=await sb.from('assignments').select('id,class_id,subject_id,name,max_score,type,due_date,allow_file_submit');
+    if(error){console.error('refresh assignments:',error);return;}
+    // อัปเดต db.assignments ตาม data ใหม่จาก Supabase
+    // (ลบของเก่าออก แล้วใส่ใหม่ทั้งหมด เฉพาะ table นี้)
+    const cid2term={};
+    (db.classes||[]).forEach(c=>{cid2term[c.id]=c.termId||'';});
+    const newAsgs={};
+    (asgs||[]).forEach(a=>{
+      const tkey=(cid2term[a.class_id]||'')+'__'+a.class_id;
+      if(!newAsgs[tkey])newAsgs[tkey]={};
+      if(!newAsgs[tkey][a.subject_id])newAsgs[tkey][a.subject_id]=[];
+      newAsgs[tkey][a.subject_id].push({
+        id:a.id,name:a.name,maxScore:a.max_score,type:a.type||'score',
+        dueDate:a.due_date||'',allowFileSubmit:!!a.allow_file_submit
+      });
+    });
+    db.assignments=newAsgs;
+    console.log('[refreshAssignments] Loaded',asgs?.length||0,'assignments');
+  }catch(e){console.error('refreshAssignmentsFresh:',e);}
+}
 
 async function loadMySubmissions(){
   if(!me)return;
