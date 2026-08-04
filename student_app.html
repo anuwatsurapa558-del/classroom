@@ -1742,7 +1742,6 @@ function renderTakeQuiz(){
       const given=Array.isArray(cur)?cur:new Array(answers.length).fill('');
       // shuffle bank once
       if(!qq._wbShuf){qq._wbShuf=_shuffle([...bank]);}
-      const usedSet=new Set(given.filter(x=>x));
       const parts=template.split(/(\[\d+\])/);
       const rendered=parts.map(part=>{
         const m=part.match(/\[(\d+)\]/);
@@ -1753,13 +1752,13 @@ function renderTakeQuiz(){
         }
         return part.replace(/</g,'&lt;');
       }).join('');
+      // คำในคลัง — คลิกได้ตลอด (ใช้ซ้ำได้)
       const bankHtml=qq._wbShuf.map(w=>{
-        const used=usedSet.has(w);
-        return `<button class="btn ${used?'btn-t':'btn-p'}" ${used?'disabled':''} onclick="_wbPickWord('${qq.id}','${w.replace(/'/g,"\\'")}')" style="margin:3px;opacity:${used?'.4':'1'}">${w}</button>`;
+        return `<button class="btn btn-p" onclick="_wbPickWord('${qq.id}','${w.replace(/'/g,"\\'")}')" style="margin:3px">${w}</button>`;
       }).join('');
       ansHtml=`
         <div style="font-size:15px;line-height:2.2;padding:12px;background:#fff;border:1px solid var(--bd);border-radius:8px;margin-bottom:10px">${rendered}</div>
-        <div style="font-size:11.5px;color:var(--mu);margin-bottom:6px">📚 คลังคำ (แตะเพื่อเลือก แตะช่องเพื่อยกเลิก):</div>
+        <div style="font-size:11.5px;color:var(--mu);margin-bottom:6px">📚 คลังคำ (แตะเพื่อเลือก · ใช้ซ้ำได้ · แตะช่องเพื่อลบ):</div>
         <div style="text-align:center">${bankHtml}</div>`;
     } else if(qq.type==='categorize'){
       const cats=qq.data?.categories||[];
