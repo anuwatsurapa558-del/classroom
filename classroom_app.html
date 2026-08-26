@@ -1061,7 +1061,29 @@ async function _rowsToDb(rows){
     if(!d.fiveS.checks[ckey])d.fiveS.checks[ckey]={};
     if(!d.fiveS.checks[ckey][ck.date])d.fiveS.checks[ckey][ck.date]={};
     d.fiveS.checks[ckey][ck.date][ck.student_id]={
-      items:ck.items||{},note:ck.note||''
+      items:ck.items||{},note:ck.note||'',round_id:ck.round_id||null
+    };
+  });
+  // 5s rounds
+  if(!d.fiveS.rounds)d.fiveS.rounds={};
+  (rows.five_s_rounds||[]).forEach(r=>{
+    const tkey=(cid2term[r.class_id]||'')+'__'+r.class_id;
+    if(!d.fiveS.rounds[tkey])d.fiveS.rounds[tkey]=[];
+    d.fiveS.rounds[tkey].push({
+      id:r.id,name:r.name,start_date:r.start_date,end_date:r.end_date,
+      status:r.status||'active',created_at:r.created_at
+    });
+  });
+  // 5s attendance (เช็คสมาชิก)
+  if(!d.fiveS.attendance)d.fiveS.attendance={};
+  (rows.five_s_attendance||[]).forEach(a=>{
+    const cid=groupToClass[a.group_id];
+    if(!cid)return;
+    const akey=(cid2term[cid]||'')+'__'+cid+'__'+a.group_id;
+    if(!d.fiveS.attendance[akey])d.fiveS.attendance[akey]={};
+    if(!d.fiveS.attendance[akey][a.date])d.fiveS.attendance[akey][a.date]={};
+    d.fiveS.attendance[akey][a.date][a.student_id]={
+      present:!!a.present,checker:a.checker||'',round_id:a.round_id||null
     };
   });
   return d;
@@ -1071,7 +1093,7 @@ async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks'];
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
     // ── Fetch all rows with pagination (Supabase default limit = 1000) ──
     async function fetchAll(t){
       const rows=[];
@@ -6497,14 +6519,345 @@ function renderFiveS(){
   const cls=db.classes.find(c=>c.id===cid);
   if(!cls){el.innerHTML=noData('school','ไม่พบห้อง');return;}
   const tab=P.fiveS.tab||'groups';
-  let html=`<div class="score-type-bar" style="margin-bottom:12px">
+  let html=`<div class="score-type-bar" style="margin-bottom:12px;flex-wrap:wrap">
     <button class="score-type-btn${tab==='groups'?' active':''}" onclick="P.fiveS.tab='groups';renderFiveS()"><i class="ti ti-users-group"></i> จัดการกลุ่ม</button>
+    <button class="score-type-btn${tab==='rounds'?' active':''}" onclick="P.fiveS.tab='rounds';renderFiveS()"><i class="ti ti-calendar-event"></i> รอบประเมิน</button>
     <button class="score-type-btn${tab==='summary'?' active':''}" onclick="P.fiveS.tab='summary';renderFiveS()"><i class="ti ti-chart-bar"></i> สรุปผล</button>
   </div>`;
   if(tab==='groups')html+=renderFiveSGroups(cid);
+  else if(tab==='rounds')html+=renderFiveSRounds(cid);
   else html+=renderFiveSSummary(cid);
   el.innerHTML=html;
 }
+
+// ── หน้า: จัดการรอบประเมิน ──
+function fsRounds(cid){return (db.fiveS.rounds||{})[tk(cid)]||[];}
+function fsActiveRound(cid){return fsRounds(cid).find(r=>r.status==='active');}
+
+function renderFiveSRounds(cid){
+  const rounds=fsRounds(cid).slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  const active=fsActiveRound(cid);
+  const cls=db.classes.find(c=>c.id===cid);
+  let html=`<div class="card cp mb14">
+    <div class="f ic jb fw g8">
+      <div>
+        <b><i class="ti ti-calendar-event"></i> รอบประเมิน — ${cls.name}</b>
+        <div style="font-size:12px;color:var(--mu);margin-top:3px">${rounds.length} รอบ · Active: ${active?active.name:'ไม่มี'}</div>
+      </div>
+      <button class="btn btn-p btn-sm" ${active?'disabled title="ต้องจบรอบเก่าก่อน"':''} onclick="openAddFsRound('${cid}')"><i class="ti ti-plus"></i>สร้างรอบใหม่</button>
+    </div>
+  </div>`;
+  if(!rounds.length){
+    html+=`<div class="card cp"><div class="empty" style="padding:30px">
+      <i class="ti ti-calendar-event" style="font-size:36px;color:var(--mu)"></i>
+      <div style="font-weight:700;margin-top:8px">ยังไม่มีรอบประเมิน</div>
+      <p style="font-size:12px;color:var(--mu)">สร้างรอบแรกเพื่อเริ่มเก็บสถิติ 5ส</p>
+    </div></div>`;
+    return html;
+  }
+  rounds.forEach(r=>{
+    const isActive=r.status==='active';
+    html+=`<div class="card cp mb14" style="border-left:4px solid ${isActive?'var(--gn)':'var(--mu)'}">
+      <div class="f ic jb fw g8">
+        <div style="flex:1;min-width:200px">
+          <b style="font-size:15px">${r.name}</b>
+          ${isActive?'<span style="font-size:11px;background:var(--gn);color:#fff;padding:2px 8px;border-radius:6px;margin-left:6px">กำลังใช้งาน</span>':'<span style="font-size:11px;background:var(--mu);color:#fff;padding:2px 8px;border-radius:6px;margin-left:6px">ปิดแล้ว</span>'}
+          <div style="font-size:12px;color:var(--mu);margin-top:3px">${thDate(r.start_date)} → ${thDate(r.end_date)}</div>
+        </div>
+        <div class="f g8">
+          <button class="btn btn-xs" onclick="openEditFsRound('${cid}','${r.id}')"><i class="ti ti-edit"></i> แก้ไข</button>
+          ${isActive?
+            `<button class="btn btn-xs" style="color:var(--am);border-color:var(--am)" onclick="closeFsRound('${cid}','${r.id}')"><i class="ti ti-lock"></i> จบรอบ</button>`
+            :`<button class="btn btn-xs" style="color:var(--gn);border-color:var(--gn)" onclick="reopenFsRound('${cid}','${r.id}')"><i class="ti ti-lock-open"></i> เปิดใหม่</button>`}
+          <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delFsRound('${cid}','${r.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function openAddFsRound(cid){
+  const active=fsActiveRound(cid);
+  if(active){alert('กรุณาจบรอบ "'+active.name+'" ก่อนสร้างรอบใหม่');return;}
+  const rounds=fsRounds(cid);
+  const nextNum=rounds.length+1;
+  const today=new Date();
+  const end=new Date(today);end.setDate(end.getDate()+30);
+  openMD(`<div class="mt"><b><i class="ti ti-plus"></i> สร้างรอบประเมินใหม่</b></div>
+    <div class="fg"><label class="fl">ชื่อรอบ</label>
+      <input type="text" id="rdName" value="รอบที่ ${nextNum}" placeholder="เช่น รอบที่ 1 · มิ.ย. 2568"></div>
+    <div class="fg"><label class="fl">วันที่เริ่ม</label>
+      <input type="date" id="rdStart" value="${today.toISOString().split('T')[0]}"></div>
+    <div class="fg"><label class="fl">วันที่จบ</label>
+      <input type="date" id="rdEnd" value="${end.toISOString().split('T')[0]}"></div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="submitAddFsRound('${cid}')"><i class="ti ti-check"></i>สร้าง</button>
+    </div>`);
+}
+async function submitAddFsRound(cid){
+  _lastSaveTime=Date.now();
+  const name=(document.getElementById('rdName').value||'').trim();
+  const start_date=document.getElementById('rdStart').value||'';
+  const end_date=document.getElementById('rdEnd').value||'';
+  if(!name||!start_date||!end_date){showToast('กรุณากรอกให้ครบ');return;}
+  if(end_date<start_date){showToast('วันจบต้องหลังวันเริ่ม');return;}
+  const id='r_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  try{
+    const {error}=await sb.from('five_s_rounds').insert({id,class_id:cid,name,start_date,end_date,status:'active'});
+    if(error)throw error;
+    if(!db.fiveS.rounds[tk(cid)])db.fiveS.rounds[tk(cid)]=[];
+    db.fiveS.rounds[tk(cid)].push({id,name,start_date,end_date,status:'active',created_at:new Date().toISOString()});
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderFiveS();
+    showToast('สร้างรอบแล้ว ✓');
+  }catch(e){console.error(e);alert('สร้างไม่สำเร็จ: '+e.message);}
+}
+
+function openEditFsRound(cid,rid){
+  const r=fsRounds(cid).find(x=>x.id===rid);if(!r)return;
+  openMD(`<div class="mt"><b><i class="ti ti-edit"></i> แก้ไขรอบ</b></div>
+    <div class="fg"><label class="fl">ชื่อรอบ</label>
+      <input type="text" id="rdName" value="${r.name.replace(/"/g,'&quot;')}"></div>
+    <div class="fg"><label class="fl">วันที่เริ่ม</label>
+      <input type="date" id="rdStart" value="${r.start_date}"></div>
+    <div class="fg"><label class="fl">วันที่จบ</label>
+      <input type="date" id="rdEnd" value="${r.end_date}"></div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeMD()">ยกเลิก</button>
+      <button class="btn btn-p" onclick="submitEditFsRound('${cid}','${rid}')"><i class="ti ti-check"></i>บันทึก</button>
+    </div>`);
+}
+async function submitEditFsRound(cid,rid){
+  _lastSaveTime=Date.now();
+  const r=fsRounds(cid).find(x=>x.id===rid);if(!r)return;
+  const name=(document.getElementById('rdName').value||'').trim();
+  const start_date=document.getElementById('rdStart').value||'';
+  const end_date=document.getElementById('rdEnd').value||'';
+  if(!name||!start_date||!end_date){showToast('กรุณากรอกให้ครบ');return;}
+  try{
+    const {error}=await sb.from('five_s_rounds').update({name,start_date,end_date}).eq('id',rid);
+    if(error)throw error;
+    r.name=name;r.start_date=start_date;r.end_date=end_date;
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderFiveS();
+    showToast('บันทึกแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+
+async function closeFsRound(cid,rid){
+  if(!confirm('จบรอบนี้? หลังจบสถิติจะไม่เปลี่ยน คุณสามารถสร้างรอบใหม่ได้'))return;
+  _lastSaveTime=Date.now();
+  try{
+    const {error}=await sb.from('five_s_rounds').update({status:'closed'}).eq('id',rid);
+    if(error)throw error;
+    const r=fsRounds(cid).find(x=>x.id===rid);if(r)r.status='closed';
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    renderFiveS();
+    showToast('จบรอบแล้ว ✓');
+  }catch(e){console.error(e);alert('ไม่สำเร็จ: '+e.message);}
+}
+async function reopenFsRound(cid,rid){
+  const active=fsActiveRound(cid);
+  if(active){alert('มีรอบ "'+active.name+'" กำลัง active อยู่ — ต้องจบรอบนั้นก่อน');return;}
+  if(!confirm('เปิดรอบนี้อีกครั้ง?'))return;
+  _lastSaveTime=Date.now();
+  try{
+    const {error}=await sb.from('five_s_rounds').update({status:'active'}).eq('id',rid);
+    if(error)throw error;
+    const r=fsRounds(cid).find(x=>x.id===rid);if(r)r.status='active';
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    renderFiveS();
+    showToast('เปิดรอบแล้ว ✓');
+  }catch(e){console.error(e);alert('ไม่สำเร็จ: '+e.message);}
+}
+async function delFsRound(cid,rid){
+  if(!confirm('ลบรอบนี้? ข้อมูลเช็คงาน + สมาชิกในรอบจะยังอยู่ แต่จะไม่ผูกรอบใดๆ'))return;
+  _lastSaveTime=Date.now();
+  try{
+    const {error}=await sb.from('five_s_rounds').delete().eq('id',rid);
+    if(error)throw error;
+    db.fiveS.rounds[tk(cid)]=(db.fiveS.rounds[tk(cid)]||[]).filter(x=>x.id!==rid);
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    renderFiveS();
+    showToast('ลบแล้ว ✓');
+  }catch(e){console.error(e);alert('ลบไม่สำเร็จ: '+e.message);}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// เช็คการทำงาน + เช็คสมาชิก (Modal)
+// ══════════════════════════════════════════════════════════════════
+let _fsCheckDate=null;   // วันที่ที่กำลังเช็ค (ตัวแปร global เฉพาะ modal)
+
+// helper
+function _fsAttKey(cid,gid){return tk(cid)+'__'+gid;}
+function _fsAttOfDay(cid,gid,date){return ((db.fiveS.attendance[_fsAttKey(cid,gid)]||{})[date])||{};}
+
+// ── เช็คงาน (items) ──
+function openFsCheckWork(cid,gid){
+  const g=fsGroups(cid).find(x=>x.id===gid);if(!g)return;
+  const items=g.items||db.fiveS.items||[];
+  if(!items.length){alert('ยังไม่มีหัวข้อ กด "หัวข้อ" เพื่อเพิ่ม');return;}
+  const active=fsActiveRound(cid);
+  // ถ้ามี date จาก input onchange ให้ใช้ค่านั้น
+  const dateInp=document.querySelector('input[type=date]');
+  const dateFromInp=dateInp&&dateInp.value;
+  const date=dateFromInp||_fsCheckDate||todayStr();
+  _fsCheckDate=date;
+  _renderFsCheckWorkModal(cid,gid,date,active);
+}
+function _renderFsCheckWorkModal(cid,gid,date,round){
+  const g=fsGroups(cid).find(x=>x.id===gid);if(!g)return;
+  const items=g.items||db.fiveS.items||[];
+  // อ่าน check ปัจจุบันของกลุ่ม (ใช้ record student_id='group' เป็น shared)
+  const rec=fsChecks(cid,gid,date);
+  const groupRec=rec['__group__']||{items:{},note:''};
+  const roundInfo=round?`<span style="font-size:11px;background:var(--gn);color:#fff;padding:2px 8px;border-radius:6px">${round.name}</span>`:'<span style="font-size:11px;background:var(--am);color:#fff;padding:2px 8px;border-radius:6px">ไม่มีรอบ active</span>';
+  const itemsHtml=items.map((it,i)=>{
+    const done=!!groupRec.items[i];
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px;background:${done?'#F0FDF4':'#fff'};border:1.5px solid ${done?'var(--gn)':'var(--bd)'};border-radius:8px;margin-bottom:6px;cursor:pointer">
+      <input type="checkbox" data-idx="${i}" ${done?'checked':''} style="width:20px;height:20px;cursor:pointer">
+      <span style="font-size:14px;flex:1">${it}</span>
+    </label>`;
+  }).join('');
+  openMD(`<div class="mt"><b><i class="ti ti-checkbox"></i> เช็คงาน — ${g.name}</b> ${roundInfo}</div>
+    <div style="background:#EFF6FF;padding:8px 12px;border-radius:6px;margin-bottom:10px">
+      <span style="font-size:12px;color:var(--mu)">วันที่:</span>
+      <input type="date" value="${date}" onchange="openFsCheckWork('${cid}','${gid}')" style="border:none;background:transparent;font-size:13px;font-weight:600">
+    </div>
+    <div style="max-height:400px;overflow:auto">${itemsHtml}</div>
+    <div class="fg" style="margin-top:8px"><label class="fl">หมายเหตุ (ถ้ามี)</label>
+      <textarea id="fsWorkNote" rows="2" placeholder="เช่น ยังทำไม่ครบ, สะอาดดีมาก">${(groupRec.note||'').replace(/</g,'&lt;')}</textarea>
+    </div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeMD()">ปิด</button>
+      <button class="btn btn-p" onclick="saveFsCheckWork('${cid}','${gid}')"><i class="ti ti-device-floppy"></i>บันทึก</button>
+    </div>`);
+}
+async function saveFsCheckWork(cid,gid){
+  _lastSaveTime=Date.now();
+  const date=_fsCheckDate||todayStr();
+  const round=fsActiveRound(cid);
+  const roundId=round?round.id:null;
+  const items={};
+  document.querySelectorAll('input[type=checkbox][data-idx]').forEach(cb=>{
+    items[cb.dataset.idx]=cb.checked;
+  });
+  const note=(document.getElementById('fsWorkNote')?.value||'').trim();
+  try{
+    // เก็บเป็น record ที่ student_id='__group__' (เช็คงานเป็นของกลุ่ม ไม่ใช่รายคน)
+    const {error}=await sb.from('five_s_checks').upsert({
+      group_id:gid,student_id:'__group__',date,items,note,round_id:roundId
+    },{onConflict:'group_id,student_id,date'});
+    if(error)throw error;
+    // update local
+    const ckey=fsCheckKey(cid,gid);
+    if(!db.fiveS.checks[ckey])db.fiveS.checks[ckey]={};
+    if(!db.fiveS.checks[ckey][date])db.fiveS.checks[ckey][date]={};
+    db.fiveS.checks[ckey][date]['__group__']={items,note,round_id:roundId};
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();
+    showToast('บันทึกเช็คงานแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+
+// ── เช็คสมาชิก (attendance) ──
+function openFsCheckAtt(cid,gid){
+  const g=fsGroups(cid).find(x=>x.id===gid);if(!g)return;
+  const active=fsActiveRound(cid);
+  const dateInp=document.querySelector('input[type=date]');
+  const dateFromInp=dateInp&&dateInp.value;
+  const date=dateFromInp||_fsCheckDate||todayStr();
+  _fsCheckDate=date;
+  window._fsAttTemp={};
+  _renderFsCheckAttModal(cid,gid,date,active);
+}
+function _renderFsCheckAttModal(cid,gid,date,round){
+  const g=fsGroups(cid).find(x=>x.id===gid);if(!g)return;
+  const allStus=stuList(cid);
+  // members = leader + memberIds
+  const memberIds=new Set([...(g.memberIds||[])]);
+  if(g.leaderId)memberIds.add(g.leaderId);
+  const members=allStus.filter(s=>memberIds.has(s.id));
+  const rec=_fsAttOfDay(cid,gid,date);
+  const roundInfo=round?`<span style="font-size:11px;background:var(--gn);color:#fff;padding:2px 8px;border-radius:6px">${round.name}</span>`:'<span style="font-size:11px;background:var(--am);color:#fff;padding:2px 8px;border-radius:6px">ไม่มีรอบ active</span>';
+  const memHtml=members.map(s=>{
+    const isLeader=s.id===g.leaderId;
+    const cur=rec[s.id];
+    const present=cur?cur.present:true;  // default present
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${present?'#F0FDF4':'#FEF2F2'};border:1.5px solid ${present?'var(--gn)':'var(--rd)'};border-radius:8px;margin-bottom:6px">
+      <span style="min-width:32px;font-weight:700;color:var(--mu)">${s.no}</span>
+      <span style="flex:1;font-size:14px;font-weight:600">${s.firstName} ${s.lastName}${isLeader?' <span style="font-size:11px;color:#B45309"><i class="ti ti-crown"></i></span>':''}</span>
+      <button class="btn btn-xs ${present?'btn-p':''}" data-sid="${s.id}" data-p="1" onclick="_fsToggleAtt('${s.id}',true)" style="background:${present?'var(--gn)':'#fff'};color:${present?'#fff':'var(--gn)'};border-color:var(--gn)">มา</button>
+      <button class="btn btn-xs ${!present?'btn-p':''}" data-sid="${s.id}" data-p="0" onclick="_fsToggleAtt('${s.id}',false)" style="background:${!present?'var(--rd)':'#fff'};color:${!present?'#fff':'var(--rd)'};border-color:var(--rd)">ไม่มา</button>
+    </div>`;
+  }).join('');
+  openMD(`<div class="mt"><b><i class="ti ti-user-check"></i> เช็คสมาชิก — ${g.name}</b> ${roundInfo}</div>
+    <div style="background:#EFF6FF;padding:8px 12px;border-radius:6px;margin-bottom:10px">
+      <span style="font-size:12px;color:var(--mu)">วันที่:</span>
+      <input type="date" value="${date}" onchange="_fsCheckDate=this.value;openFsCheckAtt('${cid}','${gid}')" style="border:none;background:transparent;font-size:13px;font-weight:600">
+    </div>
+    <div style="max-height:400px;overflow:auto" id="fsAttList">${memHtml||'<div class="empty">ไม่มีสมาชิก</div>'}</div>
+    <div class="f g8" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeMD()">ปิด</button>
+      <button class="btn btn-p" onclick="saveFsCheckAtt('${cid}','${gid}')"><i class="ti ti-device-floppy"></i>บันทึก</button>
+    </div>`);
+}
+function _fsToggleAtt(sid,present){
+  // อัปเดต visual only (บันทึกจริงตอนกด "บันทึก")
+  const btns=document.querySelectorAll(`[data-sid="${sid}"]`);
+  btns.forEach(b=>{
+    const isThis=b.dataset.p===(present?'1':'0');
+    if(isThis){b.classList.add('btn-p');b.style.background=present?'var(--gn)':'var(--rd)';b.style.color='#fff';}
+    else{b.classList.remove('btn-p');b.style.background='#fff';b.style.color=present?'var(--rd)':'var(--gn)';}
+  });
+  const row=btns[0]?.closest('div');
+  if(row){row.style.background=present?'#F0FDF4':'#FEF2F2';row.style.borderColor=present?'var(--gn)':'var(--rd)';}
+  // store in temp
+  if(!window._fsAttTemp)window._fsAttTemp={};
+  window._fsAttTemp[sid]=present;
+}
+async function saveFsCheckAtt(cid,gid){
+  _lastSaveTime=Date.now();
+  const date=_fsCheckDate||todayStr();
+  const round=fsActiveRound(cid);
+  const roundId=round?round.id:null;
+  const g=fsGroups(cid).find(x=>x.id===gid);if(!g)return;
+  const memberIds=new Set([...(g.memberIds||[])]);
+  if(g.leaderId)memberIds.add(g.leaderId);
+  const rec=_fsAttOfDay(cid,gid,date);
+  const temp=window._fsAttTemp||{};
+  const rows=[];
+  memberIds.forEach(sid=>{
+    // ถ้ามีใน temp ใช้ temp; ไม่งั้นใช้ rec เดิม; ไม่งั้น default = true (มา)
+    let present=true;
+    if(temp[sid]!==undefined)present=temp[sid];
+    else if(rec[sid])present=rec[sid].present;
+    rows.push({group_id:gid,student_id:sid,date,present,checker:'teacher',round_id:roundId});
+  });
+  try{
+    const {error}=await sb.from('five_s_attendance').upsert(rows,{onConflict:'group_id,date,student_id'});
+    if(error)throw error;
+    // update local
+    const akey=_fsAttKey(cid,gid);
+    if(!db.fiveS.attendance[akey])db.fiveS.attendance[akey]={};
+    if(!db.fiveS.attendance[akey][date])db.fiveS.attendance[akey][date]={};
+    rows.forEach(r=>{db.fiveS.attendance[akey][date][r.student_id]={present:r.present,checker:r.checker,round_id:r.round_id};});
+    window._fsAttTemp={};
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();
+    showToast('บันทึกการเช็คสมาชิกแล้ว ✓');
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+
 
 // ── หน้า 1: จัดการกลุ่ม ──
 function renderFiveSGroups(cid){
@@ -6554,6 +6907,8 @@ function renderFiveSGroups(cid){
             <span style="font-size:11.5px;color:var(--mu);margin-left:8px">${1+members.length} คน</span>
           </div>
           <div class="f g8">
+            <button class="btn btn-xs btn-p" onclick="openFsCheckWork('${cid}','${g.id}')"><i class="ti ti-checkbox"></i>เช็คงาน</button>
+            <button class="btn btn-xs" style="color:var(--gn);border-color:var(--gn)" onclick="openFsCheckAtt('${cid}','${g.id}')"><i class="ti ti-user-check"></i>เช็คสมาชิก</button>
             <button class="btn btn-xs btn-p" onclick="openFsManageMembers('${cid}','${g.id}')"><i class="ti ti-users"></i>สมาชิก</button>
             <button class="btn btn-xs" style="color:var(--bl);border-color:var(--bl)" onclick="openFsGroupItems('${cid}','${g.id}')"><i class="ti ti-list-check"></i>หัวข้อ</button>
             <button class="btn btn-xs" onclick="openEditFsGroup('${cid}','${g.id}')"><i class="ti ti-edit"></i>แก้ไข</button>
@@ -6907,46 +7262,134 @@ function renderFiveSSummary(cid){
       <p style="font-size:12px;color:var(--mu)">สร้างกลุ่มในแท็บ "จัดการกลุ่ม" ก่อน</p>
     </div></div>`;
   }
-  // คำนวณช่วงวันที่ (30 วันย้อนหลัง)
-  const today=new Date();
-  const dates=[];
-  for(let i=29;i>=0;i--){
-    const d=new Date(today);d.setDate(d.getDate()-i);
-    dates.push(d.toISOString().slice(0,10));
+  const rounds=fsRounds(cid).slice().sort((a,b)=>(b.start_date||'').localeCompare(a.start_date||''));
+  // เลือกโหมด: 'all' = รวมทุกรอบ / round_id = เฉพาะรอบ
+  const mode=P.fiveS.sumMode||'all';
+  const roundOpts=`<option value="all" ${mode==='all'?'selected':''}>รวมทุกรอบ</option>`+
+    rounds.map(r=>`<option value="${r.id}" ${mode===r.id?'selected':''}>${r.name} ${r.status==='active'?'(active)':''}</option>`).join('');
+  // Filter helper: get date range
+  let dates=[];
+  let scopeLabel='รวมทุกรอบ (30 วันล่าสุด)';
+  if(mode==='all'){
+    const today=new Date();
+    for(let i=29;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dates.push(d.toISOString().slice(0,10));}
+  } else {
+    const r=rounds.find(x=>x.id===mode);
+    if(r){
+      scopeLabel=`${r.name} (${thDate(r.start_date)} → ${thDate(r.end_date)})`;
+      const s=new Date(r.start_date),e=new Date(r.end_date);
+      for(let d=new Date(s); d<=e; d.setDate(d.getDate()+1))dates.push(d.toISOString().slice(0,10));
+    }
   }
   let html=`<div class="card cp mb14">
-    <b><i class="ti ti-chart-bar"></i> สรุปผลกิจกรรม 5 ส — ${cls.name}</b>
-    <div style="font-size:12px;color:var(--mu);margin-top:3px">30 วันย้อนหลัง · ${groups.length} กลุ่ม</div>
+    <div class="f ic jb fw g8">
+      <div>
+        <b><i class="ti ti-chart-bar"></i> สรุปผลกิจกรรม 5 ส — ${cls.name}</b>
+        <div style="font-size:12px;color:var(--mu);margin-top:3px">${scopeLabel} · ${groups.length} กลุ่ม</div>
+      </div>
+      <select onchange="P.fiveS.sumMode=this.value;renderFiveS()" style="padding:6px 10px;font-size:13px">${roundOpts}</select>
+    </div>
   </div>`;
+
+  // ── รายงาน: นักเรียนไม่มาทำกิจกรรมบ่อย ──
+  const absentReport={};   // {stuId: {name, no, group, absentDays, totalDays, groupId}}
+  groups.forEach(g=>{
+    const memberIds=[g.leaderId,...(g.memberIds||[])].filter(Boolean);
+    memberIds.forEach(sid=>{
+      const stu=stus.find(s=>s.id===sid);if(!stu)return;
+      if(!absentReport[sid])absentReport[sid]={name:stu.firstName+' '+stu.lastName,no:stu.no,groupName:g.name,groupId:g.id,absent:0,present:0,totalDaysChecked:0};
+    });
+  });
+  // นับ absent from db.fiveS.attendance
+  groups.forEach(g=>{
+    const akey=_fsAttKey(cid,g.id);
+    const attData=(db.fiveS.attendance||{})[akey]||{};
+    dates.forEach(d=>{
+      const dayAtt=attData[d];
+      if(!dayAtt)return;
+      Object.keys(dayAtt).forEach(sid=>{
+        if(!absentReport[sid])return;
+        const rec=dayAtt[sid];
+        // Filter by round if needed
+        if(mode!=='all'&&rec.round_id!==mode)return;
+        absentReport[sid].totalDaysChecked++;
+        if(rec.present)absentReport[sid].present++;
+        else absentReport[sid].absent++;
+      });
+    });
+  });
+  const absentList=Object.entries(absentReport)
+    .map(([sid,d])=>({sid,...d,absentPct:d.totalDaysChecked?Math.round(d.absent/d.totalDaysChecked*100):0}))
+    .filter(x=>x.absent>0).sort((a,b)=>b.absent-a.absent||b.absentPct-a.absentPct);
+  if(absentList.length){
+    html+=`<div class="card mb14" style="border-left:4px solid var(--rd)">
+      <div class="cp" style="background:#FEF2F2">
+        <b style="color:#B91C1C"><i class="ti ti-alert-triangle"></i> นักเรียนที่ไม่มาทำกิจกรรมบ่อย</b>
+        <div style="font-size:11px;color:#7F1D1D;margin-top:3px">${absentList.length} คน (เรียงตามจำนวนวันที่ขาด)</div>
+      </div>
+      <div class="cp">
+        <div class="tw" style="max-height:250px;overflow:auto"><table style="width:100%;font-size:12.5px">
+          <thead><tr style="background:var(--sf2)">
+            <th style="padding:6px;width:32px">ที่</th>
+            <th style="padding:6px;text-align:left">ชื่อ</th>
+            <th style="padding:6px;text-align:left">กลุ่ม</th>
+            <th style="padding:6px;width:70px">ขาด/มา</th>
+            <th style="padding:6px;width:60px">% ขาด</th>
+          </tr></thead><tbody>`;
+    absentList.forEach(x=>{
+      const col=x.absentPct>=50?'var(--rd)':x.absentPct>=25?'var(--am)':'var(--mu)';
+      html+=`<tr>
+        <td style="padding:4px;text-align:center;color:var(--mu)">${x.no}</td>
+        <td style="padding:4px">${x.name}</td>
+        <td style="padding:4px;color:var(--mu);font-size:11.5px">${x.groupName}</td>
+        <td style="padding:4px;text-align:center"><b style="color:var(--rd)">${x.absent}</b>/${x.present}</td>
+        <td style="padding:4px;text-align:center;font-weight:700;color:${col}">${x.absentPct}%</td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div></div></div>`;
+  }
+
+  // ── สรุปแต่ละกลุ่ม (เหมือนเดิม แต่ filter ตาม dates + rounds) ──
   groups.forEach(g=>{
     const items=fsGroupItems(g);
     const leader=stus.find(s=>s.id===g.leaderId);
     const members=[g.leaderId,...(g.memberIds||[])].map(id=>stus.find(s=>s.id===id)).filter(Boolean);
-    // นับ: total = จำนวนวัน × สมาชิก × หัวข้อ, done = จำนวนที่ทำ
+    // เช็คงาน (จาก __group__ record)
     let totalPossible=0, totalDone=0;
-    const perStu={};
     const perItem={};
     items.forEach((it,i)=>{perItem[i]={done:0,total:0,name:it};});
-    members.forEach(m=>{perStu[m.id]={name:m.firstName+' '+m.lastName,no:m.no,done:0,total:0};});
     let daysWithData=0;
     dates.forEach(d=>{
       const dayCheck=fsChecks(cid,g.id,d);
-      if(!Object.keys(dayCheck).length)return;
+      const rec=dayCheck['__group__']||dayCheck[members[0]?.id];  // fallback สำหรับข้อมูลเก่า
+      if(!rec||!rec.items||!Object.keys(rec.items).length)return;
+      // Filter by round if needed
+      if(mode!=='all'&&rec.round_id!==mode)return;
       daysWithData++;
-      members.forEach(m=>{
-        items.forEach((it,i)=>{
-          const done=((dayCheck[m.id]||{}).items||{})[i]===true;
-          totalPossible++;
-          if(done)totalDone++;
-          perStu[m.id].total++;
-          if(done)perStu[m.id].done++;
-          perItem[i].total++;
-          if(done)perItem[i].done++;
-        });
+      items.forEach((it,i)=>{
+        const done=rec.items[i]===true;
+        totalPossible++;
+        if(done)totalDone++;
+        perItem[i].total++;
+        if(done)perItem[i].done++;
       });
+    });
+    // เช็คสมาชิก (attendance)
+    const akey=_fsAttKey(cid,g.id);
+    const attData=(db.fiveS.attendance||{})[akey]||{};
+    let attDays=0,attTotal=0,attPresent=0;
+    dates.forEach(d=>{
+      const dayAtt=attData[d];if(!dayAtt)return;
+      // filter by round
+      const filtered=Object.entries(dayAtt).filter(([,v])=>mode==='all'||v.round_id===mode);
+      if(!filtered.length)return;
+      attDays++;
+      filtered.forEach(([,v])=>{attTotal++;if(v.present)attPresent++;});
     });
     const pct=totalPossible?Math.round(totalDone/totalPossible*100):0;
     const pctCol=pct>=80?'var(--gn)':pct>=60?'var(--am)':'var(--rd)';
+    const attPct=attTotal?Math.round(attPresent/attTotal*100):0;
+    const attPctCol=attPct>=80?'var(--gn)':attPct>=60?'var(--am)':'var(--rd)';
     html+=`<div class="card mb14">
       <div class="cp" style="border-bottom:1px solid var(--bd);background:var(--sf2)">
         <div class="f ic jb fw g8">
@@ -6957,42 +7400,51 @@ function renderFiveSSummary(cid){
             </span>
           </div>
           <div style="text-align:right">
-            <div style="font-size:24px;font-weight:800;color:${pctCol};line-height:1">${pct}%</div>
-            <div style="font-size:10px;color:var(--mu)">${daysWithData} วันที่เช็ค</div>
+            <div><b style="color:${pctCol}">${pct}%</b> <span style="font-size:11px;color:var(--mu)">งาน</span> · <b style="color:${attPctCol}">${attPct}%</b> <span style="font-size:11px;color:var(--mu)">มา</span></div>
+            <div style="font-size:10px;color:var(--mu)">${daysWithData} วันเช็คงาน · ${attDays} วันเช็คสมาชิก</div>
           </div>
         </div>
       </div>
       <div class="cp">`;
-    if(!daysWithData){
-      html+=`<div style="text-align:center;padding:16px;font-size:12.5px;color:var(--mu)">ยังไม่มีข้อมูลเช็คในช่วงนี้</div>`;
+    if(!daysWithData&&!attDays){
+      html+=`<div style="text-align:center;padding:16px;font-size:12.5px;color:var(--mu)">ยังไม่มีข้อมูลในช่วงนี้</div>`;
     } else {
-      // สรุปรายบุคคล
-      html+=`<div style="font-size:11.5px;color:var(--mu);margin-bottom:6px"><b>คะแนนรายบุคคล</b></div>
-        <div class="tw" style="max-height:250px;overflow:auto"><table style="width:100%;font-size:12px">
-        <thead><tr style="background:var(--sf2)"><th style="padding:5px;width:36px">ที่</th><th style="padding:5px;text-align:left">ชื่อ</th><th style="padding:5px;width:80px">คะแนน</th><th style="padding:5px;width:60px">%</th></tr></thead><tbody>`;
-      Object.values(perStu).sort((a,b)=>a.no-b.no).forEach(s=>{
-        const p=s.total?Math.round(s.done/s.total*100):0;
+      if(daysWithData){
+        html+=`<div style="font-size:11.5px;color:var(--mu);margin-bottom:6px"><b>คะแนนรายหัวข้อ (การทำงาน)</b></div>
+          <div class="f g8 fw" style="margin-bottom:10px">`;
+        items.forEach((it,i)=>{
+          const stat=perItem[i];
+          const p=stat.total?Math.round(stat.done/stat.total*100):0;
+          const col=p>=80?'#DCFCE7':p>=60?'#FEF3C7':'#FEE2E2';
+          const fc=p>=80?'#15803D':p>=60?'#92400E':'#B91C1C';
+          html+=`<div style="background:${col};padding:6px 10px;border-radius:6px;font-size:12px">
+            <b style="color:${fc}">${it}</b> <span style="color:${fc};font-weight:700">${p}%</span>
+          </div>`;
+        });
+        html+=`</div>`;
+      }
+      // สรุปการมาทำของสมาชิก
+      html+=`<div style="font-size:11.5px;color:var(--mu);margin-bottom:6px"><b>การมาทำกิจกรรมของสมาชิก</b></div>
+        <div class="tw" style="max-height:200px;overflow:auto"><table style="width:100%;font-size:12px">
+        <thead><tr style="background:var(--sf2)"><th style="padding:5px;width:36px">ที่</th><th style="padding:5px;text-align:left">ชื่อ</th><th style="padding:5px;width:70px">มา</th><th style="padding:5px;width:70px">ขาด</th><th style="padding:5px;width:60px">%มา</th></tr></thead><tbody>`;
+      members.forEach(m=>{
+        let present=0,absent=0;
+        dates.forEach(d=>{
+          const rec=attData[d]?.[m.id];
+          if(!rec)return;
+          if(mode!=='all'&&rec.round_id!==mode)return;
+          if(rec.present)present++;else absent++;
+        });
+        const total=present+absent;
+        const p=total?Math.round(present/total*100):0;
         const col=p>=80?'var(--gn)':p>=60?'var(--am)':'var(--rd)';
-        html+=`<tr><td style="padding:4px;text-align:center;color:var(--mu)">${s.no}</td>
-          <td style="padding:4px">${s.name}</td>
-          <td style="padding:4px;text-align:center">${s.done}/${s.total}</td>
+        html+=`<tr><td style="padding:4px;text-align:center;color:var(--mu)">${m.no}</td>
+          <td style="padding:4px">${m.firstName} ${m.lastName}${m.id===g.leaderId?' <i class="ti ti-crown" style="color:#92400E"></i>':''}</td>
+          <td style="padding:4px;text-align:center;color:var(--gn)"><b>${present}</b></td>
+          <td style="padding:4px;text-align:center;color:${absent?'var(--rd)':'var(--mu)'}">${absent||'—'}</td>
           <td style="padding:4px;text-align:center;font-weight:700;color:${col}">${p}%</td></tr>`;
       });
       html+=`</tbody></table></div>`;
-      // สรุปรายหัวข้อ
-      html+=`<div style="font-size:11.5px;color:var(--mu);margin-top:10px;margin-bottom:6px"><b>คะแนนรายหัวข้อ</b></div>
-        <div class="f g8 fw">`;
-      items.forEach((it,i)=>{
-        const stat=perItem[i];
-        const p=stat.total?Math.round(stat.done/stat.total*100):0;
-        const col=p>=80?'#DCFCE7':p>=60?'#FEF3C7':'#FEE2E2';
-        const fc=p>=80?'#15803D':p>=60?'#92400E':'#B91C1C';
-        html+=`<div style="background:${col};padding:6px 10px;border-radius:6px;font-size:12px">
-          <b style="color:${fc}">${it}</b> <span style="color:${fc};font-weight:700">${p}%</span>
-          <span style="color:${fc};opacity:.7;font-size:10.5px">(${stat.done}/${stat.total})</span>
-        </div>`;
-      });
-      html+=`</div>`;
     }
     html+=`</div></div>`;
   });
@@ -7466,8 +7918,10 @@ function _initDB(){
   if(!db.submitStatus)db.submitStatus={};
   if(!db.timetable)db.timetable={};
   // 5 ส
-  if(!db.fiveS)db.fiveS={items:['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'],groups:{},checks:{}};
+  if(!db.fiveS)db.fiveS={items:['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'],groups:{},checks:{},rounds:{},attendance:{}};
   if(!db.fiveS.items||!db.fiveS.items.length)db.fiveS.items=['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'];
+  if(!db.fiveS.rounds)db.fiveS.rounds={};
+  if(!db.fiveS.attendance)db.fiveS.attendance={};
   if(!db.fiveS.groups)db.fiveS.groups={};
   if(!db.fiveS.checks)db.fiveS.checks={};
   // ถ้ามี db.periods เก็บไว้ ให้ใช้แทน PERIODS default
@@ -7489,7 +7943,7 @@ function _initDB(){
 /* ── REALTIME SUBSCRIPTION ── */
 function _setupRealtime(){
   // Subscribe ทุก table ที่มีข้อมูล — เมื่อมีการเปลี่ยนแปลง reload ทั้งหมด
-  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks'];
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
   const channel=sb.channel('all-tables-changes');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{

@@ -336,6 +336,8 @@ function _normalizeDB(){
   if(!db.fiveS.items||!db.fiveS.items.length)db.fiveS.items=['สะสาง','สะดวก','สะอาด','สร้างมาตรฐาน','สร้างวินัย'];
   if(!db.fiveS.groups)db.fiveS.groups={};
   if(!db.fiveS.checks)db.fiveS.checks={};
+  if(!db.fiveS.rounds)db.fiveS.rounds={};
+  if(!db.fiveS.attendance)db.fiveS.attendance={};
   // ตั้ง currentTermId จาก term ที่ isCurrent
   const cur=db.terms.find(t=>t.isCurrent);
   window._currentTermId=cur?cur.id:(db.terms[0]?.id||null);
@@ -447,14 +449,34 @@ async function _rowsToDbStu(rows){
     const ckey=(cid2term[cid]||'')+'__'+cid+'__'+ck.group_id;
     if(!d.fiveS.checks[ckey])d.fiveS.checks[ckey]={};
     if(!d.fiveS.checks[ckey][ck.date])d.fiveS.checks[ckey][ck.date]={};
-    d.fiveS.checks[ckey][ck.date][ck.student_id]={items:ck.items||{},note:ck.note||''};
+    d.fiveS.checks[ckey][ck.date][ck.student_id]={items:ck.items||{},note:ck.note||'',round_id:ck.round_id||null};
+  });
+  // rounds
+  if(!d.fiveS.rounds)d.fiveS.rounds={};
+  (rows.five_s_rounds||[]).forEach(r=>{
+    const tkey=(cid2term[r.class_id]||'')+'__'+r.class_id;
+    if(!d.fiveS.rounds[tkey])d.fiveS.rounds[tkey]=[];
+    d.fiveS.rounds[tkey].push({
+      id:r.id,name:r.name,start_date:r.start_date,end_date:r.end_date,
+      status:r.status||'active',created_at:r.created_at
+    });
+  });
+  // attendance (member check)
+  if(!d.fiveS.attendance)d.fiveS.attendance={};
+  (rows.five_s_attendance||[]).forEach(a=>{
+    const cid=groupToClass[a.group_id];
+    if(!cid)return;
+    const akey=(cid2term[cid]||'')+'__'+cid+'__'+a.group_id;
+    if(!d.fiveS.attendance[akey])d.fiveS.attendance[akey]={};
+    if(!d.fiveS.attendance[akey][a.date])d.fiveS.attendance[akey][a.date]={};
+    d.fiveS.attendance[akey][a.date][a.student_id]={present:!!a.present,checker:a.checker||'',round_id:a.round_id||null};
   });
   return d;
 }
 
 async function loadData(){
   try{
-    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks'];
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
     // ── Pagination (Supabase default limit = 1000) ──
     async function fetchAll(t){
       const rows=[];
@@ -561,7 +583,7 @@ function hasPw(sid){return !!(db.studentPasswords||{})[sid];}
 /* ── REALTIME SUBSCRIPTION ── */
 let _lastSaveTimeStu=0;
 function _setupRealtimeStu(){
-  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks'];
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
   const channel=sb.channel('all-tables-stu');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
@@ -2722,8 +2744,9 @@ function renderFiveSStu(){
     return;
   }
   const items=fsGroupItemsStu(g);
-  let html=`<div class="score-type-bar" style="margin-bottom:12px">
+  let html=`<div class="score-type-bar" style="margin-bottom:12px;flex-wrap:wrap">
     <button class="score-type-btn${fsView==='check'?' active':''}" onclick="fsView='check';renderFiveSStu()"><i class="ti ti-checklist"></i> เช็คงาน</button>
+    <button class="score-type-btn${fsView==='attend'?' active':''}" onclick="fsView='attend';renderFiveSStu()"><i class="ti ti-user-check"></i> เช็คสมาชิก</button>
     <button class="score-type-btn${fsView==='items'?' active':''}" onclick="fsView='items';renderFiveSStu()"><i class="ti ti-list-check"></i> หัวข้อ</button>
     <button class="score-type-btn${fsView==='members'?' active':''}" onclick="fsView='members';renderFiveSStu()"><i class="ti ti-users"></i> สมาชิก</button>
     <button class="score-type-btn${fsView==='summary'?' active':''}" onclick="fsView='summary';renderFiveSStu()"><i class="ti ti-chart-bar"></i> สรุปผล</button>
@@ -2739,10 +2762,110 @@ function renderFiveSStu(){
       html+=fsRenderCheck(cid,sid,g,items);
     }
   }
+  else if(fsView==='attend')html+=fsRenderAttCheck(cid,sid,g);
   else if(fsView==='items')html+=fsRenderItems(cid,sid,g,items);
   else if(fsView==='members')html+=fsRenderMembers(cid,sid,g);
   else html+=fsRenderSummary(cid,sid,g,items);
   el.innerHTML=html;
+}
+
+// ── เช็คสมาชิก (นักเรียน = หัวหน้ากลุ่ม) ──
+function _fsAttKeyStu(cid,gid){return tk(cid)+'__'+gid;}
+function _fsAttOfDayStu(cid,gid,date){return (((db.fiveS.attendance||{})[_fsAttKeyStu(cid,gid)]||{})[date])||{};}
+function fsActiveRoundStu(cid){
+  const rounds=(db.fiveS.rounds||{})[tk(cid)]||[];
+  return rounds.find(r=>r.status==='active');
+}
+window._fsAttPending={}; // {stuId: bool}
+function fsAttMark(sid,present){
+  window._fsAttPending[sid]=present;
+  // update visual
+  const row=document.querySelector(`[data-att-sid="${sid}"]`);
+  if(row){
+    row.style.background=present?'#F0FDF4':'#FEF2F2';
+    row.style.borderColor=present?'var(--gn)':'var(--rd)';
+    row.querySelectorAll('button').forEach(b=>{
+      const isP=b.dataset.p==='1';
+      const active=(isP&&present)||(!isP&&!present);
+      b.style.background=active?(isP?'var(--gn)':'var(--rd)'):'#fff';
+      b.style.color=active?'#fff':(isP?'var(--gn)':'var(--rd)');
+    });
+  }
+  const lbl=document.getElementById('fsAttPendingLbl');
+  if(lbl)lbl.innerHTML=`<i class="ti ti-alert-circle" style="color:var(--am)"></i> มี ${Object.keys(window._fsAttPending).length} คนที่เปลี่ยนแปลง`;
+}
+function fsRenderAttCheck(cid,sid,g){
+  const today=new Date().toISOString().slice(0,10);
+  if(!fsSelDate)fsSelDate=today;
+  const date=fsSelDate;
+  const stus=stuArr(cid);
+  const members=[g.leaderId,...(g.memberIds||[])].map(id=>stus.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.no-b.no);
+  const round=fsActiveRoundStu(cid);
+  const rec=_fsAttOfDayStu(cid,g.id,date);
+  window._fsAttPending={};
+  const roundBadge=round?
+    `<span style="font-size:11px;background:var(--gn);color:#fff;padding:2px 8px;border-radius:6px">${round.name}</span>`:
+    `<span style="font-size:11px;background:var(--am);color:#fff;padding:2px 8px;border-radius:6px">ยังไม่มีรอบ active — แจ้งครู</span>`;
+  let html=`<div class="card">
+    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-user-check"></i> ${g.name} · เช็คสมาชิก ${roundBadge}</div></div>
+    <div class="card-bd">
+      <div class="fg">
+        <label class="fl"><i class="ti ti-calendar"></i> วันที่</label>
+        <input type="date" value="${date}" onchange="fsSelDate=this.value;renderFiveSStu()">
+      </div>
+      <div style="font-size:12px;color:var(--mu);padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:10px">
+        <i class="ti ti-info-circle"></i> กด "มา" ถ้าสมาชิกมาทำ · "ไม่มา" ถ้าไม่มา · <b>กดบันทึก</b>เมื่อเช็คเสร็จ
+      </div>`;
+  members.forEach(m=>{
+    const cur=rec[m.id];
+    const present=cur?cur.present:true;
+    const isLeader=m.id===g.leaderId;
+    html+=`<div data-att-sid="${m.id}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${present?'#F0FDF4':'#FEF2F2'};border:1.5px solid ${present?'var(--gn)':'var(--rd)'};border-radius:8px;margin-bottom:6px">
+      <span style="min-width:32px;font-weight:700;color:var(--mu)">${m.no}</span>
+      <span style="flex:1;font-size:14px;font-weight:600">${m.firstName} ${m.lastName}${isLeader?' <i class="ti ti-crown" style="color:#B45309"></i>':''}</span>
+      <button data-p="1" onclick="fsAttMark('${m.id}',true)" style="padding:5px 12px;border:1.5px solid var(--gn);border-radius:6px;background:${present?'var(--gn)':'#fff'};color:${present?'#fff':'var(--gn)'};font-weight:600;cursor:pointer">มา</button>
+      <button data-p="0" onclick="fsAttMark('${m.id}',false)" style="padding:5px 12px;border:1.5px solid var(--rd);border-radius:6px;background:${!present?'var(--rd)':'#fff'};color:${!present?'#fff':'var(--rd)'};font-weight:600;cursor:pointer">ไม่มา</button>
+    </div>`;
+  });
+  html+=`</div>
+    <div class="cp" style="border-top:1px solid var(--bd);background:var(--sf2)">
+      <div class="f g8" style="justify-content:space-between;align-items:center">
+        <div id="fsAttPendingLbl" style="font-size:12px;color:var(--mu)"><i class="ti ti-info-circle"></i> ยังไม่มีการเปลี่ยนแปลง</div>
+        <button class="btn btn-p" onclick="fsSaveAtt('${cid}','${g.id}')"><i class="ti ti-device-floppy"></i> บันทึก</button>
+      </div>
+    </div>
+  </div>`;
+  return html;
+}
+async function fsSaveAtt(cid,gid){
+  _lastSaveTimeStu=Date.now();
+  const date=fsSelDate;
+  const round=fsActiveRoundStu(cid);
+  const roundId=round?round.id:null;
+  const stus=stuArr(cid);
+  const g=fsMyGroup(cid,me.studentId);if(!g)return;
+  const memberIds=new Set([g.leaderId,...(g.memberIds||[])].filter(Boolean));
+  const rec=_fsAttOfDayStu(cid,gid,date);
+  const pending=window._fsAttPending||{};
+  const rows=[];
+  memberIds.forEach(sid=>{
+    let present=true;
+    if(pending[sid]!==undefined)present=pending[sid];
+    else if(rec[sid])present=rec[sid].present;
+    rows.push({group_id:gid,student_id:sid,date,present,checker:'leader',round_id:roundId});
+  });
+  try{
+    const {error}=await sb.from('five_s_attendance').upsert(rows,{onConflict:'group_id,date,student_id'});
+    if(error)throw error;
+    const akey=_fsAttKeyStu(cid,gid);
+    if(!db.fiveS.attendance[akey])db.fiveS.attendance[akey]={};
+    if(!db.fiveS.attendance[akey][date])db.fiveS.attendance[akey][date]={};
+    rows.forEach(r=>{db.fiveS.attendance[akey][date][r.student_id]={present:r.present,checker:r.checker,round_id:r.round_id};});
+    window._fsAttPending={};
+    _lastSaveTimeStu=Date.now();
+    showToast('บันทึกการเช็คสมาชิกแล้ว ✓');
+    renderFiveSStu();
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 
 // items ของกลุ่ม (ถ้าไม่มี ใช้ default)
