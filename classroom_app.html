@@ -6595,7 +6595,7 @@ function openAddFsRound(cid){
   const nextNum=rounds.length+1;
   const today=new Date();
   const end=new Date(today);end.setDate(end.getDate()+30);
-  openMD(`<div class="mt"><b><i class="ti ti-plus"></i> สร้างรอบประเมินใหม่</b></div>
+  showMD(`<div class="mt"><b><i class="ti ti-plus"></i> สร้างรอบประเมินใหม่</b></div>
     <div class="fg"><label class="fl">ชื่อรอบ</label>
       <input type="text" id="rdName" value="รอบที่ ${nextNum}" placeholder="เช่น รอบที่ 1 · มิ.ย. 2568"></div>
     <div class="fg"><label class="fl">วันที่เริ่ม</label>
@@ -6629,7 +6629,7 @@ async function submitAddFsRound(cid){
 
 function openEditFsRound(cid,rid){
   const r=fsRounds(cid).find(x=>x.id===rid);if(!r)return;
-  openMD(`<div class="mt"><b><i class="ti ti-edit"></i> แก้ไขรอบ</b></div>
+  showMD(`<div class="mt"><b><i class="ti ti-edit"></i> แก้ไขรอบ</b></div>
     <div class="fg"><label class="fl">ชื่อรอบ</label>
       <input type="text" id="rdName" value="${r.name.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label class="fl">วันที่เริ่ม</label>
@@ -6716,10 +6716,9 @@ function openFsCheckWork(cid,gid){
   const items=g.items||db.fiveS.items||[];
   if(!items.length){alert('ยังไม่มีหัวข้อ กด "หัวข้อ" เพื่อเพิ่ม');return;}
   const active=fsActiveRound(cid);
-  // ถ้ามี date จาก input onchange ให้ใช้ค่านั้น
-  const dateInp=document.querySelector('input[type=date]');
-  const dateFromInp=dateInp&&dateInp.value;
-  const date=dateFromInp||_fsCheckDate||todayStr();
+  // อ่านวันที่จาก modal เดิม (ถ้ามี) หรือใช้วันที่ล่าสุด
+  const modalDate=document.getElementById('fsCheckWorkDate');
+  const date=(modalDate&&modalDate.value)||_fsCheckDate||todayStr();
   _fsCheckDate=date;
   _renderFsCheckWorkModal(cid,gid,date,active);
 }
@@ -6737,10 +6736,10 @@ function _renderFsCheckWorkModal(cid,gid,date,round){
       <span style="font-size:14px;flex:1">${it}</span>
     </label>`;
   }).join('');
-  openMD(`<div class="mt"><b><i class="ti ti-checkbox"></i> เช็คงาน — ${g.name}</b> ${roundInfo}</div>
+  showMD(`<div class="mt"><b><i class="ti ti-checkbox"></i> เช็คงาน — ${g.name}</b> ${roundInfo}</div>
     <div style="background:#EFF6FF;padding:8px 12px;border-radius:6px;margin-bottom:10px">
       <span style="font-size:12px;color:var(--mu)">วันที่:</span>
-      <input type="date" value="${date}" onchange="openFsCheckWork('${cid}','${gid}')" style="border:none;background:transparent;font-size:13px;font-weight:600">
+      <input type="date" id="fsCheckWorkDate" value="${date}" onchange="openFsCheckWork('${cid}','${gid}')" style="border:none;background:transparent;font-size:13px;font-weight:600">
     </div>
     <div style="max-height:400px;overflow:auto">${itemsHtml}</div>
     <div class="fg" style="margin-top:8px"><label class="fl">หมายเหตุ (ถ้ามี)</label>
@@ -6783,9 +6782,8 @@ async function saveFsCheckWork(cid,gid){
 function openFsCheckAtt(cid,gid){
   const g=fsGroups(cid).find(x=>x.id===gid);if(!g)return;
   const active=fsActiveRound(cid);
-  const dateInp=document.querySelector('input[type=date]');
-  const dateFromInp=dateInp&&dateInp.value;
-  const date=dateFromInp||_fsCheckDate||todayStr();
+  const modalDate=document.getElementById('fsCheckAttDate');
+  const date=(modalDate&&modalDate.value)||_fsCheckDate||todayStr();
   _fsCheckDate=date;
   window._fsAttTemp={};
   _renderFsCheckAttModal(cid,gid,date,active);
@@ -6810,7 +6808,7 @@ function _renderFsCheckAttModal(cid,gid,date,round){
       <button class="btn btn-xs ${!present?'btn-p':''}" data-sid="${s.id}" data-p="0" onclick="_fsToggleAtt('${s.id}',false)" style="background:${!present?'var(--rd)':'#fff'};color:${!present?'#fff':'var(--rd)'};border-color:var(--rd)">ไม่มา</button>
     </div>`;
   }).join('');
-  openMD(`<div class="mt"><b><i class="ti ti-user-check"></i> เช็คสมาชิก — ${g.name}</b> ${roundInfo}</div>
+  showMD(`<div class="mt"><b><i class="ti ti-user-check"></i> เช็คสมาชิก — ${g.name}</b> ${roundInfo}</div>
     <div style="background:#EFF6FF;padding:8px 12px;border-radius:6px;margin-bottom:10px">
       <span style="font-size:12px;color:var(--mu)">วันที่:</span>
       <input type="date" value="${date}" onchange="_fsCheckDate=this.value;openFsCheckAtt('${cid}','${gid}')" style="border:none;background:transparent;font-size:13px;font-weight:600">
