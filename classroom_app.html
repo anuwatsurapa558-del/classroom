@@ -1064,6 +1064,17 @@ async function _rowsToDb(rows){
       items:ck.items||{},note:ck.note||'',round_id:ck.round_id||null
     };
   });
+  // 5s group_checks (per-group work check — เก็บเป็น key '__group__')
+  (rows.five_s_group_checks||[]).forEach(gc=>{
+    const cid=groupToClass[gc.group_id];
+    if(!cid)return;
+    const ckey=(cid2term[cid]||'')+'__'+cid+'__'+gc.group_id;
+    if(!d.fiveS.checks[ckey])d.fiveS.checks[ckey]={};
+    if(!d.fiveS.checks[ckey][gc.date])d.fiveS.checks[ckey][gc.date]={};
+    d.fiveS.checks[ckey][gc.date]['__group__']={
+      items:gc.items||{},note:gc.note||'',round_id:gc.round_id||null,checker:gc.checker||''
+    };
+  });
   // 5s rounds
   if(!d.fiveS.rounds)d.fiveS.rounds={};
   (rows.five_s_rounds||[]).forEach(r=>{
@@ -1093,7 +1104,7 @@ async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
     // ── Fetch all rows with pagination (Supabase default limit = 1000) ──
     async function fetchAll(t){
       const rows=[];
@@ -6752,9 +6763,9 @@ async function saveFsCheckWork(cid,gid){
   const note=(document.getElementById('fsWorkNote')?.value||'').trim();
   try{
     // เก็บเป็น record ที่ student_id='__group__' (เช็คงานเป็นของกลุ่ม ไม่ใช่รายคน)
-    const {error}=await sb.from('five_s_checks').upsert({
-      group_id:gid,student_id:'__group__',date,items,note,round_id:roundId
-    },{onConflict:'group_id,student_id,date'});
+    const {error}=await sb.from('five_s_group_checks').upsert({
+      group_id:gid,date,items,note,round_id:roundId,checker:'teacher'
+    },{onConflict:'group_id,date'});
     if(error)throw error;
     // update local
     const ckey=fsCheckKey(cid,gid);
@@ -7943,7 +7954,7 @@ function _initDB(){
 /* ── REALTIME SUBSCRIPTION ── */
 function _setupRealtime(){
   // Subscribe ทุก table ที่มีข้อมูล — เมื่อมีการเปลี่ยนแปลง reload ทั้งหมด
-  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
   const channel=sb.channel('all-tables-changes');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{

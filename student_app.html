@@ -451,6 +451,15 @@ async function _rowsToDbStu(rows){
     if(!d.fiveS.checks[ckey][ck.date])d.fiveS.checks[ckey][ck.date]={};
     d.fiveS.checks[ckey][ck.date][ck.student_id]={items:ck.items||{},note:ck.note||'',round_id:ck.round_id||null};
   });
+  // group_checks (per-group work check)
+  (rows.five_s_group_checks||[]).forEach(gc=>{
+    const cid=groupToClass[gc.group_id];
+    if(!cid)return;
+    const ckey=(cid2term[cid]||'')+'__'+cid+'__'+gc.group_id;
+    if(!d.fiveS.checks[ckey])d.fiveS.checks[ckey]={};
+    if(!d.fiveS.checks[ckey][gc.date])d.fiveS.checks[ckey][gc.date]={};
+    d.fiveS.checks[ckey][gc.date]['__group__']={items:gc.items||{},note:gc.note||'',round_id:gc.round_id||null,checker:gc.checker||''};
+  });
   // rounds
   if(!d.fiveS.rounds)d.fiveS.rounds={};
   (rows.five_s_rounds||[]).forEach(r=>{
@@ -476,7 +485,7 @@ async function _rowsToDbStu(rows){
 
 async function loadData(){
   try{
-    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
     // ── Pagination (Supabase default limit = 1000) ──
     async function fetchAll(t){
       const rows=[];
@@ -583,7 +592,7 @@ function hasPw(sid){return !!(db.studentPasswords||{})[sid];}
 /* ── REALTIME SUBSCRIPTION ── */
 let _lastSaveTimeStu=0;
 function _setupRealtimeStu(){
-  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_rounds','five_s_attendance'];
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
   const channel=sb.channel('all-tables-stu');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
@@ -2878,119 +2887,76 @@ function fsRenderCheck(cid,sid,g,items){
   const today=new Date().toISOString().slice(0,10);
   if(!fsSelDate)fsSelDate=today;
   const date=fsSelDate;
-  const stus=stuArr(cid);
-  const members=[g.leaderId,...(g.memberIds||[])].map(id=>stus.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.no-b.no);
+  const round=fsActiveRoundStu(cid);
+  const roundBadge=round?
+    `<span style="font-size:11px;background:var(--gn);color:#fff;padding:2px 8px;border-radius:6px">${round.name}</span>`:
+    `<span style="font-size:11px;background:var(--am);color:#fff;padding:2px 8px;border-radius:6px">ยังไม่มีรอบ active</span>`;
   const dayChecks=fsChecksStu(cid,g.id,date);
+  const groupRec=dayChecks['__group__']||{items:{},note:''};
   let html=`<div class="card">
-    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-sparkles"></i> ${g.name} · เช็คกิจกรรม 5 ส</div></div>
+    <div class="card-hd"><div class="card-hd-title"><i class="ti ti-checklist"></i> ${g.name} · เช็คการทำงาน ${roundBadge}</div></div>
     <div class="card-bd">
       <div class="fg">
         <label class="fl"><i class="ti ti-calendar"></i> วันที่</label>
-        <input type="date" value="${date}" onchange="if(fsHasPending()){if(!confirm('มีการเปลี่ยนแปลงที่ยังไม่บันทึก ต้องการทิ้ง?')){this.value=fsSelDate;return;}}fsClearPending();fsSelDate=this.value;renderFiveSStu()">
+        <input type="date" id="fsWorkDate" value="${date}" onchange="fsSelDate=this.value;renderFiveSStu()">
       </div>
       <div style="font-size:12px;color:var(--mu);padding:8px;background:var(--sf2);border-radius:6px;margin-bottom:10px">
-        <i class="ti ti-info-circle"></i> ติ๊กในช่องเมื่อสมาชิก <b>ทำ</b> กิจกรรมนั้น · เว้นว่าง = <b>ไม่ทำ</b> · <b>กดปุ่มบันทึกด้านล่าง</b>เมื่อเช็คเสร็จ
+        <i class="ti ti-info-circle"></i> ติ๊กในหัวข้อที่กลุ่ม<b>ทำ</b>แล้ว · เว้นว่าง = <b>ไม่ทำ</b>
+      </div>
+      <div data-cid="${cid}" data-gid="${g.id}" data-date="${date}" id="fsWorkForm">`;
+  items.forEach((it,i)=>{
+    const done=!!groupRec.items[i];
+    html+=`<label style="display:flex;align-items:center;gap:12px;padding:12px;background:${done?'#F0FDF4':'#fff'};border:1.5px solid ${done?'var(--gn)':'var(--bd)'};border-radius:8px;margin-bottom:8px;cursor:pointer">
+      <input type="checkbox" data-idx="${i}" ${done?'checked':''} style="width:22px;height:22px;cursor:pointer">
+      <span style="font-size:14.5px;flex:1;font-weight:500">${it}</span>
+    </label>`;
+  });
+  html+=`</div>
+      <div class="fg" style="margin-top:8px">
+        <label class="fl"><i class="ti ti-note"></i> หมายเหตุ (ถ้ามี)</label>
+        <textarea id="fsWorkNote" rows="2" placeholder="เช่น กลุ่มยังทำไม่ครบ, ทำสะอาดดีมาก">${(groupRec.note||'').replace(/</g,'&lt;')}</textarea>
       </div>
     </div>
-  </div>`;
-  // ตาราง: แถว=นักเรียน, คอลัมน์=หัวข้อ 5ส
-  const n=items.length;
-  const colW=n<=3?70:n<=5?50:40;
-  html+=`<div class="card mt14" style="overflow:auto"><div style="padding:8px">
-    <table id="fsTb" style="border-collapse:collapse;width:100%;font-size:12px;min-width:${180+n*colW}px" data-cid="${cid}" data-gid="${g.id}" data-date="${date}">
-      <thead><tr style="background:var(--sf2)">
-        <th style="border:1px solid var(--bd);padding:5px;width:32px">ที่</th>
-        <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;min-width:100px">ชื่อ</th>`;
-  items.forEach((it,i)=>{
-    html+=`<th style="border:1px solid var(--bd);padding:3px 2px;background:#EEF2FF;text-align:center;width:${colW}px;vertical-align:middle;height:90px">
-      <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:600;margin:0 auto">${it}</div>
-    </th>`;
-  });
-  html+=`</tr></thead><tbody>`;
-  members.forEach(m=>{
-    const isLeader=m.id===g.leaderId;
-    html+=`<tr>
-      <td style="border:1px solid var(--bd);padding:3px;text-align:center;color:var(--mu);font-size:11px">${m.no}</td>
-      <td style="border:1px solid var(--bd);padding:3px 6px;font-size:12px">${m.firstName} ${m.lastName}${isLeader?' <i class="ti ti-crown" style="color:#B45309;font-size:12px"></i>':''}</td>`;
-    items.forEach((it,i)=>{
-      const done=((dayChecks[m.id]||{}).items||{})[i]===true;
-      html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;background:${done?'#DCFCE7':''}" class="fs-cell">
-        <input type="checkbox" ${done?'checked':''} data-stu="${m.id}" data-item="${i}" onchange="fsMark(this)" style="width:20px;height:20px;cursor:pointer;margin:4px">
-      </td>`;
-    });
-    html+=`</tr>`;
-  });
-  html+=`</tbody></table></div>
-  <div class="cp" style="border-top:1px solid var(--bd);background:var(--sf2)">
-    <div class="f g8" style="justify-content:space-between;align-items:center">
-      <div id="fsPendingLbl" style="font-size:12px;color:var(--mu)"><i class="ti ti-info-circle"></i> ยังไม่มีการเปลี่ยนแปลง</div>
-      <button class="btn btn-p" id="fsSaveBtn" onclick="fsSaveAll()"><i class="ti ti-device-floppy"></i> บันทึก</button>
+    <div class="cp" style="border-top:1px solid var(--bd);background:var(--sf2)">
+      <div class="f g8" style="justify-content:flex-end">
+        <button class="btn btn-p" onclick="fsSaveAll()"><i class="ti ti-device-floppy"></i> บันทึก</button>
+      </div>
     </div>
-  </div>
   </div>`;
   return html;
 }
 
-// ── รวมการเปลี่ยนแปลงที่รอบันทึก ──
-window._fsPending={}; // {stuId: {itemIdx: bool}}
-
-function fsHasPending(){
-  return Object.keys(window._fsPending||{}).length>0;
-}
-function fsClearPending(){
-  window._fsPending={};
-}
-function fsMark(cb){
-  const stu=cb.dataset.stu;
-  const idx=parseInt(cb.dataset.item);
-  if(!window._fsPending)window._fsPending={};
-  if(!window._fsPending[stu])window._fsPending[stu]={};
-  window._fsPending[stu][idx]=cb.checked;
-  // เปลี่ยนสีพื้น
-  const td=cb.closest('td');
-  if(td)td.style.background=cb.checked?'#FEF3C7':'#FEF3C7';  // เหลือง = รอบันทึก
-  const lbl=document.getElementById('fsPendingLbl');
-  const total=Object.values(window._fsPending).reduce((s,o)=>s+Object.keys(o).length,0);
-  if(lbl)lbl.innerHTML=`<i class="ti ti-alert-triangle" style="color:var(--am)"></i> มีการเปลี่ยนแปลง ${total} รายการ (ยังไม่บันทึก)`;
-}
-
-function fsSaveAll(){
-  const tb=document.getElementById('fsTb');
-  if(!tb)return;
-  const cid=tb.dataset.cid;
-  const gid=tb.dataset.gid;
-  const date=tb.dataset.date;
-  const pending=window._fsPending||{};
-  const cnt=Object.values(pending).reduce((s,o)=>s+Object.keys(o).length,0);
-  if(!cnt){showToast('ไม่มีการเปลี่ยนแปลง');return;}
-  // บันทึกทุกช่องลง db
-  if(!db.fiveS.checks)db.fiveS.checks={};
-  const key=fsGroupKeyStu(cid)+'__'+gid;
-  if(!db.fiveS.checks[key])db.fiveS.checks[key]={};
-  if(!db.fiveS.checks[key][date])db.fiveS.checks[key][date]={};
-  Object.keys(pending).forEach(stuId=>{
-    if(!db.fiveS.checks[key][date][stuId])db.fiveS.checks[key][date][stuId]={items:{}};
-    if(!db.fiveS.checks[key][date][stuId].items)db.fiveS.checks[key][date][stuId].items={};
-    Object.keys(pending[stuId]).forEach(idx=>{
-      db.fiveS.checks[key][date][stuId].items[idx]=pending[stuId][idx];
-    });
+async function fsSaveAll(){
+  _lastSaveTimeStu=Date.now();
+  const form=document.getElementById('fsWorkForm');
+  if(!form){showToast('ไม่พบข้อมูล');return;}
+  const cid=form.dataset.cid, gid=form.dataset.gid, date=form.dataset.date;
+  const round=fsActiveRoundStu(cid);
+  const roundId=round?round.id:null;
+  const items={};
+  form.querySelectorAll('input[type=checkbox][data-idx]').forEach(cb=>{
+    items[cb.dataset.idx]=cb.checked;
   });
-  // sync ขึ้น cloud
-  saveDbNow();
-  fsClearPending();
-  showToast(`✓ บันทึกแล้ว ${cnt} รายการ`);
-  // เปลี่ยนสีพื้นกลับเป็นเขียว (ตรงตามที่ติ๊ก)
-  document.querySelectorAll('.fs-cell').forEach(td=>{
-    const cb=td.querySelector('input[type="checkbox"]');
-    if(cb)td.style.background=cb.checked?'#DCFCE7':'';
-  });
-  const lbl=document.getElementById('fsPendingLbl');
-  if(lbl)lbl.innerHTML='<i class="ti ti-circle-check" style="color:var(--gn)"></i> บันทึกสำเร็จ';
+  const note=(document.getElementById('fsWorkNote')?.value||'').trim();
+  try{
+    const {error}=await sb.from('five_s_group_checks').upsert({
+      group_id:gid,date,items,note,round_id:roundId,checker:'leader'
+    },{onConflict:'group_id,date'});
+    if(error)throw error;
+    // update local
+    const key=fsGroupKeyStu(cid)+'__'+gid;
+    if(!db.fiveS.checks[key])db.fiveS.checks[key]={};
+    if(!db.fiveS.checks[key][date])db.fiveS.checks[key][date]={};
+    db.fiveS.checks[key][date]['__group__']={items,note,round_id:roundId};
+    _lastSaveTimeStu=Date.now();
+    showToast('✓ บันทึกการทำงานแล้ว');
+    renderFiveSStu();
+  }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 
 // บันทึกเฉพาะข้อมูล 5ส (groups + members + checks) — ประหยัดเวลา
 async function _save5sTables(){
-  const groupRows=[], memberRows=[], checkRows=[];
+  const groupRows=[], memberRows=[];
   Object.keys((db.fiveS||{}).groups||{}).forEach(tkey=>{
     const cid=tkey.split('__')[1]||tkey;
     (db.fiveS.groups[tkey]||[]).forEach(g=>{
@@ -3003,22 +2969,8 @@ async function _save5sTables(){
       });
     });
   });
-  Object.keys((db.fiveS||{}).checks||{}).forEach(ckey=>{
-    const parts=ckey.split('__');
-    const gid=parts[parts.length-1];
-    Object.keys(db.fiveS.checks[ckey]||{}).forEach(date=>{
-      Object.keys(db.fiveS.checks[ckey][date]||{}).forEach(stuId=>{
-        const rec=db.fiveS.checks[ckey][date][stuId]||{};
-        checkRows.push({
-          group_id:gid, student_id:stuId, date,
-          items:rec.items||{}, note:rec.note||''
-        });
-      });
-    });
-  });
   try{
     if(groupRows.length) await sb.from('five_s_groups').upsert(groupRows,{onConflict:'id'});
-    // Clear old members ของแต่ละกลุ่มก่อน insert (กันซ้อน)
     if(memberRows.length){
       const gids=[...new Set(memberRows.map(r=>r.group_id))];
       for(const gid of gids){
@@ -3026,7 +2978,8 @@ async function _save5sTables(){
       }
       await sb.from('five_s_members').insert(memberRows);
     }
-    if(checkRows.length) await sb.from('five_s_checks').upsert(checkRows,{onConflict:'group_id,student_id,date'});
+    // หมายเหตุ: five_s_group_checks + five_s_attendance ถูกบันทึกโดยตรงใน
+    // fsSaveAll (เช็คงาน) และ fsSaveAtt (เช็คสมาชิก) → ไม่ต้อง sync ที่นี่
     return true;
   }catch(e){console.error('5s save error:',e);return false;}
 }
