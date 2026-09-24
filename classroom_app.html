@@ -365,6 +365,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
     <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
     <button class="ni" onclick="gotoPage('quiz',this)"><i class="ti ti-file-text"></i><span>แบบทดสอบ</span></button>
+    <button class="ni" onclick="gotoPage('announcements',this)"><i class="ti ti-speakerphone"></i><span>ประกาศถึงนักเรียน</span></button>
     <button class="ni" onclick="gotoPage('fiveS',this)"><i class="ti ti-sparkles"></i><span>กิจกรรม 5 ส</span></button>
     <div class="nl" style="margin-top:6px">รายงาน</div>
     <button class="ni" onclick="gotoPage('export',this)"><i class="ti ti-file-export"></i><span>ส่งออกข้อมูล</span></button>
@@ -442,6 +443,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <div id="quiz-selbar"></div>
     <div id="quiz-content"></div>
   </div>
+
+  <div class="page" id="page-announcements"><div id="ann-content"></div></div>
 </main>
 
 <!-- BOTTOM NAV -->
@@ -1105,7 +1108,7 @@ async function load(){
   const s=document.getElementById('sync-status');
   try{
     if(s){s.textContent='☁️ กำลังโหลด...';s.style.color='var(--am)';}
-    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance','announcements'];
     // ── Fetch all rows with pagination (Supabase default limit = 1000) ──
     async function fetchAll(t){
       const rows=[];
@@ -1150,8 +1153,8 @@ function gotoPage(p,btn){
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll('.ni').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+p+"'"))b.classList.add('active');});
   const bn=document.getElementById('bn-'+p);if(bn)bn.classList.add('active');
-  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',timetable:'ตารางสอน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',quiz:'แบบทดสอบ',fiveS:'กิจกรรม 5 ส',export:'ส่งออกข้อมูล'};
-  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',timetable:'ตารางเรียนของแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',quiz:'สร้างแบบทดสอบออนไลน์ให้นักเรียนทำ',fiveS:'จัดกลุ่มและเช็ค 5 ส',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
+  const T={dashboard:'แดชบอร์ด',school:'ข้อมูลพื้นฐาน',classroom:'จัดการชั้นเรียน',timetable:'ตารางสอน',students:'ข้อมูลนักเรียน',subjects:'จัดการวิชา',attendance:'เช็คชื่อ',scores:'บันทึกคะแนน',quiz:'แบบทดสอบ',announcements:'ประกาศถึงนักเรียน',fiveS:'กิจกรรม 5 ส',export:'ส่งออกข้อมูล'};
+  const S={dashboard:'ภาพรวมทุกห้องเรียน',school:'โรงเรียน สังกัด ปีการศึกษา และภาคเรียน',classroom:'ห้องเรียน วิชา และนักเรียนในแต่ละห้อง',timetable:'ตารางเรียนของแต่ละห้อง',students:'จัดการนักเรียนแต่ละห้อง',subjects:'เพิ่ม/แก้ไขวิชาและสัดส่วนคะแนน',attendance:'บันทึกการมาเรียน',scores:'คะแนนเก็บ คะแนนสอบ และเกรด',quiz:'สร้างแบบทดสอบออนไลน์ให้นักเรียนทำ',announcements:'สร้าง แก้ไข และกำหนดห้องที่เห็นประกาศ',fiveS:'จัดกลุ่มและเช็ค 5 ส',export:'ดาวน์โหลดคะแนนและเวลาเรียน'};
   document.getElementById('ttitle').textContent=T[p]||p;
   document.getElementById('tsub').textContent=S[p]||'';
   if(window.innerWidth<768)closeSB();
@@ -1167,6 +1170,7 @@ function renderPage(p){
   else if(p==='attendance')renderAtt();
   else if(p==='scores')renderSc();
   else if(p==='quiz')renderQuiz();
+  else if(p==='announcements')renderAnnouncementsTeacher();
   else if(p==='export')renderExport();
   else if(p==='fiveS')renderFiveS();
 }
@@ -3901,7 +3905,11 @@ async function _submitCopyAsg(cid,subid,aid){
 }
 
 async function delAsg(cid,subid,aid){
-  _lastSaveTime=Date.now();  if(!confirm('ลบงานนี้? คะแนนทั้งหมดจะหายด้วย'))return;
+  _lastSaveTime=Date.now();
+  const asg=asgList(cid,subid).find(a=>a.id===aid);
+  const asgName=asg?.name||'งานนี้';
+  if(!confirm(`${asgName}
+ถ้าลบงานนี้ คะแนนทั้งหมดจะหายด้วย`))return;
   const s=document.getElementById('sync-status');
   if(s){s.textContent='☁️ กำลังลบ...';s.style.color='var(--am)';}
   try{
@@ -5494,6 +5502,10 @@ async function toggleQuizStatus(quizId){
     if(!confirm(`ปิดข้อสอบ "${q.title}"?\nนักเรียนจะทำต่อไม่ได้`))return;
   }
   try{
+    // ฝึกทำ: สร้างงานติดตามไว้ก่อน เพื่อให้เห็นทั้งคนที่ทำแล้วและยังไม่ทำ
+    if(newStatus==='published' && q.score_target==='none'){
+      await _ensurePracticeTrackAssignments(q);
+    }
     const {error}=await sb.from('quizzes').update({status:newStatus}).eq('id',quizId);
     if(error)throw error;
     _lastSaveTime=Date.now();
@@ -5542,6 +5554,10 @@ async function delQuiz(quizId,forCid){
   // ลบทั้งข้อสอบ
   if(!confirm(`ลบข้อสอบ "${q.title}" ทั้งหมด?\nคำถาม + คำตอบของนักเรียนทุกห้องจะหายด้วย`))return;
   try{
+    if(q.score_target==='none'){
+      const list=(q.assigned_classes&&q.assigned_classes.length)?q.assigned_classes:[{class_id:q.class_id}];
+      for(const a of list){if(a.class_id)await sb.from('assignments').delete().eq('id','asg_qz_practice_'+q.id+'_'+a.class_id);}
+    }
     const {error}=await sb.from('quizzes').delete().eq('id',quizId);
     if(error)throw error;
     _lastSaveTime=Date.now();
@@ -6041,7 +6057,10 @@ async function _resetAllAttempts(quizId,cid){
   try{
     const stuIds=stus.filter(s=>attMap[s.id]).map(s=>s.id);
     // ลบคะแนนที่เข้าเกรด (asgId แยกตามห้อง)
-    if(q.score_target==='assignment'){
+    if(q.score_target==='none'){
+      const asgId='asg_qz_practice_'+q.id+'_'+cid;
+      await sb.from('scores').delete().eq('assignment_id',asgId).in('student_id',stuIds);
+    } else if(q.score_target==='assignment'){
       const asgId='asg_qz_'+q.id+'_'+cid;
       await sb.from('scores').delete().eq('assignment_id',asgId).in('student_id',stuIds);
       // ลบคะแนนจาก asgId แบบเก่า (ถ้ามี) เพื่อ backward compat
@@ -6078,7 +6097,12 @@ async function _resetStudentAttempt(attemptId,stuName,quizId){
       for(const sid in attMap){if(attMap[sid].id==attemptId){stuId=sid;break;}}
     }
     if(q&&stuId){
-      if(q.score_target==='assignment'){
+      if(q.score_target==='none'){
+        let stuClassId=q.class_id;
+        for(const tkey in db.students){if((db.students[tkey]||[]).some(s=>s.id===stuId)){const parts=tkey.split('__');stuClassId=parts.length>=2?parts.slice(1).join('__'):tkey;break;}}
+        const asgId='asg_qz_practice_'+q.id+'_'+stuClassId;
+        await sb.from('scores').delete().eq('assignment_id',asgId).eq('student_id',stuId);
+      } else if(q.score_target==='assignment'){
         // หา class ของนักเรียนคนนี้เพื่อลบ asgId ที่ถูกต้อง
         let stuClassId=q.class_id;
         for(const tkey in db.students){
@@ -6518,6 +6542,7 @@ async function submitEditQuiz(quizId){
     if(error)throw error;
     _lastSaveTime=Date.now();
     Object.assign(q,updates);
+    if(q.status==='published'&&q.score_target==='none')await _ensurePracticeTrackAssignments(q);
     closeMD();
     renderQuiz();
     showToast('บันทึกการตั้งค่าแล้ว ✓');
@@ -7927,6 +7952,56 @@ async function delStu(cid,sid){
   showToast('ลบนักเรียนแล้ว');
 }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   v11 Teacher extensions: announcements + practice tracking
+   ══════════════════════════════════════════════════════════════════ */
+function _escT(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function _ensurePracticeTrackAssignments(q){
+  if(!q||q.score_target!=='none')return;
+  const list=(q.assigned_classes&&q.assigned_classes.length)?q.assigned_classes:[{class_id:q.class_id,subject_id:q.subject_id}];
+  for(const a of list){
+    if(!a.class_id||!a.subject_id)continue;
+    const id='asg_qz_practice_'+q.id+'_'+a.class_id;
+    const row={id,class_id:a.class_id,subject_id:a.subject_id,name:'[ฝึกทำ] '+q.title,max_score:0,type:'track'};
+    const {error}=await sb.from('assignments').upsert(row,{onConflict:'id'});
+    if(error)console.warn('practice track:',error.message);
+    else {
+      if(!db.assignments[tk(a.class_id)])db.assignments[tk(a.class_id)]={};
+      if(!db.assignments[tk(a.class_id)][a.subject_id])db.assignments[tk(a.class_id)][a.subject_id]=[];
+      const arr=db.assignments[tk(a.class_id)][a.subject_id];
+      const i=arr.findIndex(x=>x.id===id);
+      const obj={id,name:row.name,maxScore:0,type:'track',dueDate:''};
+      if(i>=0)arr[i]=obj;else arr.push(obj);
+    }
+  }
+  _lastSaveTime=Date.now();
+}
+
+async function renderAnnouncementsTeacher(){
+  const el=document.getElementById('ann-content');if(!el)return;
+  el.innerHTML='<div class="card cp"><div class="loading">กำลังโหลดประกาศ...</div></div>';
+  let data=[];
+  try{const r=await sb.from('announcements').select('*').order('published_at',{ascending:false}).limit(100);if(r.error)throw r.error;data=r.data||[];}catch(e){el.innerHTML=noData('alert-triangle','ยังใช้ระบบประกาศไม่ได้','กรุณารันไฟล์ SQL อัปเกรด v11 ใน Supabase ก่อน');return;}
+  const clsMap=Object.fromEntries(db.classes.map(c=>[c.id,c.name]));
+  let html=`<div class="f ic jb fw g8 mb14"><div><div style="font-size:18px;font-weight:800">ประกาศถึงนักเรียน</div><div style="font-size:12px;color:var(--mu)">ประกาศทั้งโรงเรียนหรือเฉพาะห้อง</div></div><button class="btn btn-p" onclick="openAnnouncementEditor()"><i class="ti ti-plus"></i> สร้างประกาศ</button></div>`;
+  if(!data.length)html+=noData('speakerphone','ยังไม่มีประกาศ','กด “สร้างประกาศ” เพื่อเริ่มต้น');
+  else html+=`<div class="card"><div class="tw"><table><thead><tr><th>ประกาศ</th><th>ผู้รับ</th><th>สถานะ</th><th>วันที่</th><th></th></tr></thead><tbody>${data.map(a=>`<tr><td><b>${_escT(a.title)}</b><div style="font-size:11px;color:var(--mu);max-width:480px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escT(a.body||'')}</div></td><td>${a.class_id?_escT(clsMap[a.class_id]||a.class_id):'<span class="badge bb">ทุกห้อง</span>'}</td><td>${a.active?'<span class="badge bg">เผยแพร่</span>':'<span class="badge bx">ปิด</span>'}${a.priority==='urgent'?' <span class="badge br">สำคัญ</span>':''}</td><td>${a.published_at?new Date(a.published_at).toLocaleDateString('th-TH'):'-'}</td><td><div class="f g8"><button class="btn btn-xs" onclick='openAnnouncementEditor(${JSON.stringify(a).replace(/'/g,"&#39;")})'><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd)" onclick="deleteAnnouncement(${a.id})"><i class="ti ti-trash"></i></button></div></td></tr>`).join('')}</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+
+function openAnnouncementEditor(a=null){
+  const opts=termClasses().map(c=>`<option value="${c.id}" ${a?.class_id===c.id?'selected':''}>${_escT(c.name)}</option>`).join('');
+  showMD(`<div class="mt"><i class="ti ti-speakerphone"></i> ${a?'แก้ไข':'สร้าง'}ประกาศ</div><div class="fg"><label class="fl">หัวข้อ</label><input type="text" id="annTitle" value="${_escT(a?.title||'')}" placeholder="เช่น แจ้งสอบ / แจ้งส่งงาน"></div><div class="fg"><label class="fl">รายละเอียด</label><textarea id="annBody" rows="5" placeholder="ข้อความประกาศ">${_escT(a?.body||'')}</textarea></div><div class="g2"><div class="fg"><label class="fl">ผู้รับ</label><select id="annClass"><option value="">ทุกห้อง</option>${opts}</select></div><div class="fg"><label class="fl">ความสำคัญ</label><select id="annPriority"><option value="normal" ${a?.priority!=='urgent'?'selected':''}>ปกติ</option><option value="urgent" ${a?.priority==='urgent'?'selected':''}>สำคัญ</option></select></div></div><div class="fg"><label class="fl">หมดอายุ (ไม่บังคับ)</label><input type="date" id="annExpire" value="${a?.expires_at?String(a.expires_at).slice(0,10):''}"></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="annActive" ${a?.active===false?'':'checked'}> เผยแพร่ให้นักเรียนเห็น</label><div class="f g8" style="justify-content:flex-end;margin-top:16px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="saveAnnouncement(${a?.id||'null'})"><i class="ti ti-device-floppy"></i> บันทึก</button></div>`);
+}
+async function saveAnnouncement(id){
+  const title=val('annTitle');if(!title){showToast('กรอกหัวข้อประกาศ');return;}
+  const exp=val('annExpire');const row={school_id:SCHOOL_ID,class_id:val('annClass')||null,title,body:val('annBody'),priority:val('annPriority')||'normal',active:!!document.getElementById('annActive')?.checked,expires_at:exp?exp+'T23:59:59+07:00':null};
+  try{let r;if(id)r=await sb.from('announcements').update(row).eq('id',id);else r=await sb.from('announcements').insert({...row,published_at:new Date().toISOString()});if(r.error)throw r.error;_lastSaveTime=Date.now();closeMD();renderAnnouncementsTeacher();showToast('บันทึกประกาศแล้ว ✓');}catch(e){alert('บันทึกไม่สำเร็จ: '+e.message);}
+}
+async function deleteAnnouncement(id){if(!confirm('ลบประกาศนี้?'))return;try{const r=await sb.from('announcements').delete().eq('id',id);if(r.error)throw r.error;_lastSaveTime=Date.now();renderAnnouncementsTeacher();showToast('ลบประกาศแล้ว');}catch(e){alert(e.message);}}
+
 /* ── INIT DB ── */
 function _initDB(){
   if(!db.school)db.school={name:'',subdistrict:'',district:'',province:'',logo:''};
@@ -7961,7 +8036,7 @@ function _initDB(){
 /* ── REALTIME SUBSCRIPTION ── */
 function _setupRealtime(){
   // Subscribe ทุก table ที่มีข้อมูล — เมื่อมีการเปลี่ยนแปลง reload ทั้งหมด
-  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance','announcements'];
   const channel=sb.channel('all-tables-changes');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{

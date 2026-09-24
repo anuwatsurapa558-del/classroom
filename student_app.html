@@ -183,6 +183,33 @@ input[type=password]:focus{border-color:var(--tl);}
   .content{padding:12px;}
   .login-box{margin:12px;padding:22px 18px;}
 }
+
+
+/* ===== Student UX v11: mobile dashboard / calendar / announcements ===== */
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.quick-btn{border:none;background:var(--sf);border-radius:12px;padding:12px 5px;box-shadow:var(--sh);font-family:inherit;color:var(--tx);cursor:pointer;text-align:center}
+.quick-btn i{display:block;font-size:23px;color:var(--tl);margin-bottom:4px}.quick-btn span{font-size:10.5px;font-weight:600}
+.dash-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.dash-kpi .kpi{background:var(--sf);border-radius:12px;padding:12px 8px;box-shadow:var(--sh);text-align:center}
+.dash-kpi .kpi b{display:block;font-size:23px;line-height:1.1}.dash-kpi .kpi small{font-size:10px;color:var(--mu)}
+.ann-card{background:var(--sf);border-radius:12px;box-shadow:var(--sh);padding:13px 14px;margin-bottom:9px;border-left:4px solid var(--tl)}
+.ann-card.urgent{border-left-color:var(--rd);background:#FFF8F8}.ann-meta{font-size:10.5px;color:var(--mu);margin-top:5px}
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal-dow{text-align:center;font-size:10px;color:var(--mu);font-weight:700;padding:5px 0}
+.cal-day{min-height:64px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:5px;font-size:11px;position:relative}.cal-day.muted{opacity:.35}.cal-day.today{border:2px solid var(--tl)}
+.cal-num{font-weight:700}.cal-dot{height:5px;border-radius:3px;background:var(--am);margin-top:3px}.cal-count{font-size:9px;color:var(--am);margin-top:2px;font-weight:700}
+@media(max-width:600px){
+  body{padding-bottom:76px}.content{padding:12px 10px 90px;max-width:none}.header-inner{padding:10px 12px}.header h1{font-size:15px}.header p{font-size:10px}
+  .nav-tabs{position:fixed;bottom:0;left:0;right:0;z-index:220;background:#fff;border-top:1px solid var(--bd);padding:4px 2px env(safe-area-inset-bottom);justify-content:flex-start;overflow-x:auto;box-shadow:0 -3px 16px rgba(0,0,0,.08)}
+  .nav-tab{min-width:72px;flex:0 0 72px;color:var(--mu);border-bottom:none;border-radius:8px;padding:6px 3px;font-size:9.5px;display:flex;flex-direction:column;gap:1px}
+  .nav-tab i{font-size:19px}.nav-tab.active{color:var(--tl);background:var(--tll);border-bottom:none}.nav-tabs::-webkit-scrollbar{display:none}
+  .profile-card{padding:16px;border-radius:16px}.profile-name{font-size:18px}.sg{grid-template-columns:repeat(2,1fr)}
+  .quick-grid{grid-template-columns:repeat(4,1fr);gap:6px}.quick-btn{padding:10px 3px}.quick-btn i{font-size:21px}.quick-btn span{font-size:9.5px}
+  .dash-kpi{grid-template-columns:repeat(3,1fr);gap:6px}.dash-kpi .kpi{padding:10px 4px}.dash-kpi .kpi b{font-size:20px}
+  .card{border-radius:12px}.card-hd{padding:11px 12px}.card-bd{padding:12px}.cal-day{min-height:55px;padding:4px}.cal-count{font-size:8px}
+  .toast{bottom:88px;max-width:90vw;white-space:normal;text-align:center}
+}
+
 </style>
 </head>
 <body>
@@ -205,6 +232,8 @@ input[type=password]:focus{border-color:var(--tl);}
     <button class="nav-tab active" onclick="switchTab('home',this)"><i class="ti ti-home"></i> หน้าหลัก</button>
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
     <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
+    <button class="nav-tab" onclick="switchTab('calendar',this)"><i class="ti ti-calendar-event"></i> ปฏิทิน</button>
+    <button class="nav-tab" onclick="switchTab('announcements',this)"><i class="ti ti-speakerphone"></i> ประกาศ</button>
     <button class="nav-tab" onclick="switchTab('quiz',this)"><i class="ti ti-file-text"></i> แบบทดสอบ</button>
     <button class="nav-tab" id="tab-grades" onclick="switchTab('grades',this)" style="display:none"><i class="ti ti-award"></i> ผลการเรียน</button>
     <button class="nav-tab" id="tab-fiveS" onclick="switchTab('fiveS',this)" style="display:none"><i class="ti ti-sparkles"></i> 5 ส</button>
@@ -486,7 +515,7 @@ async function _rowsToDbStu(rows){
 
 async function loadData(){
   try{
-    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
+    const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','periods','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance','announcements'];
     // ── Pagination (Supabase default limit = 1000) ──
     async function fetchAll(t){
       const rows=[];
@@ -593,7 +622,7 @@ function hasPw(sid){return !!(db.studentPasswords||{})[sid];}
 /* ── REALTIME SUBSCRIPTION ── */
 let _lastSaveTimeStu=0;
 function _setupRealtimeStu(){
-  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance'];
+  const tables=['school','terms','classes','students','subjects','attendance','assignments','scores','exam_scores','timetable','five_s_groups','five_s_members','five_s_checks','five_s_group_checks','five_s_rounds','five_s_attendance','announcements'];
   const channel=sb.channel('all-tables-stu');
   tables.forEach(t=>{
     channel.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
@@ -821,6 +850,8 @@ function renderTab(tab){
     refreshAssignmentsFresh().then(()=>{if(currentTab==='assignments')renderAssignments();});
     loadMySubmissions().then(()=>{if(currentTab==='assignments')renderAssignments();});
   }
+  else if(tab==='calendar')renderStudentCalendar();
+  else if(tab==='announcements')renderStudentAnnouncements();
   else if(tab==='quiz'){
     renderStuQuiz();
     loadStuQuizzes().then(()=>{if(currentTab==='quiz')renderStuQuiz();});
@@ -1135,7 +1166,7 @@ function renderGrades(){
       <div style="font-weight:700;font-size:16px;margin-bottom:2px">${stu.firstName} ${stu.lastName}</div>
       <div style="font-size:12px;opacity:.85">${cls.name}</div>
       <button onclick="printParentReport()" style="margin-top:12px;background:rgba(255,255,255,.2);color:#fff;border:1.5px solid rgba(255,255,255,.4);padding:8px 16px;border-radius:8px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
-        <i class="ti ti-printer"></i> พิมพ์ / บันทึกรายงานผู้ปกครอง
+        <i class="ti ti-printer"></i> ดาวน์โหลด / พิมพ์ใบรายงานผลการเรียน
       </button>
     </div>
 
@@ -2134,6 +2165,11 @@ async function submitQuiz(isTimeout){
     }).eq('id',activeAttempt.id);
     if(error)throw error;
     _lastSaveTimeStu=Date.now();
+
+    // แบบฝึกทำ: บันทึกเข้า "งานติดตามการส่ง" ทันที เพื่อให้ครูเห็นว่าใครทำแล้ว/ยังไม่ทำ
+    if(activeQuiz && activeQuiz.score_target==='none'){
+      await _markPracticeQuizDone(activeQuiz);
+    }
 
     // ส่งคะแนนเข้าระบบเกรด (เฉพาะถ้าไม่มี essay เพราะยังไม่ตรวจครบ)
     if(!hasEssay){
@@ -3204,6 +3240,106 @@ function fsRenderSummary(cid,sid,g,items){
   html+=`</div></div>`;
   return html;
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   v11 Student extensions: ประกาศ / ปฏิทิน / Dashboard / practice tracking
+   ══════════════════════════════════════════════════════════════════ */
+let _stuAnnouncements=[];
+let _calCursor=new Date();
+
+function _escStu(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function loadStudentAnnouncements(){
+  if(!me)return [];
+  try{
+    const nowIso=new Date().toISOString();
+    const {data,error}=await sb.from('announcements').select('*').eq('active',true).order('published_at',{ascending:false}).limit(50);
+    if(error)throw error;
+    _stuAnnouncements=(data||[]).filter(a=>(!a.class_id||a.class_id===me.classId)&&(!a.expires_at||a.expires_at>=nowIso));
+  }catch(e){console.warn('announcements:',e.message);_stuAnnouncements=[];}
+  return _stuAnnouncements;
+}
+
+async function renderStudentAnnouncements(){
+  const el=document.getElementById('mainContent');
+  el.innerHTML='<div class="loading"><div class="spinner"></div> กำลังโหลดประกาศ...</div>';
+  await loadStudentAnnouncements();
+  let html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div><div style="font-size:18px;font-weight:800">ประกาศจากครู</div><div style="font-size:11px;color:var(--mu)">ข่าวสารสำหรับห้องของคุณ</div></div><span class="badge bt">'+_stuAnnouncements.length+' รายการ</span></div>';
+  if(!_stuAnnouncements.length)html+='<div class="card"><div class="empty"><i class="ti ti-speakerphone"></i><div>ยังไม่มีประกาศ</div></div></div>';
+  else _stuAnnouncements.forEach(a=>{const urg=a.priority==='urgent';html+=`<div class="ann-card ${urg?'urgent':''}"><div style="display:flex;justify-content:space-between;gap:8px"><b>${urg?'⚠️ ':''}${_escStu(a.title)}</b>${urg?'<span class="badge br">สำคัญ</span>':''}</div><div style="font-size:13px;margin-top:6px;white-space:pre-wrap">${_escStu(a.body||'')}</div><div class="ann-meta"><i class="ti ti-clock"></i> ${new Date(a.published_at).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</div></div>`;});
+  el.innerHTML=html;
+}
+
+function _studentDueEvents(){
+  if(!me)return[];
+  const cid=me.classId,sid=me.studentId,subs=subArr(cid),events=[];
+  subs.forEach(sub=>((asgBlock(cid)[sub.id])||[]).forEach(a=>{
+    if(!a.dueDate)return;
+    const v=((scBlock(cid)[sub.id]||{})[a.id]||{})[sid];
+    const done=a.type==='track'?(v==='ตรงเวลา'||v==='ส่งช้า'):(v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+    events.push({date:a.dueDate,title:a.name,subject:sub.name,done,type:a.type});
+  }));
+  return events;
+}
+function _calShift(n){_calCursor=new Date(_calCursor.getFullYear(),_calCursor.getMonth()+n,1);renderStudentCalendar();}
+function _calToday(){_calCursor=new Date();renderStudentCalendar();}
+function _openCalDay(dateStr){
+  const es=_studentDueEvents().filter(e=>e.date===dateStr);
+  if(!es.length){showToast('วันนี้ไม่มีงานครบกำหนด');return;}
+  showMD(`<div class="mt"><i class="ti ti-calendar-event"></i> กำหนดส่ง ${thDate(dateStr)}</div>${es.map(e=>`<div style="padding:10px;border-bottom:1px solid var(--bd)"><div style="font-weight:700">${_escStu(e.title)}</div><div style="font-size:11px;color:var(--mu)">${_escStu(e.subject)}</div><div style="margin-top:5px">${e.done?'<span class="badge bg">เสร็จแล้ว</span>':'<span class="badge ba">ยังไม่เสร็จ</span>'}</div></div>`).join('')}<div style="text-align:right;margin-top:12px"><button class="btn btn-tl" onclick="closeMD();switchTab('assignments')">ไปหน้างาน</button></div>`);
+}
+function renderStudentCalendar(){
+  const el=document.getElementById('mainContent');
+  const y=_calCursor.getFullYear(),m=_calCursor.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),events=_studentDueEvents();
+  const by={};events.forEach(e=>(by[e.date]||(by[e.date]=[])).push(e));
+  const thMonths=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  let html=`<div class="cal-toolbar"><button class="btn btn-sm" onclick="_calShift(-1)"><i class="ti ti-chevron-left"></i></button><div style="text-align:center"><div style="font-size:17px;font-weight:800">${thMonths[m]} ${y+543}</div><button class="btn btn-xs" onclick="_calToday()">เดือนนี้</button></div><button class="btn btn-sm" onclick="_calShift(1)"><i class="ti ti-chevron-right"></i></button></div><div class="cal-grid">`;
+  ['อา','จ','อ','พ','พฤ','ศ','ส'].forEach(d=>html+=`<div class="cal-dow">${d}</div>`);
+  const start=new Date(y,m,1-first.getDay());
+  const today=todayStr();
+  for(let i=0;i<42;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);const ds=d.toISOString().slice(0,10),same=d.getMonth()===m,es=by[ds]||[],pending=es.filter(e=>!e.done).length;
+    html+=`<div class="cal-day ${same?'':'muted'} ${ds===today?'today':''}" onclick="_openCalDay('${ds}')"><div class="cal-num">${d.getDate()}</div>${es.length?`<div class="cal-dot"></div><div class="cal-count">${pending?pending+' ค้าง':es.length+' เสร็จ'}</div>`:''}</div>`;
+  }
+  html+='</div>';
+  const upcoming=events.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8);
+  html+=`<div class="card" style="margin-top:14px"><div class="card-hd"><div class="card-hd-title"><i class="ti ti-list-check"></i> กำหนดส่งถัดไป</div></div><div class="card-bd" style="padding:0">${upcoming.length?upcoming.map(e=>`<div style="padding:10px 13px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:8px"><div><b>${_escStu(e.title)}</b><div style="font-size:11px;color:var(--mu)">${_escStu(e.subject)}</div></div><div style="text-align:right;font-size:11px">${thDate(e.date)}<br>${e.done?'<span class="badge bg">เสร็จ</span>':'<span class="badge ba">ยังไม่เสร็จ</span>'}</div></div>`).join(''):'<div class="empty">ยังไม่มีกำหนดส่ง</div>'}</div></div>`;
+  el.innerHTML=html;
+}
+
+async function _markPracticeQuizDone(quiz){
+  if(!me||!quiz)return;
+  try{
+    const assigned=quiz.assigned_classes||[];
+    const mine=assigned.find(a=>a.class_id===me.classId);
+    const cid=mine?.class_id||me.classId;
+    const subid=mine?.subject_id||quiz.subject_id;
+    const asgId='asg_qz_practice_'+quiz.id+'_'+cid;
+    await sb.from('assignments').upsert({id:asgId,class_id:cid,subject_id:subid,name:'[ฝึกทำ] '+quiz.title,max_score:0,type:'track'},{onConflict:'id'});
+    await sb.from('scores').upsert({assignment_id:asgId,student_id:me.studentId,value:'ตรงเวลา'},{onConflict:'assignment_id,student_id'});
+    _lastSaveTimeStu=Date.now();
+  }catch(e){console.warn('practice tracking:',e.message);}
+}
+
+// Dashboard enhancement: ใช้หน้าเดิมเป็นฐาน แล้วเพิ่ม KPI/เมนูลัด/ประกาศล่าสุดด้านบน
+const _renderHomeV10=renderHome;
+renderHome=function(){
+  _renderHomeV10();
+  const root=document.getElementById('mainContent');if(!root||!me)return;
+  const events=_studentDueEvents(),today=todayStr();
+  const pending=events.filter(e=>!e.done).length;
+  const due7=events.filter(e=>!e.done&&e.date>=today&&e.date<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)).length;
+  const done=events.filter(e=>e.done).length;
+  const top=document.createElement('div');
+  top.innerHTML=`<div class="dash-kpi"><div class="kpi"><b style="color:var(--rd)">${pending}</b><small>งานค้าง</small></div><div class="kpi"><b style="color:var(--am)">${due7}</b><small>ครบกำหนด 7 วัน</small></div><div class="kpi"><b style="color:var(--gn)">${done}</b><small>เสร็จแล้ว</small></div></div><div class="quick-grid"><button class="quick-btn" onclick="switchTab('assignments')"><i class="ti ti-clipboard-list"></i><span>งาน</span></button><button class="quick-btn" onclick="switchTab('calendar')"><i class="ti ti-calendar-event"></i><span>ปฏิทิน</span></button><button class="quick-btn" onclick="switchTab('announcements')"><i class="ti ti-speakerphone"></i><span>ประกาศ</span></button><button class="quick-btn" onclick="switchTab('quiz')"><i class="ti ti-file-text"></i><span>แบบทดสอบ</span></button></div><div id="dashAnn"></div>`;
+  root.insertBefore(top,root.firstChild);
+  loadStudentAnnouncements().then(()=>{
+    const a=document.getElementById('dashAnn');if(!a||currentTab!=='home')return;
+    const latest=_stuAnnouncements.slice(0,2);if(!latest.length)return;
+    a.innerHTML=`<div class="card" style="margin-bottom:14px"><div class="card-hd"><div class="card-hd-title"><i class="ti ti-speakerphone"></i> ประกาศล่าสุด</div><button class="btn btn-xs" onclick="switchTab('announcements')">ดูทั้งหมด</button></div><div class="card-bd" style="padding:0">${latest.map(x=>`<div style="padding:10px 13px;border-bottom:1px solid var(--bd)"><b>${x.priority==='urgent'?'⚠️ ':''}${_escStu(x.title)}</b><div style="font-size:11.5px;color:var(--mu);margin-top:2px">${_escStu((x.body||'').slice(0,100))}</div></div>`).join('')}</div></div>`;
+  });
+};
 
 /* ── INIT ── */
 init();
