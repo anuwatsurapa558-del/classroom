@@ -284,9 +284,10 @@ function calcTotal(cid,subid,stuId){
   const midMax=sub.midMax||0,finMax=sub.finalMax||0;
   const midRaw=ex.mid!==undefined&&ex.mid!==''&&!isNaN(parseFloat(ex.mid))?parseFloat(ex.mid):null;
   const finRaw=ex.final!==undefined&&ex.final!==''&&!isNaN(parseFloat(ex.final))?parseFloat(ex.final):null;
-  let examRaw=0, examMax=0;
-  if(midRaw!==null){examRaw+=midRaw; examMax+=midMax;}
-  if(finRaw!==null){examRaw+=finRaw; examMax+=finMax;}
+  // รวมกลางภาค + ปลายภาค แล้วคิดเป็นสัดส่วนคะแนนสอบทั้งหมด
+  // ใช้คะแนนเต็มของทั้งสองส่วนเป็นฐานเสมอ (ช่องที่ยังไม่กรอกนับเป็น 0 ชั่วคราว)
+  const examRaw=(midRaw??0)+(finRaw??0);
+  const examMax=midMax+finMax;
   const examScore=examMax?examRaw/examMax*wE:0;
   // ── คะแนนรวม ──
   const totalScore=assignScore+examScore;

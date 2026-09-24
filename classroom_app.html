@@ -471,8 +471,8 @@ const SCHOOL_ID='main';
 /* ════ DATA ════
   db.classes   [{id,name}]
   db.students  {cid:[{id,no,firstName,lastName}]}
-  db.subjects  {cid:[{id,name,code, wAssign,wExam, wMid,wFinal}]}
-               wAssign+wExam=100; wMid+wFinal=100 (of exam portion)
+  db.subjects  {cid:[{id,name,code, wAssign,wExam, midMax,finalMax}]}
+               wAssign+wExam=100; คะแนนสอบ = (กลาง+ปลาย)/(เต็มกลาง+เต็มปลาย) × wExam
   db.attendance {cid:{sid:{date:{stuId:status}}}}
   db.assignments {cid:{sid:[{id,name,maxScore,type:'assign'}]}}
   db.scores    {cid:{sid:{asgId:{stuId:score}}}}
@@ -597,9 +597,10 @@ function calcTotal(cid,subid,stuId){
   const midMax=sub.midMax||0; const finMax=sub.finalMax||0;
   const midRaw=ex.mid!==undefined&&ex.mid!==''&&!isNaN(parseFloat(ex.mid))?parseFloat(ex.mid):null;
   const finRaw=ex.final!==undefined&&ex.final!==''&&!isNaN(parseFloat(ex.final))?parseFloat(ex.final):null;
-  let examRaw=0, examMax=0;
-  if(midRaw!==null){examRaw+=midRaw; examMax+=midMax;}
-  if(finRaw!==null){examRaw+=finRaw; examMax+=finMax;}
+  // รวมคะแนนกลางภาค + ปลายภาคก่อน แล้วคิดเป็นสัดส่วนคะแนนสอบทั้งหมด
+  // ใช้คะแนนเต็มของทั้งสองส่วนเป็นฐานเสมอ (ช่องที่ยังไม่กรอกนับเป็น 0 ชั่วคราว)
+  const examRaw=(midRaw??0)+(finRaw??0);
+  const examMax=midMax+finMax;
   const examScore=examMax?examRaw/examMax*wE:0;
   // ── คะแนนรวม (เต็ม 100) ──
   const totalScore=assignScore+examScore;
@@ -1945,14 +1946,15 @@ function renderCrSubjectsTab(cid,cls,subs){
   if(!subs.length){
     html+=`<div class="empty" style="padding:24px"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชาในห้องนี้</div><p>กดปุ่ม + เพิ่มวิชา</p></div>`;
   } else {
-    html+=`<div class="tw"><table><thead><tr><th>วิชา</th><th>รหัส</th><th>สัดส่วน เก็บ:สอบ</th><th>กลาง:ปลาย</th><th style="width:100px"></th></tr></thead><tbody>`;
+    html+=`<div class="tw"><table><thead><tr><th>วิชา</th><th>รหัส</th><th>สัดส่วน เก็บ:สอบ</th><th>เต็มกลางภาค</th><th>เต็มปลายภาค</th><th style="width:100px"></th></tr></thead><tbody>`;
     subs.forEach(s=>{
-      const wA=s.wAssign??70,wE=s.wExam??30,wM=s.wMid??50,wF=s.wFinal??50;
+      const wA=s.wAssign??70,wE=s.wExam??30;
       html+=`<tr>
         <td><b>${s.name}</b></td>
         <td>${s.code||'—'}</td>
         <td>${wA}% : ${wE}%</td>
-        <td>${wM}% : ${wF}%</td>
+        <td>${s.midMax||100}</td>
+        <td>${s.finalMax||100}</td>
         <td><div class="f g8">
           <button class="btn btn-xs" onclick="openEditSubject('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
           <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${s.id}')"><i class="ti ti-trash"></i></button>
@@ -2719,12 +2721,12 @@ function renderSubjects(){
   let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${c.name}</b> <span class="badge bt" style="margin-left:6px">${subs.length} วิชา</span></div><button class="btn btn-t btn-sm" onclick="openAddSubject('${cid}','subjects')"><i class="ti ti-plus"></i>เพิ่มวิชา</button></div></div>`;
   if(!subs.length)html+=`<div class="empty"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชา</div><p>กด "เพิ่มวิชา" ด้านบน</p></div>`;
   else{
-    html+=`<div class="tw"><table><thead><tr><th>#</th><th>ชื่อวิชา</th><th>รหัส</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>กลางภาค</th><th>ปลายภาค</th><th></th></tr></thead><tbody>`;
+    html+=`<div class="tw"><table><thead><tr><th>#</th><th>ชื่อวิชา</th><th>รหัส</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>เต็มกลางภาค</th><th>เต็มปลายภาค</th><th></th></tr></thead><tbody>`;
     subs.forEach((sub,i)=>{
-      const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+      const wA=sub.wAssign??70,wE=sub.wExam??30;
       html+=`<tr><td style="color:var(--mu);font-weight:700">${i+1}</td><td style="font-weight:600">${sub.name}</td><td>${sub.code?`<span class="badge bx">${sub.code}</span>`:'-'}</td>
         <td><span class="badge bb">${wA}%</span></td><td><span class="badge bt">${wE}%</span></td>
-        <td><span class="badge bp">${wM}% ของสอบ</span></td><td><span class="badge bp">${wF}% ของสอบ</span></td>
+        <td><span class="badge bp">${sub.midMax||100} คะแนน</span></td><td><span class="badge bp">${sub.finalMax||100} คะแนน</span></td>
         <td><div class="f g8"><button class="btn btn-xs" onclick="openEditSubject('${cid}','${sub.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${sub.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;
     });
     html+=`</tbody></table></div>`;
@@ -3925,12 +3927,13 @@ function renderScExam(){
   const el=document.getElementById('sc-exam');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid);
-  const wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+  const wE=sub.wExam??30;
   const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+  const examMax=midMax+finMax;
   const exMap=examMap(cid,subid);
-  let html=`<div class="prop-box"><div class="prop-title">สัดส่วนคะแนนสอบ — ${sub.name}</div>
-    <div class="prop-bar"><div class="prop-seg" style="width:${wM}%;background:var(--pu)">${wM}% กลางภาค</div><div class="prop-seg" style="width:${wF}%;background:var(--or)">${wF}% ปลายภาค</div></div>
-    <div style="font-size:12px;color:var(--mu)">คะแนนสอบรวม ${wE}% ของคะแนนทั้งหมด | กลางภาค ${wM}% | ปลายภาค ${wF}% ของคะแนนสอบ</div>
+  let html=`<div class="prop-box"><div class="prop-title">คะแนนสอบ — ${sub.name}</div>
+    <div class="f ic g8 fw"><span class="badge bt">คิดเป็น ${wE}% ของคะแนนทั้งหมด</span><span class="badge bp">คะแนนดิบรวมเต็ม ${examMax}</span></div>
+    <div style="font-size:12px;color:var(--mu);margin-top:8px">สูตร: (คะแนนกลางภาค + คะแนนปลายภาค) ÷ (${midMax} + ${finMax}) × ${wE}</div>
   </div>
   <div class="card cp mb14"><div class="f ic g8 fw"><div><b>คะแนนเต็มกลางภาค:</b></div><input type="number" id="midMaxInp" value="${midMax}" style="width:80px" onchange="updateExamMax('${cid}','${subid}','mid',this.value)"><div><b>คะแนนเต็มปลายภาค:</b></div><input type="number" id="finMaxInp" value="${finMax}" style="width:80px" onchange="updateExamMax('${cid}','${subid}','fin',this.value)"></div></div>
   <div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>กรอกคะแนนสอบ</b></div><button class="btn btn-g btn-sm" onclick="saveExam('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
@@ -7551,7 +7554,7 @@ function exportScores(){
   const rows=[];
   targetSubs.forEach(sub=>{
     const asgs=asgList(cid,sub.id);
-    const wA=sub.wAssign??70,wE=sub.wExam??30,wM=sub.wMid??50,wF=sub.wFinal??50;
+    const wA=sub.wAssign??70,wE=sub.wExam??30;
     const midMax=sub.midMax||100,finMax=sub.finalMax||100;
     rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}  สัดส่วน: เก็บ${wA}%:สอบ${wE}%`);
     const hdr=['เลขที่','ชื่อ','นามสกุล'];
@@ -7786,55 +7789,61 @@ function openAddSubject(cid,page){
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> ครูผู้สอน (จะปรากฏในลายเซ็นรายงาน)</label><input type="text" id="mSTeacher" placeholder="เช่น นายอนุวัฒน์ สุระภา"></div>
     <div class="prop-box" style="margin-top:4px">
       <div class="prop-title">สัดส่วนคะแนน (%)</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA" value="70" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar()"> %</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><input type="number" id="mWE" value="30" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar()"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA" value="70" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar('assign')"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><input type="number" id="mWE" value="30" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar('exam')"> %</div>
       <div class="prop-bar" id="propBar"><div class="prop-seg" id="pBA" style="width:70%;background:var(--bl)">70% เก็บ</div><div class="prop-seg" id="pBE" style="width:30%;background:var(--tl)">30% สอบ</div></div>
-      <div style="font-size:12px;color:var(--mu);margin-top:6px"><b>สัดส่วนคะแนนสอบ:</b></div>
-      <div class="prop-row" style="margin-top:4px"><label style="min-width:120px;font-size:13px">กลางภาค</label><input type="number" id="mWM" value="50" min="0" max="100" style="width:70px;font-size:14px"> %</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">ปลายภาค</label><input type="number" id="mWF" value="50" min="0" max="100" style="width:70px;font-size:14px"> %</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
+      <div style="font-size:12px;color:var(--mu);margin:8px 0 6px"><b>คะแนนสอบไม่แบ่งเปอร์เซ็นต์กลางภาค/ปลายภาค</b> — ระบบจะนำคะแนนทั้งสองส่วนมารวมกันแล้วคิดตามสัดส่วนคะแนนสอบด้านบน</div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
     </div>
     <div class="f g8" style="justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-t" onclick="submitAddSubject('${cid}','${page}')">เพิ่มวิชา</button></div>`);
 }
-function updPropBar(){
-  const wA=parseInt(document.getElementById('mWA')?.value)||0;
-  const wE=100-wA;
+function updPropBar(source='assign'){
+  const a=document.getElementById('mWA'),e=document.getElementById('mWE');
+  if(!a||!e)return;
+  let wA=Math.max(0,Math.min(100,parseInt(a.value)||0));
+  let wE=Math.max(0,Math.min(100,parseInt(e.value)||0));
+  if(source==='exam'){wA=100-wE;a.value=wA;}else{wE=100-wA;e.value=wE;}
   const ba=document.getElementById('pBA'),be=document.getElementById('pBE');
-  if(ba)ba.style.width=wA+'%',ba.textContent=wA+'% เก็บ';
-  if(be)be.style.width=wE+'%',be.textContent=wE+'% สอบ';
-  const mWE=document.getElementById('mWE');if(mWE)mWE.value=wE;
+  if(ba){ba.style.width=wA+'%';ba.textContent=wA+'% เก็บ';}
+  if(be){be.style.width=wE+'%';be.textContent=wE+'% สอบ';}
 }
 function submitAddSubject(cid,page){
   const name=val('mSN');if(!name)return;
-  const wA=parseInt(val('mWA'))||70,wM=parseInt(val('mWM'))||50;
-  const sub={id:uid(),name,code:val('mSC'),teacher:val('mSTeacher')||'',wAssign:wA,wExam:100-wA,wMid:wM,wFinal:100-wM,midMax:parseInt(val('mMM'))||100,finalMax:parseInt(val('mFM'))||100};
+  const wA=Math.max(0,Math.min(100,parseInt(val('mWA'))||0));
+  const sub={id:uid(),name,code:val('mSC'),teacher:val('mSTeacher')||'',wAssign:wA,wExam:100-wA,wMid:50,wFinal:50,midMax:parseInt(val('mMM'))||100,finalMax:parseInt(val('mFM'))||100};
   if(!db.subjects[tk(cid)])db.subjects[tk(cid)]=[];
   db.subjects[tk(cid)].push(sub);save();closeMD();renderPage(page||'subjects');showToast('เพิ่มวิชาแล้ว');
 }
 function openEditSubject(cid,subid){
   const sub=getSub(cid,subid);
-  const wA=sub.wAssign??70,wM=sub.wMid??50;
+  const wA=sub.wAssign??70,wE=sub.wExam??30;
   showMD(`<div class="mt">แก้ไขวิชา — ${sub.name}</div>
     <div class="g2"><div class="fg" style="grid-column:span 2"><label class="fl">ชื่อวิชา</label><input type="text" id="mSN2" value="${sub.name}"></div><div class="fg"><label class="fl">รหัสวิชา</label><input type="text" id="mSC2" value="${sub.code||''}"></div><div></div></div>
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> ครูผู้สอน</label><input type="text" id="mSTeacher2" value="${(sub.teacher||'').replace(/"/g,'&quot;')}" placeholder="เช่น นายอนุวัฒน์ สุระภา"></div>
     <div class="prop-box">
       <div class="prop-title">สัดส่วนคะแนน</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA2" value="${wA}" min="0" max="100" style="width:70px;font-size:14px"> %</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><span style="font-size:14px;font-weight:700">${100-wA}%</span></div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">กลางภาค</label><input type="number" id="mWM2" value="${wM}" min="0" max="100" style="width:70px;font-size:14px"> %</div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">ปลายภาค</label><span style="font-size:14px;font-weight:700">${100-wM}%</span></div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM2" value="${sub.midMax||100}" style="width:70px;font-size:14px"></div>
-      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM2" value="${sub.finalMax||100}" style="width:70px;font-size:14px"></div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA2" value="${wA}" min="0" max="100" style="width:70px;font-size:14px" oninput="updEditProp('assign')"> %</div>
+      <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><input type="number" id="mWE2" value="${wE}" min="0" max="100" style="width:70px;font-size:14px" oninput="updEditProp('exam')"> %</div>
+      <div style="font-size:12px;color:var(--mu);margin:8px 0 6px"><b>กลางภาคและปลายภาคไม่มีสัดส่วนย่อย</b> — ระบบรวมคะแนนดิบทั้งสองส่วนแล้วแปลงเป็นคะแนนสอบ ${wE}%</div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM2" value="${sub.midMax||100}" min="1" style="width:70px;font-size:14px"></div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM2" value="${sub.finalMax||100}" min="1" style="width:70px;font-size:14px"></div>
     </div>
     <div class="f g8" style="justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-t" onclick="submitEditSubject('${cid}','${subid}')">บันทึก</button></div>`);
 }
+function updEditProp(source='assign'){
+  const a=document.getElementById('mWA2'),e=document.getElementById('mWE2');
+  if(!a||!e)return;
+  let wA=Math.max(0,Math.min(100,parseInt(a.value)||0));
+  let wE=Math.max(0,Math.min(100,parseInt(e.value)||0));
+  if(source==='exam'){wA=100-wE;a.value=wA;}else{wE=100-wA;e.value=wE;}
+}
 function submitEditSubject(cid,subid){
   const sub=getSub(cid,subid);if(!sub)return;
-  const wA=parseInt(val('mWA2'))||70,wM=parseInt(val('mWM2'))||50;
+  const wA=Math.max(0,Math.min(100,parseInt(val('mWA2'))||0));
   sub.name=val('mSN2')||sub.name;sub.code=val('mSC2');
   sub.teacher=val('mSTeacher2')||'';
-  sub.wAssign=wA;sub.wExam=100-wA;sub.wMid=wM;sub.wFinal=100-wM;
+  sub.wAssign=wA;sub.wExam=100-wA;sub.wMid=50;sub.wFinal=50;
   sub.midMax=parseInt(val('mMM2'))||100;sub.finalMax=parseInt(val('mFM2'))||100;
   save();closeMD();renderSubjects();
 }
