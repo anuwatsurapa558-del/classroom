@@ -8309,7 +8309,51 @@ function openManageAsg(cid,subid){const asgs=asgList(cid,subid);if(!asgs.length)
 
 function openAddGradeComponent(cid,subid){const sub=getSub(cid,subid),remaining=Math.max(0,(sub.wAssign??70)-reservedGradePoints(cid,subid));showMD(`<div class="mt"><i class="ti ti-columns-3"></i> เพิ่มช่องคะแนนอื่น</div><div class="info-box">ใช้สำหรับคะแนนนอกเหนือจากงาน เช่น จิตอาสา จิตพิสัย การส่งงาน การมีส่วนร่วม ฯลฯ คะแนนช่องนี้รวมอยู่ในคะแนนเก็บ ${sub.wAssign??70}%</div><div class="fg"><label class="fl">ชื่อช่องคะแนน</label><input type="text" id="gcName" placeholder="เช่น จิตพิสัย"></div><div class="fg"><label class="fl">คะแนนเต็ม</label><input type="number" id="gcMax" min="0.5" step="0.5" value="5"><small style="color:var(--mu)">เหลือจัดสรรได้ ${remaining.toFixed(1)} คะแนน</small></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="saveNewGradeComponent('${cid}','${subid}')">เพิ่มช่อง</button></div>`);}
 async function saveNewGradeComponent(cid,subid){const name=(document.getElementById('gcName')?.value||'').trim(),max=parseFloat(document.getElementById('gcMax')?.value),sub=getSub(cid,subid);if(!name||!max||max<=0){showToast('กรอกข้อมูลให้ครบ');return;}if(reservedGradePoints(cid,subid)+max>(sub.wAssign??70)+0.0001){showToast('คะแนนรวมเกินสัดส่วนคะแนนเก็บ');return;}const id=uid(),order=gradeComps(cid,subid).length;try{const{error}=await sb.from('grade_components').insert({id,class_id:cid,subject_id:subid,name,max_score:max,order_num:order});if(error)throw error;if(!db.gradeComponents)db.gradeComponents={};if(!db.gradeComponents[subid])db.gradeComponents[subid]=[];db.gradeComponents[subid].push({id,classId:cid,subjectId:subid,name,maxScore:max,orderNum:order});_lastSaveTime=Date.now();closeMD();renderScAll();showToast('เพิ่มช่องคะแนนแล้ว ✓');}catch(e){alert('เพิ่มไม่สำเร็จ: '+e.message);}}
-function openManageGradeComponents(cid,subid){const comps=gradeComps(cid,subid);if(!comps.length){openAddGradeComponent(cid,subid);return;}const rows=comps.map(c=>`<tr><td>${c.name}</td><td style="text-align:center">${c.maxScore}</td><td style="text-align:right"><button class="btn btn-xs" style="color:var(--rd)" onclick="deleteGradeComponent('${cid}','${subid}','${c.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('');showMD(`<div class="mt">ช่องคะแนนเพิ่มเติม</div><div class="tw"><table><thead><tr><th>ชื่อ</th><th>เต็ม</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><div class="f g8" style="justify-content:space-between;margin-top:10px"><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่ม</button><button class="btn" onclick="closeMD()">ปิด</button></div>`);}
+function openManageGradeComponents(cid,subid){
+  const comps=gradeComps(cid,subid);
+  if(!comps.length){openAddGradeComponent(cid,subid);return;}
+  const rows=comps.map(c=>`<tr>
+    <td><div style="font-weight:700">${c.name}</div><div style="font-size:10.5px;color:var(--mu)">คะแนนเพิ่มเติมในคะแนนเก็บ</div></td>
+    <td style="text-align:center;font-weight:700">${c.maxScore}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn btn-xs" onclick="openEditGradeComponent('${cid}','${subid}','${c.id}')" title="แก้ไขชื่อและคะแนนเต็ม"><i class="ti ti-edit"></i> แก้ไข</button>
+      <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteGradeComponent('${cid}','${subid}','${c.id}')" title="ลบช่องคะแนน"><i class="ti ti-trash"></i></button>
+    </td>
+  </tr>`).join('');
+  showMD(`<div class="mt"><i class="ti ti-columns-3"></i> จัดการช่องคะแนนเพิ่มเติม</div>
+    <div class="info-box">สามารถแก้ไขชื่อช่องและคะแนนเต็มได้ภายหลัง โดยคะแนนของนักเรียนที่บันทึกไว้จะยังคงอยู่</div>
+    <div class="tw"><table><thead><tr><th>ชื่อช่องคะแนน</th><th style="text-align:center">คะแนนเต็ม</th><th style="text-align:right">จัดการ</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="f g8" style="justify-content:space-between;margin-top:12px"><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มช่องคะแนน</button><button class="btn" onclick="closeMD()">ปิด</button></div>`);
+}
+function openEditGradeComponent(cid,subid,id){
+  const c=gradeComps(cid,subid).find(x=>x.id===id);if(!c)return;
+  const sub=getSub(cid,subid),wA=sub?.wAssign??70;
+  const reservedWithoutThis=Math.max(0,reservedGradePoints(cid,subid)-(parseFloat(c.maxScore)||0));
+  const available=Math.max(0,wA-reservedWithoutThis);
+  showMD(`<div class="mt"><i class="ti ti-edit"></i> แก้ไขช่องคะแนน</div>
+    <div class="info-box">แก้ไขชื่อและคะแนนเต็มของช่องนี้ได้ คะแนนนักเรียนเดิมจะไม่ถูกลบ</div>
+    <div class="fg"><label class="fl">ชื่อช่องคะแนน</label><input type="text" id="gcEditName" value="${(c.name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"></div>
+    <div class="fg"><label class="fl">คะแนนเต็ม</label><input type="number" id="gcEditMax" min="0.5" step="0.5" value="${c.maxScore}"><small style="color:var(--mu)">ช่องนี้กำหนดได้สูงสุด ${available.toFixed(1)} คะแนน เพื่อให้คะแนนเก็บรวมไม่เกิน ${wA}</small></div>
+    <div class="info-box" style="background:#FFFBEB;color:#92400E;border-color:#FDE68A"><i class="ti ti-alert-triangle"></i> หากลดคะแนนเต็มต่ำกว่าคะแนนที่เคยกรอก ระบบจะเก็บคะแนนเดิมไว้ แต่จะคิดคะแนนไม่เกินคะแนนเต็มใหม่ ควรตรวจคะแนนนักเรียนอีกครั้งหลังแก้ไข</div>
+    <div class="f g8" style="justify-content:space-between"><button class="btn" onclick="openManageGradeComponents('${cid}','${subid}')"><i class="ti ti-arrow-left"></i> กลับ</button><button class="btn btn-p" onclick="saveEditGradeComponent('${cid}','${subid}','${id}')"><i class="ti ti-device-floppy"></i> บันทึกการแก้ไข</button></div>`);
+}
+async function saveEditGradeComponent(cid,subid,id){
+  const c=gradeComps(cid,subid).find(x=>x.id===id);if(!c)return;
+  const name=(document.getElementById('gcEditName')?.value||'').trim();
+  const max=parseFloat(document.getElementById('gcEditMax')?.value);
+  const sub=getSub(cid,subid),wA=sub?.wAssign??70;
+  if(!name){showToast('กรุณากรอกชื่อช่องคะแนน');return;}
+  if(!max||max<=0){showToast('กรุณากรอกคะแนนเต็มให้ถูกต้อง');return;}
+  const reservedWithoutThis=Math.max(0,reservedGradePoints(cid,subid)-(parseFloat(c.maxScore)||0));
+  if(reservedWithoutThis+max>wA+0.0001){showToast(`คะแนนรวมเกินคะแนนเก็บ ${wA} คะแนน`);return;}
+  try{
+    const{error}=await sb.from('grade_components').update({name,max_score:max}).eq('id',id);if(error)throw error;
+    c.name=name;c.maxScore=max;
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderScAll();showToast('แก้ไขช่องคะแนนแล้ว ✓');
+  }catch(e){alert('แก้ไขไม่สำเร็จ: '+e.message);}
+}
 async function deleteGradeComponent(cid,subid,id){const c=gradeComps(cid,subid).find(x=>x.id===id);if(!c||!confirm(`${c.name}\nลบช่องคะแนนนี้และคะแนนนักเรียนทั้งหมด?`))return;try{const{error}=await sb.from('grade_components').delete().eq('id',id);if(error)throw error;db.gradeComponents[subid]=(db.gradeComponents[subid]||[]).filter(x=>x.id!==id);delete db.gradeComponentScores[id];_lastSaveTime=Date.now();closeMD();renderScAll();showToast('ลบแล้ว');}catch(e){alert('ลบไม่สำเร็จ: '+e.message);}}
 async function saveGradeComponentScore(cid,subid,compId,stuId,val,max){if(!db.gradeComponentScores)db.gradeComponentScores={};if(!db.gradeComponentScores[compId])db.gradeComponentScores[compId]={};const s=(val??'').toString().trim();try{if(s===''||isNaN(parseFloat(s))){delete db.gradeComponentScores[compId][stuId];await sb.from('grade_component_scores').delete().eq('component_id',compId).eq('student_id',stuId);}else{const n=Math.min(Math.max(parseFloat(s),0),max);db.gradeComponentScores[compId][stuId]=n;const{error}=await sb.from('grade_component_scores').upsert({component_id:compId,student_id:stuId,value:n},{onConflict:'component_id,student_id'});if(error)throw error;}_lastSaveTime=Date.now();renderScAll();}catch(e){showToast('บันทึกไม่สำเร็จ');}}
 async function saveGradeOverrideValue(subid,stuId,value){if(!db.gradeOverrides)db.gradeOverrides={};if(!db.gradeOverrides[subid])db.gradeOverrides[subid]={};const cur=gradeOverride(subid,stuId);const rec={gradeOverride:value||'',note:cur.note||''};db.gradeOverrides[subid][stuId]=rec;try{const{error}=await sb.from('grade_overrides').upsert({subject_id:subid,student_id:stuId,grade_override:value||null,note:rec.note},{onConflict:'subject_id,student_id'});if(error)throw error;_lastSaveTime=Date.now();renderScAll();}catch(e){showToast('บันทึกเกรดไม่สำเร็จ');}}
