@@ -768,6 +768,7 @@ function _dbToRows(){
       rows.students.push({
         id:s.id, class_id:cid, no:s.no||0,
         first_name:s.firstName||'', last_name:s.lastName||'',
+        student_code:s.studentCode||'',
         password:(db.studentPasswords||{})[s.id]||''
       });
       validStudentIds.add(s.id);
@@ -1017,7 +1018,7 @@ async function _rowsToDb(rows){
   (rows.students||[]).forEach(s=>{
     const tkey=(cid2term[s.class_id]||'')+'__'+s.class_id;
     if(!d.students[tkey])d.students[tkey]=[];
-    d.students[tkey].push({id:s.id,no:s.no,firstName:s.first_name,lastName:s.last_name});
+    d.students[tkey].push({id:s.id,no:s.no,studentCode:s.student_code||'',firstName:s.first_name,lastName:s.last_name});
     if(s.password)d.studentPasswords[s.id]=s.password;
   });
   // subjects
@@ -1838,15 +1839,62 @@ function saveSchool(){
 }
 function openAddTerm(){
   const now=new Date(),thYear=now.getFullYear()+543;
+  const sourceOpts=(db.terms||[]).slice().sort((a,b)=>b.year-a.year||b.semester-a.semester)
+    .map(t=>`<option value="${t.id}">${t.label||('ปี '+t.year+' ภาค '+t.semester)}</option>`).join('');
   showMD(`<div class="mt"><i class="ti ti-calendar-plus"></i> เพิ่มปีการศึกษา / ภาคเรียน</div>
     <div class="g2">
-      <div class="fg"><label class="fl">ปีการศึกษา (พ.ศ.)</label><input type="number" id="tYear" value="${thYear}" min="2560" max="2600"></div>
-      <div class="fg"><label class="fl">ภาคเรียนที่</label><select id="tSem"><option value="1">1</option><option value="2">2</option></select></div>
+      <div class="fg"><label class="fl">ปีการศึกษา (พ.ศ.)</label><input type="number" id="tYear" value="${thYear}" min="2560" max="2600" oninput="updateTermImportHint()"></div>
+      <div class="fg"><label class="fl">ภาคเรียนที่</label><select id="tSem" onchange="updateTermImportHint()"><option value="1">1</option><option value="2">2</option></select></div>
     </div>
     <div style="background:var(--gnl);border-radius:8px;padding:10px;font-size:12.5px;color:var(--gn);margin-bottom:12px">
-      <i class="ti ti-info-circle"></i> ข้อมูลทุกอย่างจะแยกตามปีการศึกษาและภาคเรียน ไม่ปนกัน
+      <i class="ti ti-info-circle"></i> ข้อมูลของภาคเรียนใหม่จะแยกจากภาคเดิม และสามารถแก้ไขนักเรียน/รายวิชาหลังนำเข้าได้ตามปกติ
     </div>
+    ${(db.terms||[]).length?`<div class="card" style="padding:12px;margin-bottom:12px;background:var(--sf2)">
+      <div style="font-weight:700;margin-bottom:8px"><i class="ti ti-copy"></i> นำเข้าจากภาคเรียนก่อนหน้า</div>
+      <div class="fg"><label class="fl">ภาคเรียนต้นทาง</label><select id="tSource" onchange="updateTermImportHint()"><option value="">— ไม่คัดลอก —</option>${sourceOpts}</select></div>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="tImportStu"> นำเข้าห้องเรียนและนักเรียน</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="tImportSub"> นำเข้ารายวิชา + วัน/คาบเรียน</label>
+      <div id="tImportHint" style="font-size:11.5px;color:var(--mu)">นำเข้ารายวิชาได้เฉพาะภาคเรียนในปีการศึกษาเดียวกัน</div>
+    </div>`:''}
     <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddTerm()">เพิ่ม</button></div>`);
+}
+function updateTermImportHint(){
+  const y=parseInt(val('tYear')); const srcId=document.getElementById('tSource')?.value;
+  const src=db.terms.find(t=>t.id===srcId); const h=document.getElementById('tImportHint');
+  if(!h)return;
+  h.textContent=src&&src.year!==y?'ภาคเรียนต้นทางคนละปี: จะไม่สามารถนำเข้ารายวิชาได้':'นำเข้ารายวิชาได้เฉพาะภาคเรียนในปีการศึกษาเดียวกัน';
+}
+function _cloneTermBasics(sourceTermId,newTermId,importStu,importSub){
+  const srcClasses=db.classes.filter(c=>c.termId===sourceTermId);
+  const classMap={},subMap={};
+  srcClasses.forEach(oldC=>{
+    const newCid=uid(); classMap[oldC.id]=newCid;
+    db.classes.push({id:newCid,name:oldC.name,termId:newTermId,showGrades:false});
+    const ntk=newTermId+'__'+newCid;
+    db.students[ntk]=[]; db.subjects[ntk]=[]; db.timetable[ntk]=[];
+    if(importStu){
+      (db.students[sourceTermId+'__'+oldC.id]||[]).forEach(st=>{
+        const nid=uid();
+        db.students[ntk].push({id:nid,no:st.no,studentCode:st.studentCode||'',firstName:st.firstName,lastName:st.lastName});
+        if((db.studentPasswords||{})[st.id])db.studentPasswords[nid]=db.studentPasswords[st.id];
+      });
+    }
+    if(importSub){
+      (db.subjects[sourceTermId+'__'+oldC.id]||[]).forEach(os=>{
+        const nsid=uid(); subMap[os.id]=nsid;
+        db.subjects[ntk].push({...os,id:nsid});
+      });
+    }
+  });
+  if(importSub){
+    srcClasses.forEach(oldC=>{
+      const newCid=classMap[oldC.id], ntk=newTermId+'__'+newCid;
+      (db.timetable[sourceTermId+'__'+oldC.id]||[]).forEach(tt=>{
+        if(tt.subId&&subMap[tt.subId])db.timetable[ntk].push({...tt,id:uid(),subId:subMap[tt.subId]});
+      });
+    });
+  }
+  return srcClasses.length;
 }
 function submitAddTerm(){
   const year=parseInt(val('tYear'));
@@ -1854,11 +1902,19 @@ function submitAddTerm(){
   if(!year){showToast('กรอกปีการศึกษา');return;}
   const exists=db.terms.find(t=>t.year===year&&t.semester===sem);
   if(exists){showToast('ภาคเรียนนี้มีอยู่แล้ว');switchTerm(exists.id);closeMD();return;}
+  const srcId=document.getElementById('tSource')?.value||'';
+  const importStu=!!document.getElementById('tImportStu')?.checked;
+  const importSub=!!document.getElementById('tImportSub')?.checked;
+  const src=db.terms.find(t=>t.id===srcId);
+  if(importSub&&(!src||src.year!==year)){showToast('นำเข้ารายวิชาได้เฉพาะปีการศึกษาเดียวกัน');return;}
+  if((importStu||importSub)&&!src){showToast('เลือกภาคเรียนต้นทางก่อน');return;}
   const id=uid(),label=year+' ภาค '+sem;
   db.terms.push({id,year,semester:sem,label,isCurrent:false});
-  currentTermId=id;save();closeMD();
+  let cloned=0;
+  if(src&&(importStu||importSub))cloned=_cloneTermBasics(src.id,id,importStu,importSub);
+  currentTermId=id;sortClasses();save();closeMD();
   Object.keys(P).forEach(p=>{P[p].cls=null;if(P[p].sub!==undefined)P[p].sub=null;});
-  renderSchool();showToast('เพิ่มภาคเรียน '+label+' แล้ว ✓');
+  renderSchool();showToast('เพิ่มภาคเรียน '+label+(cloned?` และนำเข้า ${cloned} ห้องแล้ว ✓`:' แล้ว ✓'));
 }
 function switchTerm(id){
   currentTermId=id;
@@ -2768,8 +2824,8 @@ function renderStudents(){
   let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb fw g8"><div><span style="font-weight:700;font-size:16px">${c.name}</span><span class="badge bx" style="margin-left:8px">${stus.length} คน</span></div><div class="f g8 fw"><button class="btn btn-p btn-sm" onclick="openAddStu('${cid}')"><i class="ti ti-user-plus"></i>เพิ่ม</button><button class="btn btn-sm" onclick="openPwManager('${cid}')"><i class="ti ti-key"></i>รหัสผ่าน</button><button class="btn btn-sm" onclick="openEditCls('${cid}')"><i class="ti ti-edit"></i></button><button class="btn btn-sm" style="color:var(--rd);border-color:var(--rd)" onclick="deleteCls('${cid}')"><i class="ti ti-trash"></i></button></div></div></div>`;
   if(!stus.length)html+=`<div class="empty"><i class="ti ti-user-x"></i><div>ยังไม่มีนักเรียน</div></div>`;
   else{
-    html+=`<div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ</th><th>นามสกุล</th><th></th></tr></thead><tbody>`;
-    stus.forEach(s=>{html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName}</td><td>${s.lastName}</td><td><div class="f g8"><button class="btn btn-xs" onclick="openEditStu('${cid}','${s.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delStu('${cid}','${s.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;});
+    html+=`<div class="tw"><table><thead><tr><th>ที่</th><th>รหัสประจำตัว</th><th>ชื่อ</th><th>นามสกุล</th><th></th></tr></thead><tbody>`;
+    stus.forEach(s=>{html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.studentCode||'-'}</td><td>${s.firstName}</td><td>${s.lastName}</td><td><div class="f g8"><button class="btn btn-xs" onclick="openEditStu('${cid}','${s.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delStu('${cid}','${s.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;});
     html+=`</tbody></table></div>`;
   }
   html+=`</div>`;
@@ -2788,10 +2844,12 @@ function renderSubjects(){
   let html=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>${c.name}</b> <span class="badge bt" style="margin-left:6px">${subs.length} วิชา</span></div><button class="btn btn-t btn-sm" onclick="openAddSubject('${cid}','subjects')"><i class="ti ti-plus"></i>เพิ่มวิชา</button></div></div>`;
   if(!subs.length)html+=`<div class="empty"><i class="ti ti-book-off"></i><div>ยังไม่มีวิชา</div><p>กด "เพิ่มวิชา" ด้านบน</p></div>`;
   else{
-    html+=`<div class="tw"><table><thead><tr><th>#</th><th>ชื่อวิชา</th><th>รหัส</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>เต็มกลางภาค</th><th>เต็มปลายภาค</th><th></th></tr></thead><tbody>`;
+    html+=`<div class="tw"><table><thead><tr><th>#</th><th>ชื่อวิชา</th><th>รหัส</th><th>วัน/คาบเรียน</th><th>คะแนนเก็บ</th><th>คะแนนสอบ</th><th>เต็มกลางภาค</th><th>เต็มปลายภาค</th><th></th></tr></thead><tbody>`;
     subs.forEach((sub,i)=>{
       const wA=sub.wAssign??70,wE=sub.wExam??30;
-      html+=`<tr><td style="color:var(--mu);font-weight:700">${i+1}</td><td style="font-weight:600">${sub.name}</td><td>${sub.code?`<span class="badge bx">${sub.code}</span>`:'-'}</td>
+      const sch=ttGet(cid).filter(t=>t.subId===sub.id).sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
+      const schTxt=sch.length?sch.map(x=>`${DAYS_TH[x.day]} ${x.start.slice(0,5)}-${x.end.slice(0,5)}`).join('<br>'):'<span style="color:var(--hn)">ยังไม่กำหนด</span>';
+      html+=`<tr><td style="color:var(--mu);font-weight:700">${i+1}</td><td style="font-weight:600">${sub.name}</td><td>${sub.code?`<span class="badge bx">${sub.code}</span>`:'-'}</td><td style="font-size:11.5px;white-space:nowrap">${schTxt}</td>
         <td><span class="badge bb">${wA}%</span></td><td><span class="badge bt">${wE}%</span></td>
         <td><span class="badge bp">${sub.midMax||100} คะแนน</span></td><td><span class="badge bp">${sub.finalMax||100} คะแนน</span></td>
         <td><div class="f g8"><button class="btn btn-xs" onclick="openEditSubject('${cid}','${sub.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${sub.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;
@@ -7871,10 +7929,55 @@ async function deleteCls(cid){
   showToast('ลบห้องเรียนแล้ว');
 }
 
+function _subjectScheduleRows(cid,subid=''){
+  const tt=subid?ttGet(cid).filter(x=>x.subId===subid):[];
+  const rows=tt.length?tt:[{day:'',start:'',end:''}];
+  return rows.map(x=>{
+    const std=PERIODS.filter(p=>!p.isFixed);
+    let pi=std.findIndex(p=>p.start===x.start&&p.end===x.end);
+    return _subjectScheduleRowHtml(x.day,pi>=0?pi:((x.start&&x.end)?('custom|'+x.start+'|'+x.end):''));
+  }).join('');
+}
+function _subjectScheduleRowHtml(day='',period=''){
+  const dayOpts=DAYS_TH.map((d,i)=>`<option value="${i}" ${String(day)===String(i)?'selected':''}>${d}</option>`).join('');
+  const std=PERIODS.filter(p=>!p.isFixed);
+  const customOpt=String(period).startsWith('custom|')?`<option value="${period}" selected>เวลาเดิม ${String(period).split('|')[1]}-${String(period).split('|')[2]}</option>`:'';
+  const pOpts=customOpt+std.map((p,i)=>`<option value="${i}" ${String(period)===String(i)?'selected':''}>${p.name} · ${p.start}-${p.end}</option>`).join('');
+  return `<div class="sub-sch-row" style="display:grid;grid-template-columns:1fr 1.5fr 36px;gap:7px;margin-bottom:7px">
+    <select class="subSchDay"><option value="">— วันเรียน —</option>${dayOpts}</select>
+    <select class="subSchPeriod"><option value="">— คาบเรียน —</option>${pOpts}</select>
+    <button type="button" class="btn btn-xs" onclick="this.closest('.sub-sch-row').remove()" title="ลบ"><i class="ti ti-x"></i></button>
+  </div>`;
+}
+function addSubjectScheduleRow(){
+  const w=document.getElementById('subScheduleRows'); if(w)w.insertAdjacentHTML('beforeend',_subjectScheduleRowHtml());
+}
+function _collectSubjectSchedule(cid,subid=''){
+  const rows=[...document.querySelectorAll('#subScheduleRows .sub-sch-row')]; const out=[],seen=new Set();
+  const std=PERIODS.filter(p=>!p.isFixed);
+  for(const r of rows){
+    const dv=r.querySelector('.subSchDay')?.value, pv=r.querySelector('.subSchPeriod')?.value;
+    if(dv===''&&pv==='')continue;
+    if(dv===''||pv===''){showToast('เลือกวันและคาบเรียนให้ครบ');return null;}
+    let p;if(String(pv).startsWith('custom|')){const z=String(pv).split('|');p={start:z[1],end:z[2]};}else p=std[parseInt(pv)]; if(!p)continue;
+    const key=dv+'|'+p.start+'|'+p.end; if(seen.has(key)){showToast('มีวัน/คาบเรียนซ้ำ');return null;} seen.add(key);
+    const conflict=ttGet(cid).find(t=>t.subId!==subid&&String(t.day)===String(dv)&&t.start===p.start&&t.end===p.end);
+    if(conflict){showToast('คาบ '+DAYS_TH[+dv]+' '+p.start+' มีรายการอื่นอยู่แล้ว');return null;}
+    out.push({day:+dv,start:p.start,end:p.end});
+  }
+  return out;
+}
+function _applySubjectSchedule(cid,subid,schedule){
+  const keep=ttGet(cid).filter(t=>t.subId!==subid);
+  (schedule||[]).forEach(x=>keep.push({id:uid(),day:x.day,start:x.start,end:x.end,subId:subid,note:''}));
+  ttSet(cid,keep);
+}
+
 function openAddSubject(cid,page){
   showMD(`<div class="mt"><i class="ti ti-book-plus"></i> เพิ่มวิชา — ${getCls(cid).name}</div>
     <div class="g2"><div class="fg" style="grid-column:span 2"><label class="fl">ชื่อวิชา</label><input type="text" id="mSN" placeholder="คณิตศาสตร์, ภาษาไทย" autofocus></div><div class="fg"><label class="fl">รหัสวิชา (ถ้ามี)</label><input type="text" id="mSC" placeholder="MA101"></div><div></div></div>
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> ครูผู้สอน (จะปรากฏในลายเซ็นรายงาน)</label><input type="text" id="mSTeacher" placeholder="เช่น นายอนุวัฒน์ สุระภา"></div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--sf2)"><div class="f ic jb" style="margin-bottom:8px"><b><i class="ti ti-calendar-time"></i> วันและคาบเรียน</b><button type="button" class="btn btn-xs" onclick="addSubjectScheduleRow()"><i class="ti ti-plus"></i> เพิ่มคาบ</button></div><div id="subScheduleRows">${_subjectScheduleRows(cid)}</div><div style="font-size:11.5px;color:var(--mu)">เมื่อบันทึก วิชาจะถูกเพิ่มลงตารางเรียนของห้องนี้อัตโนมัติ</div></div>
     <div class="prop-box" style="margin-top:4px">
       <div class="prop-title">สัดส่วนคะแนน (%)</div>
       <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA" value="70" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar('assign')"> %</div>
@@ -7898,10 +8001,12 @@ function updPropBar(source='assign'){
 }
 function submitAddSubject(cid,page){
   const name=val('mSN');if(!name)return;
+  const schedule=_collectSubjectSchedule(cid,''); if(schedule===null)return;
   const wA=Math.max(0,Math.min(100,parseInt(val('mWA'))||0));
   const sub={id:uid(),name,code:val('mSC'),teacher:val('mSTeacher')||'',wAssign:wA,wExam:100-wA,wMid:50,wFinal:50,midMax:parseInt(val('mMM'))||100,finalMax:parseInt(val('mFM'))||100};
   if(!db.subjects[tk(cid)])db.subjects[tk(cid)]=[];
-  db.subjects[tk(cid)].push(sub);save();closeMD();renderPage(page||'subjects');showToast('เพิ่มวิชาแล้ว');
+  db.subjects[tk(cid)].push(sub); _applySubjectSchedule(cid,sub.id,schedule);
+  save();closeMD();renderPage(page||'subjects');showToast('เพิ่มวิชาและอัปเดตตารางเรียนแล้ว ✓');
 }
 function openEditSubject(cid,subid){
   const sub=getSub(cid,subid);
@@ -7909,6 +8014,7 @@ function openEditSubject(cid,subid){
   showMD(`<div class="mt">แก้ไขวิชา — ${sub.name}</div>
     <div class="g2"><div class="fg" style="grid-column:span 2"><label class="fl">ชื่อวิชา</label><input type="text" id="mSN2" value="${sub.name}"></div><div class="fg"><label class="fl">รหัสวิชา</label><input type="text" id="mSC2" value="${sub.code||''}"></div><div></div></div>
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> ครูผู้สอน</label><input type="text" id="mSTeacher2" value="${(sub.teacher||'').replace(/"/g,'&quot;')}" placeholder="เช่น นายอนุวัฒน์ สุระภา"></div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--sf2)"><div class="f ic jb" style="margin-bottom:8px"><b><i class="ti ti-calendar-time"></i> วันและคาบเรียน</b><button type="button" class="btn btn-xs" onclick="addSubjectScheduleRow()"><i class="ti ti-plus"></i> เพิ่มคาบ</button></div><div id="subScheduleRows">${_subjectScheduleRows(cid,subid)}</div><div style="font-size:11.5px;color:var(--mu)">แก้ไขตรงนี้แล้วตารางเรียนจะเปลี่ยนตามอัตโนมัติ</div></div>
     <div class="prop-box">
       <div class="prop-title">สัดส่วนคะแนน</div>
       <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA2" value="${wA}" min="0" max="100" style="width:70px;font-size:14px" oninput="updEditProp('assign')"> %</div>
@@ -7928,12 +8034,14 @@ function updEditProp(source='assign'){
 }
 function submitEditSubject(cid,subid){
   const sub=getSub(cid,subid);if(!sub)return;
+  const schedule=_collectSubjectSchedule(cid,subid); if(schedule===null)return;
   const wA=Math.max(0,Math.min(100,parseInt(val('mWA2'))||0));
   sub.name=val('mSN2')||sub.name;sub.code=val('mSC2');
   sub.teacher=val('mSTeacher2')||'';
   sub.wAssign=wA;sub.wExam=100-wA;sub.wMid=50;sub.wFinal=50;
   sub.midMax=parseInt(val('mMM2'))||100;sub.finalMax=parseInt(val('mFM2'))||100;
-  save();closeMD();renderSubjects();
+  _applySubjectSchedule(cid,subid,schedule);
+  save();closeMD();renderSubjects();showToast('บันทึกวิชาและตารางเรียนแล้ว ✓');
 }
 async function deleteSubject(cid,subid){
   _lastSaveTime=Date.now();  const sub=getSub(cid,subid);if(!confirm(`ลบวิชา "${sub?.name}"?\nข้อมูลทั้งหมดของวิชานี้จะหายไป (เช็คชื่อ คะแนน งาน สอบ)`))return;
@@ -7961,32 +8069,63 @@ async function deleteSubject(cid,subid){
 }
 function openAddStu(cid){
   showMD(`<div class="mt"><i class="ti ti-user-plus"></i> เพิ่มนักเรียน — ${getCls(cid).name}</div>
-    <div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="mSno" min="1" placeholder="1"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mSfn" placeholder="ชื่อ"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="mSln" placeholder="นามสกุล"></div></div>
-    <div class="fg"><label class="fl">เพิ่มหลายคนพร้อมกัน (เลขที่ ชื่อ นามสกุล)</label><textarea id="mSbulk" rows="5" placeholder="1 สมชาย ใจดี&#10;2 สมหญิง มีสุข"></textarea></div>
+    <div class="g2">
+      <div class="fg"><label class="fl">รหัสประจำตัวนักเรียน</label><input type="text" id="mScode" placeholder="เช่น 12345"></div>
+      <div class="fg"><label class="fl">เลขที่</label><input type="number" id="mSno" min="1" placeholder="1"></div>
+      <div class="fg"><label class="fl">ชื่อ</label><input type="text" id="mSfn" placeholder="ชื่อ"></div>
+      <div class="fg"><label class="fl">นามสกุล</label><input type="text" id="mSln" placeholder="นามสกุล"></div>
+    </div>
+    <div class="fg"><label class="fl">เพิ่มหลายคนพร้อมกัน (รหัสประจำตัว เลขที่ ชื่อ นามสกุล)</label><textarea id="mSbulk" rows="5" placeholder="12345 1 สมชาย ใจดี&#10;12346 2 สมหญิง มีสุข"></textarea></div>
+    <div style="font-size:11.5px;color:var(--mu);margin-top:-6px;margin-bottom:10px">ยังรองรับรูปแบบเดิม “เลขที่ ชื่อ นามสกุล” โดยเว้นรหัสประจำตัวไว้ได้</div>
     <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddStu('${cid}')">เพิ่ม</button></div>`);
+}
+function _studentCodeExists(cid,code,exceptId=''){
+  const c=(code||'').trim().toLowerCase(); if(!c)return false;
+  return (db.students[tk(cid)]||[]).some(s=>s.id!==exceptId&&(s.studentCode||'').trim().toLowerCase()===c);
 }
 function submitAddStu(cid){
   if(!db.students[tk(cid)])db.students[tk(cid)]=[];
   const bulk=document.getElementById('mSbulk')?.value?.trim();
-  if(bulk){bulk.split('\n').filter(l=>l.trim()).forEach(line=>{const p=line.trim().split(/\s+/);if(p.length>=2)db.students[tk(cid)].push({id:uid(),no:parseInt(p[0])||db.students[tk(cid)].length+1,firstName:p[1],lastName:p.slice(2).join(' ')||''});});}
-  else{const no=parseInt(document.getElementById('mSno')?.value)||db.students[tk(cid)].length+1,fn=val('mSfn');if(!fn)return;db.students[tk(cid)].push({id:uid(),no,firstName:fn,lastName:val('mSln')});}
+  if(bulk){
+    const pending=[];
+    for(const line of bulk.split('\n').filter(l=>l.trim())){
+      const p=line.trim().split(/\s+/); let code='',no,fn,ln='';
+      if(p.length>=4){code=p[0];no=parseInt(p[1]);fn=p[2];ln=p.slice(3).join(' ');}
+      else if(p.length>=2){no=parseInt(p[0]);fn=p[1];ln=p.slice(2).join(' ');}
+      else continue;
+      no=no||db.students[tk(cid)].length+pending.length+1;
+      if(code&&(_studentCodeExists(cid,code)||pending.some(x=>x.studentCode===code))){showToast('พบรหัสประจำตัวซ้ำ: '+code);return;}
+      pending.push({id:uid(),no,studentCode:code,firstName:fn,lastName:ln});
+    }
+    db.students[tk(cid)].push(...pending);
+  } else {
+    const no=parseInt(document.getElementById('mSno')?.value)||db.students[tk(cid)].length+1,fn=val('mSfn');if(!fn)return;
+    const code=val('mScode'); if(code&&_studentCodeExists(cid,code)){showToast('รหัสประจำตัวนักเรียนซ้ำ');return;}
+    db.students[tk(cid)].push({id:uid(),no,studentCode:code,firstName:fn,lastName:val('mSln')});
+  }
   save();closeMD();renderStudents();showToast('เพิ่มนักเรียนแล้ว');
 }
-function openEditStu(cid,sid){const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2"><div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div><div></div><div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div><div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);}
+function openEditStu(cid,sid){
+  const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);if(!s)return;
+  showMD(`<div class="mt">แก้ไขนักเรียน</div><div class="g2">
+    <div class="fg"><label class="fl">รหัสประจำตัวนักเรียน</label><input type="text" id="eScode" value="${s.studentCode||''}"></div>
+    <div class="fg"><label class="fl">เลขที่</label><input type="number" id="eSno" value="${s.no}"></div>
+    <div class="fg"><label class="fl">ชื่อ</label><input type="text" id="eSfn" value="${s.firstName}"></div>
+    <div class="fg"><label class="fl">นามสกุล</label><input type="text" id="eSln" value="${s.lastName}"></div></div>
+    <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitEditStu('${cid}','${sid}')">บันทึก</button></div>`);
+}
 async function submitEditStu(cid,sid){
-  _lastSaveTime=Date.now();  const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid);
-  if(!s)return;
+  _lastSaveTime=Date.now(); const s=(db.students[tk(cid)]||[]).find(x=>x.id===sid); if(!s)return;
   const no=parseInt(document.getElementById('eSno')?.value)||s.no;
-  const firstName=val('eSfn')||s.firstName;
-  const lastName=val('eSln')||'';
+  const studentCode=val('eScode');
+  if(studentCode&&_studentCodeExists(cid,studentCode,sid)){showToast('รหัสประจำตัวนักเรียนซ้ำ');return;}
+  const firstName=val('eSfn')||s.firstName, lastName=val('eSln')||'';
   try{
-    const {error}=await sb.from('students').update({no,first_name:firstName,last_name:lastName}).eq('id',sid);
+    const {error}=await sb.from('students').update({no,student_code:studentCode,first_name:firstName,last_name:lastName}).eq('id',sid);
     if(error)throw error;
-    s.no=no;s.firstName=firstName;s.lastName=lastName;
-    _lastSaveTime=Date.now();
-    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-    closeMD();renderStudents();
-    showToast('บันทึกแล้ว ✓');
+    s.no=no;s.studentCode=studentCode;s.firstName=firstName;s.lastName=lastName;
+    _lastSaveTime=Date.now(); try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    closeMD();renderStudents();showToast('บันทึกแล้ว ✓');
   }catch(e){console.error(e);alert('บันทึกไม่สำเร็จ: '+e.message);}
 }
 async function delStu(cid,sid){

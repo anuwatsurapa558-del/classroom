@@ -402,7 +402,7 @@ async function _rowsToDbStu(rows){
   (rows.students||[]).forEach(s=>{
     const tkey=(cid2term[s.class_id]||'')+'__'+s.class_id;
     if(!d.students[tkey])d.students[tkey]=[];
-    d.students[tkey].push({id:s.id,no:s.no,firstName:s.first_name,lastName:s.last_name});
+    d.students[tkey].push({id:s.id,no:s.no,studentCode:s.student_code||'',firstName:s.first_name,lastName:s.last_name});
     if(s.password)d.studentPasswords[s.id]=s.password;
   });
   (rows.subjects||[]).forEach(s=>{
@@ -604,7 +604,7 @@ async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
       const row={
         id:stuId, class_id:cid, no:studentObj.no,
         first_name:studentObj.firstName, last_name:studentObj.lastName,
-        password:pwPlain||''
+        student_code:studentObj.studentCode||'', password:pwPlain||''
       };
       const {error}=await sb.from('students').upsert(row,{onConflict:'id'});
       if(error)throw error;
@@ -820,7 +820,7 @@ async function doRegister(){
   if(pw.length<4){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร</div>`;return;}
   if(pw!==pw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
   const id=uid();
-  const studentObj={id,no,firstName:fn,lastName:ln};
+  const studentObj={id,no,studentCode:'',firstName:fn,lastName:ln};
   me={classId:cid,studentId:id};
   showToast('ลงทะเบียนสำเร็จ กำลังบันทึก...');
   // ส่ง studentObj + รหัสผ่าน ให้ saveStudentInfo merge กับข้อมูลล่าสุดบน cloud
@@ -915,7 +915,7 @@ function renderHome(){
   <div class="profile-card">
     <div><i class="ti ti-user-circle" style="font-size:32px;opacity:.8"></i></div>
     <div class="profile-name">${stu.firstName} ${stu.lastName}</div>
-    <div class="profile-info">เลขที่ ${stu.no} • ห้อง ${cls.name}</div>
+    <div class="profile-info">${stu.studentCode?`รหัส ${stu.studentCode} • `:''}เลขที่ ${stu.no} • ห้อง ${cls.name}</div>
     <div style="margin-top:12px"><button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3)" onclick="editMyInfo()"><i class="ti ti-edit"></i> แก้ไขข้อมูล</button> <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)" onclick="logout()"><i class="ti ti-logout"></i> ออกจากระบบ</button></div>
   </div>
   <div class="sg">
@@ -1375,6 +1375,7 @@ function printParentReport(){
       <div class="rtitle">ข้อมูลนักเรียน</div>
       <div class="rinfo">
         <div class="item"><span class="lbl">ชื่อ-สกุล</span><span class="val">${stu.firstName} ${stu.lastName}</span></div>
+        <div class="item"><span class="lbl">รหัสประจำตัว</span><span class="val">${stu.studentCode||'-'}</span></div>
         <div class="item"><span class="lbl">ชั้น</span><span class="val">${cls.name}</span></div>
         <div class="item"><span class="lbl">เลขที่</span><span class="val">${stu.no}</span></div>
         <div class="item"><span class="lbl">วันที่ออกรายงาน</span><span class="val">${today}</span></div>
@@ -2802,7 +2803,7 @@ async function saveMyInfo(){
   const no=parseInt(document.getElementById('editNo')?.value)||stu.no;
   const fn=(document.getElementById('editFn')?.value||'').trim()||stu.firstName;
   const ln=(document.getElementById('editLn')?.value||'').trim();
-  const updatedObj={id:me.studentId,no,firstName:fn,lastName:ln};
+  const updatedObj={id:me.studentId,no,studentCode:stu.studentCode||'',firstName:fn,lastName:ln};
   showToast('กำลังบันทึก...');
   // ส่ง object ที่แก้แล้วให้ merge กับ cloud
   await saveStudentInfo(me.classId,me.studentId,updatedObj,null);
