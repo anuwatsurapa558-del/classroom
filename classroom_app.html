@@ -8264,7 +8264,9 @@ function calcTotal(cid,subid,stuId){
   const midRaw=ex.mid!==undefined&&ex.mid!==''&&!isNaN(parseFloat(ex.mid))?parseFloat(ex.mid):null;
   const finRaw=ex.final!==undefined&&ex.final!==''&&!isNaN(parseFloat(ex.final))?parseFloat(ex.final):null;
   const examRaw=(midRaw??0)+(finRaw??0),examMax=midMax+finMax,examScore=examMax?examRaw/examMax*wE:0;
-  const totalScore=Math.min(100,assignScore+examScore),gradeObj=calcGrade(totalScore);
+  const totalScore=Math.min(100,assignScore+examScore);
+  const roundedTotalScore=Math.round(totalScore);
+  const gradeObj=calcGrade(roundedTotalScore);
   const ov=gradeOverride(subid,stuId);const finalGrade=ov.gradeOverride||gradeObj.g;const finalCls=gradeClass(finalGrade);const note=ov.note||'';
   return{assignRaw:poolRaw,assignMax:poolMax,assignScore:Math.round(assignScore*10)/10,poolScore:Math.round(poolScore*10)/10,separateScore:Math.round(separateScore*10)/10,customScore:Math.round(customScore*10)/10,poolWeight,sepReserved,customReserved,examRaw,examMax,examScore:Math.round(examScore*10)/10,totalScore:Math.round(totalScore*10)/10,wA,wE,midRaw,finRaw,midMax,finMax,grade:gradeObj,finalGrade,finalCls,note,missing,missingScore,missingTrack};
 }
