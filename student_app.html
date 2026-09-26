@@ -2414,19 +2414,41 @@ async function submitQuiz(isTimeout){
   }catch(e){console.error(e);alert('ส่งไม่สำเร็จ: '+e.message);}
 }
 
-// v14.4: สร้างงานคะแนนจากข้อสอบแบบ canonical และรวม legacy ไม่ให้เกิดคอลัมน์ซ้ำ
+// v14.7: ป้องกันสร้างงานคะแนนซ้ำ โดยไม่ลบ/รวม/ซ่อนงานเดิม
 async function _ensureStudentQuizAssignment(quiz,cid,subid){
   const canonical='asg_qz_'+quiz.id+'_'+cid;
   const legacy='asg_qz_'+quiz.id;
-  const row={id:canonical,class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,max_score:quiz.max_score,type:'score'};
-  const {error}=await sb.from('assignments').upsert(row,{onConflict:'id'});
-  if(error)throw error;
-  // ถ้ามีรายการรุ่นเก่า ย้ายคะแนนเดิมก่อนลบ เพื่อไม่ให้สูญหาย
-  const {data:oldScores}=await sb.from('scores').select('student_id,value').eq('assignment_id',legacy);
-  if(oldScores&&oldScores.length){
-    await sb.from('scores').upsert(oldScores.map(x=>({assignment_id:canonical,student_id:x.student_id,value:x.value})),{onConflict:'assignment_id,student_id'});
+  const payload={
+    class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,
+    max_score:quiz.max_score,type:'score'
+  };
+
+  // canonical มีอยู่แล้ว → ใช้เดิม
+  const {data:can,error:canErr}=await sb.from('assignments')
+    .select('id,class_id,subject_id').eq('id',canonical).maybeSingle();
+  if(canErr)throw canErr;
+  if(can){
+    const {error}=await sb.from('assignments').update(payload).eq('id',canonical);
+    if(error)throw error;
+    return canonical;
   }
-  await sb.from('assignments').delete().eq('id',legacy);
+
+  // legacy ใช้ได้เฉพาะเมื่อเป็นห้องและวิชานี้จริง
+  const {data:old,error:oldErr}=await sb.from('assignments')
+    .select('id,class_id,subject_id').eq('id',legacy).maybeSingle();
+  if(oldErr)throw oldErr;
+  if(old && old.class_id===cid && old.subject_id===subid){
+    const {error}=await sb.from('assignments').update(payload).eq('id',legacy);
+    if(error)throw error;
+    return legacy;
+  }
+
+  // ไม่พบจริงจึงสร้างใหม่
+  const {error:insErr}=await sb.from('assignments').insert({id:canonical,...payload});
+  if(insErr){
+    const msg=String(insErr.message||'').toLowerCase();
+    if(!msg.includes('duplicate')&&!msg.includes('unique'))throw insErr;
+  }
   return canonical;
 }
 
