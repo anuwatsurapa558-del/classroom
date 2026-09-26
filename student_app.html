@@ -893,114 +893,135 @@ function renderRegister(){
   const defTerm=window._currentTermId||(db.terms[0]?.id||'');
   const termOpts=(db.terms||[]).map(t=>`<option value="${t.id}" ${t.id===defTerm?'selected':''}>${termLabelById(t.id)}${t.isCurrent?' (ปัจจุบัน)':''}</option>`).join('');
   const clsOpts=classesForTerm(defTerm).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  _regStuId=null;
   content.innerHTML=`
   <div class="login-box">
     <div class="login-logo">
-      <i class="ti ti-user-plus"></i>
-      <h2>ลงทะเบียน</h2>
-      <p>กรอกข้อมูลและตั้งรหัสผ่านของคุณ</p>
+      <i class="ti ti-user-check"></i>
+      <h2>เปิดใช้งานบัญชีนักเรียน</h2>
+      <p>เลือกรายชื่อที่ครูบันทึกไว้ แล้วตั้งรหัสผ่าน</p>
     </div>
     <div id="regErr"></div>
+    <div class="ok-box" style="align-items:flex-start"><i class="ti ti-shield-check"></i><div><b>ป้องกันชื่อซ้ำ</b><br>หน้านี้จะไม่สร้างนักเรียนคนใหม่ หากไม่พบชื่อของคุณ กรุณาแจ้งครูให้เพิ่มรายชื่อก่อน</div></div>
     <div class="fg"><label class="fl"><i class="ti ti-calendar-event"></i> ปีการศึกษา / ภาคเรียน</label><select id="regTerm" onchange="updateRegisterClassList()">${termOpts}</select></div>
-    <div class="fg"><label class="fl"><i class="ti ti-door"></i> ห้องเรียน</label><select id="regCls">${clsOpts}</select></div>
-    <div class="fg"><label class="fl"><i class="ti ti-id"></i> รหัสประจำตัวนักเรียน</label><input type="text" id="regCode" placeholder="กรอกรหัสประจำตัวนักเรียน" autocomplete="off"></div>
-    <div class="fg"><label class="fl"><i class="ti ti-number"></i> เลขที่</label><input type="number" id="regNo" placeholder="เช่น 12" min="1"></div>
-    <div class="fg"><label class="fl"><i class="ti ti-user"></i> ชื่อ</label><input type="text" id="regFn" placeholder="ชื่อ"></div>
-    <div class="fg"><label class="fl"><i class="ti ti-user"></i> นามสกุล</label><input type="text" id="regLn" placeholder="นามสกุล"></div>
-    <div class="fg pw-toggle">
-      <label class="fl"><i class="ti ti-lock"></i> ตั้งรหัสผ่าน</label>
-      <input type="password" id="regPw" placeholder="อย่างน้อย 4 ตัวอักษร" autocomplete="new-password" oninput="updPwStrength('regPw');updPwDots('regPw','rd')">
-      <button class="pw-eye" onclick="togglePwEye('regPw',this)" type="button"><i class="ti ti-eye"></i></button>
-      <div class="pw-strength" id="regPwBar"></div>
-      <div id="regPwHint" style="font-size:11px;color:var(--mu);margin-top:3px"></div>
+    <div class="fg"><label class="fl"><i class="ti ti-door"></i> ห้องเรียน</label><select id="regCls" onchange="updateRegisterStuList()"><option value="">— เลือกห้อง —</option>${clsOpts}</select></div>
+    <div class="fg" id="regStuPickWrap" style="display:none">
+      <label class="fl"><i class="ti ti-user"></i> เลือกชื่อของคุณจากรายชื่อครู</label>
+      <input type="text" class="stu-search" id="regStuSearch" placeholder="🔍 ค้นหาชื่อ รหัส หรือเลขที่..." oninput="filterRegisterStuList()">
+      <div class="stu-picker" id="regStuPicker"></div>
     </div>
-    <div class="pw-dots" id="rd"></div>
-    <div class="fg pw-toggle">
-      <label class="fl"><i class="ti ti-lock-check"></i> ยืนยันรหัสผ่าน</label>
-      <input type="password" id="regPw2" placeholder="กรอกรหัสผ่านอีกครั้ง" autocomplete="new-password" oninput="updPwDots('regPw2','rd2');checkPwMatch()" onkeydown="if(event.key==='Enter')doRegister()">
-      <button class="pw-eye" onclick="togglePwEye('regPw2',this)" type="button"><i class="ti ti-eye"></i></button>
+    <div id="regAccountFields" style="display:none">
+      <div class="fg"><label class="fl"><i class="ti ti-id"></i> รหัสประจำตัวนักเรียน</label><input type="text" id="regCode" placeholder="กรอกรหัสเพื่อยืนยันตัวตน" autocomplete="off"></div>
+      <div class="fg pw-toggle">
+        <label class="fl"><i class="ti ti-lock"></i> ตั้งรหัสผ่าน</label>
+        <input type="password" id="regPw" placeholder="อย่างน้อย 4 ตัวอักษร" autocomplete="new-password" oninput="updPwStrength('regPw');updPwDots('regPw','rd')">
+        <button class="pw-eye" onclick="togglePwEye('regPw',this)" type="button"><i class="ti ti-eye"></i></button>
+        <div class="pw-strength" id="regPwBar"></div>
+        <div id="regPwHint" style="font-size:11px;color:var(--mu);margin-top:3px"></div>
+      </div>
+      <div class="pw-dots" id="rd"></div>
+      <div class="fg pw-toggle">
+        <label class="fl"><i class="ti ti-lock-check"></i> ยืนยันรหัสผ่าน</label>
+        <input type="password" id="regPw2" placeholder="กรอกรหัสผ่านอีกครั้ง" autocomplete="new-password" oninput="updPwDots('regPw2','rd2');checkPwMatch()" onkeydown="if(event.key==='Enter')doRegister()">
+        <button class="pw-eye" onclick="togglePwEye('regPw2',this)" type="button"><i class="ti ti-eye"></i></button>
+      </div>
+      <div class="pw-dots" id="rd2"></div>
+      <div id="pwMatchMsg" style="font-size:12px;margin-bottom:8px"></div>
+      <button class="btn btn-tl btn-full" onclick="doRegister()"><i class="ti ti-check"></i> เปิดใช้งานบัญชี</button>
     </div>
-    <div class="pw-dots" id="rd2"></div>
-    <div id="pwMatchMsg" style="font-size:12px;margin-bottom:8px"></div>
-    <div style="background:var(--aml);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--am);margin-bottom:14px"><i class="ti ti-info-circle"></i> <b>หมายเหตุ:</b> ครูสามารถดูและรีเซ็ตรหัสผ่านของคุณได้ผ่านระบบ ไม่ควรใช้รหัสผ่านเดียวกับระบบอื่น</div>
-    <button class="btn btn-tl btn-full" onclick="doRegister()"><i class="ti ti-check"></i> ลงทะเบียน</button>
     <div style="margin-top:12px;text-align:center"><button class="btn btn-sm btn-outline" onclick="renderLogin()">← กลับ</button></div>
   </div>`;
 }
 
-function updateRegisterClassList(){const termId=document.getElementById('regTerm')?.value||'';const sel=document.getElementById('regCls');if(sel)sel.innerHTML=classesForTerm(termId).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
-function uid(){return Math.random().toString(36).slice(2,10);}
+let _regStuId=null;
+function updateRegisterClassList(){
+  const termId=document.getElementById('regTerm')?.value||'';
+  const sel=document.getElementById('regCls');
+  _regStuId=null;
+  if(sel)sel.innerHTML='<option value="">— เลือกห้อง —</option>'+classesForTerm(termId).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const wrap=document.getElementById('regStuPickWrap'),fields=document.getElementById('regAccountFields');
+  if(wrap)wrap.style.display='none';if(fields)fields.style.display='none';
+}
+function updateRegisterStuList(){
+  const cid=document.getElementById('regCls')?.value||'';
+  const wrap=document.getElementById('regStuPickWrap'),fields=document.getElementById('regAccountFields');
+  _regStuId=null;if(fields)fields.style.display='none';
+  if(!cid){if(wrap)wrap.style.display='none';return;}
+  if(wrap)wrap.style.display='block';
+  renderRegisterStuList(cid,'');
+}
+function renderRegisterStuList(cid,filter){
+  const picker=document.getElementById('regStuPicker');if(!picker)return;
+  const stus=stuArr(cid).slice().sort((a,b)=>a.no-b.no);
+  const f=(filter||'').toLowerCase().trim();
+  const filtered=f?stus.filter(s=>(`${s.no} ${s.studentCode||''} ${s.firstName} ${s.lastName}`).toLowerCase().includes(f)):stus;
+  if(!filtered.length){
+    picker.innerHTML=`<div style="padding:20px;text-align:center;color:var(--mu);font-size:13px">${stus.length?'ไม่พบรายชื่อที่ค้นหา':'ห้องนี้ยังไม่มีรายชื่อนักเรียน กรุณาแจ้งครูให้เพิ่มรายชื่อก่อน'}</div>`;return;
+  }
+  picker.innerHTML=filtered.map(s=>{
+    const conflict=_studentIdentityConflict(cid,s.id);
+    return `<div class="stu-pick-item${s.id===_regStuId?' sel':''}" onclick="pickRegisterStu('${s.id}')">
+      <div class="stu-pick-no">${s.no}</div>
+      <div class="stu-pick-name"><div>${s.firstName} ${s.lastName}</div><div style="font-size:10.5px;color:var(--mu);margin-top:1px">${s.studentCode?'รหัส '+s.studentCode+' • ':''}เลขที่ ${s.no}${hasPw(s.id)?' • <span style="color:var(--gn);font-weight:700">มีบัญชีแล้ว</span>':''}${conflict?' • <span style="color:var(--rd);font-weight:700">ข้อมูลซ้ำ</span>':''}</div></div>
+      ${s.id===_regStuId?'<i class="ti ti-circle-check stu-pick-check"></i>':''}
+    </div>`;
+  }).join('');
+}
+function filterRegisterStuList(){const cid=document.getElementById('regCls')?.value||'';renderRegisterStuList(cid,document.getElementById('regStuSearch')?.value||'');}
+function pickRegisterStu(sid){
+  const cid=document.getElementById('regCls')?.value||'';
+  const errEl=document.getElementById('regErr');
+  const conflict=_studentIdentityConflict(cid,sid);
+  if(conflict){_regStuId=null;if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>รายชื่อนี้มีข้อมูลซ้ำ กรุณาแจ้งครูให้ตรวจสอบก่อนเปิดบัญชี</div>`;return;}
+  const stu=stuArr(cid).find(s=>s.id===sid);if(!stu)return;
+  if(hasPw(sid)){
+    _regStuId=null;
+    if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-check"></i>${stu.firstName} ${stu.lastName} มีบัญชีแล้ว กรุณากลับไปเข้าสู่ระบบ</div>`;
+    const fields=document.getElementById('regAccountFields');if(fields)fields.style.display='none';return;
+  }
+  _regStuId=sid;if(errEl)errEl.innerHTML='';
+  renderRegisterStuList(cid,document.getElementById('regStuSearch')?.value||'');
+  const fields=document.getElementById('regAccountFields');if(fields)fields.style.display='block';
+  const code=document.getElementById('regCode');if(code){code.value='';code.placeholder=stu.studentCode?'กรอกรหัสประจำตัวเพื่อยืนยัน':'กรอกรหัสประจำตัวนักเรียน';setTimeout(()=>code.focus(),100);}
+}
+
 async function doRegister(){
-  const cid=document.getElementById('regCls')?.value;
+  const cid=document.getElementById('regCls')?.value||'';
+  const sid=_regStuId;
   const code=(document.getElementById('regCode')?.value||'').trim();
-  const no=parseInt(document.getElementById('regNo')?.value)||0;
-  const fn=(document.getElementById('regFn')?.value||'').trim().replace(/\s+/g,' ');
-  const ln=(document.getElementById('regLn')?.value||'').trim().replace(/\s+/g,' ');
   const pw=(document.getElementById('regPw')?.value||'').trim();
   const pw2=(document.getElementById('regPw2')?.value||'').trim();
   const errEl=document.getElementById('regErr');
-  if(!cid||!code||!no||!fn||!ln){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณากรอกรหัสประจำตัว เลขที่ ชื่อ และนามสกุลให้ครบ</div>`;return;}
+  if(!cid||!sid){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณาเลือกชื่อของคุณจากรายชื่อที่ครูบันทึกไว้</div>`;return;}
+  if(!code){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-id"></i>กรุณากรอกรหัสประจำตัวนักเรียน</div>`;return;}
   if(pw.length<4){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร</div>`;return;}
   if(pw!==pw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
-
-  // ตรวจจากข้อมูลล่าสุดบน Supabase ก่อน เพื่อป้องกันสองเครื่องลงทะเบียนพร้อมกัน
   try{
-    const {data:cloudRows,error}=await sb.from('students').select('id,class_id,no,student_code,first_name,last_name,password').eq('class_id',cid);
-    if(error)throw error;
-    const c=_normStuIdentity(code),name=_normStuIdentity(fn+' '+ln);
-    const byCode=(cloudRows||[]).filter(x=>_normStuIdentity(x.student_code)===c);
-    const byName=(cloudRows||[]).filter(x=>_normStuIdentity((x.first_name||'')+' '+(x.last_name||''))===name);
-    if(byCode.length>1||byName.length>1){
-      if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>พบข้อมูลนักเรียนซ้ำอยู่แล้ว กรุณาแจ้งครูให้แก้ข้อมูลก่อนลงทะเบียน</div>`;return;
+    // ดึง record นี้จากฐานข้อมูลโดยตรง — ไม่มี INSERT นักเรียนใหม่จากหน้า Registration
+    const {data:ex,error}=await sb.from('students').select('id,class_id,no,student_code,first_name,last_name,password').eq('id',sid).eq('class_id',cid).single();
+    if(error||!ex)throw error||new Error('ไม่พบรายชื่อนักเรียน');
+    if(ex.password){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-check"></i>บัญชีนี้เปิดใช้งานแล้ว กรุณากลับไปเข้าสู่ระบบ</div>`;return;}
+    const entered=_normStuIdentity(code),saved=_normStuIdentity(ex.student_code);
+    if(saved&&entered!==saved){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-id-off"></i>รหัสประจำตัวไม่ตรงกับข้อมูลที่ครูบันทึกไว้ กรุณาตรวจสอบอีกครั้ง</div>`;return;}
+    // ถ้าครูยังไม่กรอกรหัส ให้ตรวจว่ารหัสนี้ไม่ซ้ำแล้วเติมให้ record เดิม
+    if(!saved){
+      const {data:dup,error:dupErr}=await sb.from('students').select('id').eq('class_id',cid).eq('student_code',code);
+      if(dupErr)throw dupErr;
+      if((dup||[]).some(x=>x.id!==sid)){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-id-off"></i>รหัสประจำตัวนี้ถูกใช้กับนักเรียนคนอื่นแล้ว กรุณาแจ้งครู</div>`;return;}
     }
-    if(byCode.length===1){
-      const ex=byCode[0];
-      if(_normStuIdentity((ex.first_name||'')+' '+(ex.last_name||''))!==name){
-        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-id-off"></i>รหัสประจำตัวนี้ถูกใช้กับนักเรียนชื่ออื่นแล้ว กรุณาตรวจสอบรหัสหรือแจ้งครู</div>`;return;
-      }
-      if(ex.password){
-        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-check"></i>บัญชีนี้ลงทะเบียนแล้ว กรุณากลับไปเข้าสู่ระบบ ไม่ต้องสร้างชื่อใหม่</div>`;return;
-      }
-      // รายชื่อถูกครูเพิ่ม/นำเข้าไว้แล้ว → ใช้ record เดิมและตั้งรหัสผ่าน ไม่สร้างชื่อใหม่
-      const studentObj={id:ex.id,no:ex.no||no,studentCode:code,firstName:ex.first_name||fn,lastName:ex.last_name||ln};
-      const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
-      me={classId:cid,studentId:ex.id,termId};
-      await saveStudentInfo(cid,ex.id,studentObj,pw);
-      showToast('เชื่อมกับรายชื่อเดิมและตั้งรหัสผ่านแล้ว ✓');saveSession();renderApp();return;
-    }
-    if(byName.length===1){
-      const ex=byName[0],exCode=_normStuIdentity(ex.student_code);
-      // ครูมีรายชื่อไว้แล้วแต่ยังไม่ได้ใส่รหัส/รหัสผ่าน → ผูกบัญชีกับ record เดิมได้
-      if(!exCode&&!ex.password){
-        const studentObj={id:ex.id,no:ex.no||no,studentCode:code,firstName:ex.first_name||fn,lastName:ex.last_name||ln};
-        const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
-        me={classId:cid,studentId:ex.id,termId};
-        await saveStudentInfo(cid,ex.id,studentObj,pw);
-        showToast('พบรายชื่อเดิมและเชื่อมบัญชีให้แล้ว ✓');saveSession();renderApp();return;
-      }
-      if(exCode!==c){
-        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-x"></i>มีชื่อ-นามสกุลนี้อยู่แล้ว แต่รหัสประจำตัวไม่ตรง กรุณาอย่าสร้างชื่อซ้ำและแจ้งครูตรวจสอบข้อมูล</div>`;return;
-      }
-      if(ex.password){
-        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-check"></i>ชื่อ-นามสกุลนี้มีบัญชีแล้ว กรุณากลับไปเข้าสู่ระบบ</div>`;return;
-      }
-    }
-  }catch(e){console.error(e);if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-cloud-off"></i>ตรวจสอบข้อมูลซ้ำไม่สำเร็จ กรุณาลองใหม่เมื่อเชื่อมต่ออินเทอร์เน็ต</div>`;return;}
-
-  const id=uid();
-  const studentObj={id,no,studentCode:code,firstName:fn,lastName:ln};
-  const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
-  me={classId:cid,studentId:id,termId};
-  try{
-    await saveStudentInfo(cid,id,studentObj,pw);
-    // reload cloud เพื่อยืนยันว่า insert ไม่ถูก trigger ปฏิเสธ
-    await loadData();
-    const ok=stuArr(cid).some(x=>x.id===id);
-    if(!ok)throw new Error('ระบบไม่ยืนยันการสร้างบัญชี อาจมีข้อมูลซ้ำ');
-    showToast('ลงทะเบียนสำเร็จ ✓');saveSession();renderApp();
+    const {error:upErr}=await sb.from('students').update({student_code:ex.student_code||code,password:pw}).eq('id',sid).eq('class_id',cid);
+    if(upErr)throw upErr;
+    // อัปเดต local โดยไม่สร้าง student ใหม่
+    const local=stuArr(cid).find(s=>s.id===sid);
+    if(local&&!local.studentCode)local.studentCode=code;
+    if(!db.studentPasswords)db.studentPasswords={};db.studentPasswords[sid]=pw;
+    _lastSaveTimeStu=Date.now();
+    const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
+    me={classId:cid,studentId:sid,termId};saveSession();
+    showToast('เปิดใช้งานบัญชีสำเร็จ ✓');renderApp();
   }catch(e){
-    console.error(e);me=null;
-    if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>ลงทะเบียนไม่สำเร็จ: ${String(e.message||e).replace(/</g,'&lt;')}</div>`;
+    console.error(e);
+    if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>เปิดใช้งานบัญชีไม่สำเร็จ: ${String(e?.message||e).replace(/</g,'&lt;')}</div>`;
   }
 }
 
