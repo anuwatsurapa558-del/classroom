@@ -1693,6 +1693,7 @@ function renderSchool(){
     <div style="margin-top:10px;font-size:12px;color:var(--mu)">
       <i class="ti ti-info-circle"></i> กำลังดู: <b>${cur?cur.label:'—'}</b>
       ${cur&&!cur.isCurrent?`<button class="btn btn-xs btn-g" style="margin-left:8px" onclick="setCurrentTerm('${cur.id}')">ตั้งเป็นภาคปัจจุบัน</button>`:''}
+      ${cur?`<button class="btn btn-xs" style="margin-left:8px;color:var(--bl);border-color:var(--bl)" onclick="openImportIntoTerm('${cur.id}')"><i class="ti ti-file-import"></i> นำเข้าจากภาคเรียนอื่น</button>`:''}
     </div>
   </div>
   <div class="card cp">
@@ -1708,6 +1709,7 @@ function renderSchool(){
       <td><div class="f g8">
         ${!t.isCurrent?`<button class="btn btn-xs btn-g" onclick="setCurrentTerm('${t.id}')">ตั้งเป็นปัจจุบัน</button>`:''}
         <button class="btn btn-xs" onclick="switchTerm('${t.id}')">เปิดดู</button>
+        <button class="btn btn-xs" style="color:var(--bl);border-color:var(--bl)" onclick="openImportIntoTerm('${t.id}')"><i class="ti ti-file-import"></i> นำเข้า</button>
         <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteTerm('${t.id}')"><i class="ti ti-trash"></i></button>
       </div></td>
     </tr>`;
@@ -1864,6 +1866,97 @@ function updateTermImportHint(){
   if(!h)return;
   h.textContent=src&&src.year!==y?'ภาคเรียนต้นทางคนละปี: จะไม่สามารถนำเข้ารายวิชาได้':'นำเข้ารายวิชาได้เฉพาะภาคเรียนในปีการศึกษาเดียวกัน';
 }
+function openImportIntoTerm(targetTermId){
+  const target=db.terms.find(t=>t.id===targetTermId);
+  if(!target){showToast('ไม่พบภาคเรียนปลายทาง');return;}
+  const sources=(db.terms||[]).filter(t=>t.id!==targetTermId).slice().sort((a,b)=>b.year-a.year||b.semester-a.semester);
+  if(!sources.length){showToast('ยังไม่มีภาคเรียนอื่นให้นำเข้า');return;}
+  const opts=sources.map(t=>`<option value="${t.id}">${t.label||('ปี '+t.year+' ภาค '+t.semester)}</option>`).join('');
+  showMD(`<div class="mt"><i class="ti ti-file-import"></i> นำเข้าข้อมูล — ${target.label}</div>
+    <div class="info-box" style="margin-bottom:12px"><i class="ti ti-info-circle"></i> นำเข้าเป็นสำเนาใหม่ ข้อมูลภาคเรียนต้นทางจะไม่เปลี่ยน และสามารถแก้ไขข้อมูลที่นำเข้าได้ภายหลัง</div>
+    <div class="fg"><label class="fl">ภาคเรียนต้นทาง</label><select id="impTermSource" onchange="updateExistingTermImportHint('${targetTermId}')">${opts}</select></div>
+    <div class="card" style="padding:12px;background:var(--sf2);margin-bottom:12px">
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="impTermStu" checked> นำเข้าห้องเรียนและนักเรียน</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="impTermSub"> นำเข้ารายวิชา + วัน/คาบเรียน</label>
+      <div id="impTermHint" style="font-size:11.5px;color:var(--mu);margin-top:6px"></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--am);margin-bottom:12px"><i class="ti ti-alert-triangle"></i> หากห้องชื่อเดียวกันมีอยู่แล้ว ระบบจะเติมเฉพาะนักเรียน/รายวิชาที่ยังไม่มี เพื่อป้องกันข้อมูลซ้ำ</div>
+    <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitImportIntoTerm('${targetTermId}')"><i class="ti ti-file-import"></i> นำเข้า</button></div>`);
+  updateExistingTermImportHint(targetTermId);
+}
+function updateExistingTermImportHint(targetTermId){
+  const target=db.terms.find(t=>t.id===targetTermId);
+  const src=db.terms.find(t=>t.id===document.getElementById('impTermSource')?.value);
+  const h=document.getElementById('impTermHint'); if(!h||!target||!src)return;
+  const sameYear=src.year===target.year;
+  h.innerHTML=`ต้นทาง: <b>${src.label}</b> · ${db.classes.filter(c=>c.termId===src.id).length} ห้อง<br>${sameYear?'<span style="color:var(--gn)">✓ ปีการศึกษาเดียวกัน สามารถนำเข้ารายวิชาได้</span>':'<span style="color:var(--am)">นำเข้านักเรียนได้ แต่รายวิชานำเข้าได้เฉพาะปีการศึกษาเดียวกัน</span>'}`;
+  const cb=document.getElementById('impTermSub'); if(cb&&!sameYear){cb.checked=false;cb.disabled=true;} else if(cb){cb.disabled=false;}
+}
+function _normNameV14(v){return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();}
+function _importIntoExistingTerm(sourceTermId,targetTermId,importStu,importSub){
+  const srcClasses=db.classes.filter(c=>c.termId===sourceTermId);
+  let classAdded=0,stuAdded=0,subAdded=0;
+  const srcTerm=db.terms.find(t=>t.id===sourceTermId),tarTerm=db.terms.find(t=>t.id===targetTermId);
+  if(importSub&&(!srcTerm||!tarTerm||srcTerm.year!==tarTerm.year))throw new Error('นำเข้ารายวิชาได้เฉพาะปีการศึกษาเดียวกัน');
+  srcClasses.forEach(oldC=>{
+    let newC=db.classes.find(c=>c.termId===targetTermId&&_normNameV14(c.name)===_normNameV14(oldC.name));
+    if(!newC){
+      newC={id:uid(),name:oldC.name,termId:targetTermId,showGrades:false};
+      db.classes.push(newC); classAdded++;
+    }
+    const srcKey=sourceTermId+'__'+oldC.id, tarKey=targetTermId+'__'+newC.id;
+    if(!db.students[tarKey])db.students[tarKey]=[];
+    if(!db.subjects[tarKey])db.subjects[tarKey]=[];
+    if(!db.timetable[tarKey])db.timetable[tarKey]=[];
+    if(importStu){
+      (db.students[srcKey]||db.students[oldC.id]||[]).forEach(st=>{
+        const code=_normNameV14(st.studentCode);
+        const full=_normNameV14((st.firstName||'')+' '+(st.lastName||''));
+        const exists=db.students[tarKey].some(x=>(code&&_normNameV14(x.studentCode)===code)||(!code&&_normNameV14((x.firstName||'')+' '+(x.lastName||''))===full));
+        if(!exists){
+          const nid=uid();
+          db.students[tarKey].push({id:nid,no:st.no,studentCode:st.studentCode||'',firstName:st.firstName,lastName:st.lastName});
+          if((db.studentPasswords||{})[st.id])db.studentPasswords[nid]=db.studentPasswords[st.id];
+          stuAdded++;
+        }
+      });
+    }
+    if(importSub){
+      const subIdMap={};
+      (db.subjects[srcKey]||db.subjects[oldC.id]||[]).forEach(os=>{
+        let ns=db.subjects[tarKey].find(x=>((os.code&&x.code&&_normNameV14(x.code)===_normNameV14(os.code))||_normNameV14(x.name)===_normNameV14(os.name)));
+        if(!ns){
+          ns={...os,id:uid()}; db.subjects[tarKey].push(ns); subAdded++;
+        }
+        subIdMap[os.id]=ns.id;
+      });
+      (db.timetable[srcKey]||db.timetable[oldC.id]||[]).forEach(tt=>{
+        const mapped=tt.subId?subIdMap[tt.subId]:null;
+        if(tt.subId&&!mapped)return;
+        const exists=db.timetable[tarKey].some(x=>x.day===tt.day&&x.period===tt.period&&((mapped&&x.subId===mapped)||(!mapped&&_normNameV14(x.subject||x.name)===_normNameV14(tt.subject||tt.name))));
+        if(!exists)db.timetable[tarKey].push({...tt,id:uid(),subId:mapped||tt.subId});
+      });
+    }
+  });
+  return {classAdded,stuAdded,subAdded,sourceClasses:srcClasses.length};
+}
+async function submitImportIntoTerm(targetTermId){
+  const sourceTermId=document.getElementById('impTermSource')?.value||'';
+  const importStu=!!document.getElementById('impTermStu')?.checked;
+  const importSub=!!document.getElementById('impTermSub')?.checked;
+  if(!sourceTermId){showToast('เลือกภาคเรียนต้นทาง');return;}
+  if(!importStu&&!importSub){showToast('เลือกข้อมูลที่ต้องการนำเข้า');return;}
+  try{
+    const r=_importIntoExistingTerm(sourceTermId,targetTermId,importStu,importSub);
+    currentTermId=targetTermId; sortClasses();
+    Object.keys(P).forEach(p=>{if(P[p].cls!==undefined)P[p].cls=null;if(P[p].sub!==undefined)P[p].sub=null;});
+    closeMD(); showToast('กำลังบันทึกข้อมูลที่นำเข้า...');
+    await save();
+    renderSchool();renderDash();
+    showToast(`นำเข้าสำเร็จ ✓ ห้องใหม่ ${r.classAdded} · นักเรียน ${r.stuAdded} · วิชา ${r.subAdded}`);
+  }catch(e){console.error(e);alert('นำเข้าไม่สำเร็จ: '+e.message);}
+}
+
 function _cloneTermBasics(sourceTermId,newTermId,importStu,importSub){
   const srcClasses=db.classes.filter(c=>c.termId===sourceTermId);
   const classMap={},subMap={};
@@ -2732,7 +2825,7 @@ function renderDash(){
   });
   const rate=allTot?Math.round((allMa+allSay)/allTot*100):0;
   let html=`<div class="sg">
-    <div class="sc-stat"><div class="sl">ห้อง</div><div class="sv" style="color:var(--bl)">${db.classes.length}</div></div>
+    <div class="sc-stat"><div class="sl">ห้อง</div><div class="sv" style="color:var(--bl)">${totalCls}</div></div>
     <div class="sc-stat"><div class="sl">วิชา</div><div class="sv" style="color:var(--tl)">${totalSub}</div></div>
     <div class="sc-stat"><div class="sl">นักเรียน</div><div class="sv" style="color:var(--gn)">${totalStu}</div></div>
     <div class="sc-stat"><div class="sl">มาเรียน</div><div class="sv" style="color:${rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)'}">${rate}%</div></div>
