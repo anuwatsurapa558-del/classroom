@@ -225,6 +225,7 @@ input[type=password]:focus{border-color:var(--tl);}
       </div>
     </div>
     <div class="header-right">
+      <button id="termSwitchBtn" type="button" onclick="openTermSwitcher()" style="display:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;border-radius:18px;padding:5px 10px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="ti ti-calendar-event"></i> <span id="termSwitchLabel">ภาคเรียน</span></button>
       <div class="sync-dot" id="syncDot" title="สถานะการเชื่อมต่อ"></div>
     </div>
   </div>
@@ -618,10 +619,86 @@ async function saveStudentInfo(cid,stuId,studentObj,pwPlain){
   localStorage.setItem('crDB4',JSON.stringify(db));
 }
 
+/* ── TERM HELPERS ── */
+function termLabelById(termId){
+  const t=(db.terms||[]).find(x=>x.id===termId);
+  if(!t)return 'ไม่ระบุภาคเรียน';
+  return t.label||`${t.year||''} ภาค ${t.semester||''}`.trim();
+}
+function classesForTerm(termId){
+  return (db.classes||[]).filter(c=>c.termId===termId);
+}
+function currentLoginTermId(){
+  return document.getElementById('loginTerm')?.value||window._currentTermId||'';
+}
+function updateTermSwitchHeader(){
+  const btn=document.getElementById('termSwitchBtn');
+  const lbl=document.getElementById('termSwitchLabel');
+  if(!btn)return;
+  if(me&&me.termId){
+    btn.style.display='inline-flex';btn.style.alignItems='center';btn.style.gap='4px';
+    if(lbl)lbl.textContent=termLabelById(me.termId);
+  }else btn.style.display='none';
+}
+function updateLoginClassList(){
+  const termId=currentLoginTermId();
+  const sel=document.getElementById('loginCls');
+  if(!sel)return;
+  const classes=classesForTerm(termId);
+  sel.innerHTML='<option value="">— เลือกห้อง —</option>'+classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  _loginStuId=null;
+  const wrap=document.getElementById('stuPickWrap');if(wrap)wrap.style.display='none';
+  const pwWrap=document.getElementById('loginPwWrap');if(pwWrap)pwWrap.style.display='none';
+  const btn=document.getElementById('loginBtn');if(btn)btn.style.display='none';
+  const err=document.getElementById('loginErr');
+  if(err&&!classes.length)err.innerHTML='<div class="err-box"><i class="ti ti-info-circle"></i>ยังไม่มีห้องเรียนในภาคเรียนนี้</div>';
+  else if(err)err.innerHTML='';
+}
+function openTermSwitcher(){
+  if(!me)return;
+  const cur=me.termId||(db.classes.find(c=>c.id===me.classId)?.termId||window._currentTermId||'');
+  const opts=(db.terms||[]).map(t=>`<option value="${t.id}" ${t.id===cur?'selected':''}>${termLabelById(t.id)}${t.isCurrent?' (ปัจจุบัน)':''}</option>`).join('');
+  showMD(`<div class="mt"><i class="ti ti-calendar-event"></i> เปลี่ยนภาคเรียน</div>
+    <div class="fg"><label class="fl">เลือกปีการศึกษา / ภาคเรียน</label><select id="switchTermSel">${opts}</select></div>
+    <div style="background:var(--tll);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--tld);margin-bottom:12px">ระบบจะค้นหาข้อมูลของคุณในภาคเรียนที่เลือกจากรหัสประจำตัวนักเรียนก่อน และใช้ชื่อ-นามสกุลเป็นข้อมูลสำรอง</div>
+    <div class="f g8" style="justify-content:flex-end"><button class="btn btn-outline" onclick="closeMD()">ยกเลิก</button><button class="btn btn-tl" onclick="switchStudentTerm()"><i class="ti ti-switch-horizontal"></i> เปลี่ยนภาคเรียน</button></div>`);
+}
+function _studentMatchesInTerm(targetTermId,currentStu){
+  const out=[];
+  classesForTerm(targetTermId).forEach(c=>{
+    stuArr(c.id).forEach(s=>{
+      let match=false;
+      if(currentStu.studentCode&&s.studentCode)match=String(s.studentCode).trim()===String(currentStu.studentCode).trim();
+      else match=(s.firstName||'').trim()===(currentStu.firstName||'').trim()&&(s.lastName||'').trim()===(currentStu.lastName||'').trim();
+      if(match)out.push({cls:c,stu:s});
+    });
+  });
+  return out;
+}
+function _applyStudentTermMatch(m){
+  const termId=m.cls.termId;
+  me={classId:m.cls.id,studentId:m.stu.id,termId};
+  saveSession();currentTab='home';closeMD();renderApp();showToast('เปลี่ยนเป็น '+termLabelById(termId)+' แล้ว');
+}
+function switchStudentTerm(){
+  const target=document.getElementById('switchTermSel')?.value;
+  if(!target||!me)return;
+  const currentStu=stuArr(me.classId).find(s=>s.id===me.studentId);
+  if(!currentStu){showToast('ไม่พบข้อมูลนักเรียนปัจจุบัน');return;}
+  if(target===(me.termId||db.classes.find(c=>c.id===me.classId)?.termId)){closeMD();return;}
+  const matches=_studentMatchesInTerm(target,currentStu);
+  if(!matches.length){
+    showMD(`<div class="mt"><i class="ti ti-user-off"></i> ไม่พบข้อมูลในภาคเรียนนี้</div><div class="err-box"><i class="ti ti-info-circle"></i>ไม่พบชื่อของคุณใน ${termLabelById(target)} กรุณาให้ครูนำเข้าหรือเพิ่มข้อมูลนักเรียนก่อน</div><div style="text-align:right"><button class="btn btn-tl" onclick="closeMD()">ตกลง</button></div>`);return;
+  }
+  if(matches.length===1){_applyStudentTermMatch(matches[0]);return;}
+  showMD(`<div class="mt"><i class="ti ti-door"></i> เลือกห้องเรียน</div><div style="font-size:12px;color:var(--mu);margin-bottom:10px">พบข้อมูลของคุณมากกว่า 1 ห้องใน ${termLabelById(target)}</div>${matches.map((m,i)=>`<button class="btn btn-outline btn-full" style="margin-bottom:7px;justify-content:flex-start" onclick="_applyStudentTermMatch(window._termMatches[${i}])"><i class="ti ti-door"></i> ${m.cls.name} · ${m.stu.firstName} ${m.stu.lastName}</button>`).join('')}`);
+  window._termMatches=matches;
+}
+
 /* ── PASSWORD (plaintext เพื่อให้ครูดูได้) ── */
 /* ── SESSION ── */
 function saveSession(){localStorage.setItem('stuSession',JSON.stringify(me));}
-function loadSession(){try{const s=localStorage.getItem('stuSession');if(s){const m=JSON.parse(s);if(m&&m.classId&&m.studentId)return m;}}catch(e){}return null;}
+function loadSession(){try{const s=localStorage.getItem('stuSession');if(s){const m=JSON.parse(s);if(m&&m.classId&&m.studentId){if(!m.termId)m.termId=db.classes.find(c=>c.id===m.classId)?.termId||window._currentTermId||'';return m;}}}catch(e){}return null;}
 
 /* รหัสผ่านเก็บแบบ plaintext ใน db.studentPasswords = { studentId: password } */
 function getPw(sid){return(db.studentPasswords||{})[sid]||'';}
@@ -663,8 +740,9 @@ async function init(){
   _setupRealtimeStu();
   const sess=loadSession();
   if(sess&&stuArr(sess.classId).length>0){
+    const cls=db.classes.find(c=>c.id===sess.classId);
     const stu=stuArr(sess.classId).find(s=>s.id===sess.studentId);
-    if(stu){me=sess;renderApp();return;}
+    if(stu&&cls){sess.termId=cls.termId||sess.termId||window._currentTermId||'';me=sess;renderApp();return;}
   }
   renderLogin();
 }
@@ -675,15 +753,21 @@ function renderLogin(){
   updateHeaderSchool();
   document.getElementById('headerSub').textContent='ระบบสำหรับนักเรียน';
   const content=document.getElementById('mainContent');
-  const clsOpts=db.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  updateTermSwitchHeader();
+  const defTerm=window._currentTermId||(db.terms[0]?.id||'');
+  const termOpts=(db.terms||[]).map(t=>`<option value="${t.id}" ${t.id===defTerm?'selected':''}>${termLabelById(t.id)}${t.isCurrent?' (ปัจจุบัน)':''}</option>`).join('');
+  const clsOpts=classesForTerm(defTerm).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   content.innerHTML=`
   <div class="login-box">
     <div class="login-logo">
       <i class="ti ti-user-shield"></i>
       <h2>เข้าสู่ระบบ</h2>
-      <p>เลือกห้อง เลือกชื่อ แล้วกรอกรหัสผ่าน</p>
+      <p>เลือกภาคเรียน ห้องเรียน ชื่อ และกรอกรหัสผ่าน</p>
     </div>
     <div id="loginErr"></div>
+    <div class="fg"><label class="fl"><i class="ti ti-calendar-event"></i> ปีการศึกษา / ภาคเรียน</label>
+      <select id="loginTerm" onchange="updateLoginClassList()">${termOpts}</select>
+    </div>
     <div class="fg"><label class="fl"><i class="ti ti-door"></i> เลือกห้องเรียน</label>
       <select id="loginCls" onchange="updateLoginStuList()">
         <option value="">— เลือกห้อง —</option>
@@ -768,12 +852,15 @@ async function doLogin(){
     const pwIn=document.getElementById('loginPw');if(pwIn)pwIn.value='';
     return;
   }
-  me={classId:cid,studentId:sid};saveSession();renderApp();
+  const termId=document.getElementById('loginTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
+  me={classId:cid,studentId:sid,termId};saveSession();renderApp();
 }
 
 function renderRegister(){
   const content=document.getElementById('mainContent');
-  const clsOpts=db.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const defTerm=window._currentTermId||(db.terms[0]?.id||'');
+  const termOpts=(db.terms||[]).map(t=>`<option value="${t.id}" ${t.id===defTerm?'selected':''}>${termLabelById(t.id)}${t.isCurrent?' (ปัจจุบัน)':''}</option>`).join('');
+  const clsOpts=classesForTerm(defTerm).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   content.innerHTML=`
   <div class="login-box">
     <div class="login-logo">
@@ -782,6 +869,7 @@ function renderRegister(){
       <p>กรอกข้อมูลและตั้งรหัสผ่านของคุณ</p>
     </div>
     <div id="regErr"></div>
+    <div class="fg"><label class="fl"><i class="ti ti-calendar-event"></i> ปีการศึกษา / ภาคเรียน</label><select id="regTerm" onchange="updateRegisterClassList()">${termOpts}</select></div>
     <div class="fg"><label class="fl"><i class="ti ti-door"></i> ห้องเรียน</label><select id="regCls">${clsOpts}</select></div>
     <div class="fg"><label class="fl"><i class="ti ti-number"></i> เลขที่</label><input type="number" id="regNo" placeholder="เช่น 12" min="1"></div>
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> ชื่อ</label><input type="text" id="regFn" placeholder="ชื่อ"></div>
@@ -807,6 +895,7 @@ function renderRegister(){
   </div>`;
 }
 
+function updateRegisterClassList(){const termId=document.getElementById('regTerm')?.value||'';const sel=document.getElementById('regCls');if(sel)sel.innerHTML=classesForTerm(termId).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
 function uid(){return Math.random().toString(36).slice(2,10);}
 async function doRegister(){
   const cid=document.getElementById('regCls')?.value;
@@ -821,7 +910,8 @@ async function doRegister(){
   if(pw!==pw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
   const id=uid();
   const studentObj={id,no,studentCode:'',firstName:fn,lastName:ln};
-  me={classId:cid,studentId:id};
+  const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
+  me={classId:cid,studentId:id,termId};
   showToast('ลงทะเบียนสำเร็จ กำลังบันทึก...');
   // ส่ง studentObj + รหัสผ่าน ให้ saveStudentInfo merge กับข้อมูลล่าสุดบน cloud
   await saveStudentInfo(cid,id,studentObj,pw);
@@ -832,10 +922,12 @@ async function doRegister(){
 function renderApp(){
   const stu=stuArr(me.classId).find(s=>s.id===me.studentId);
   const cls=db.classes.find(c=>c.id===me.classId);
-  if(!stu||!cls){me=null;localStorage.removeItem('stuSession');renderLogin();return;}
+  if(!stu||!cls){me=null;localStorage.removeItem('stuSession');updateTermSwitchHeader();renderLogin();return;}
 
   document.getElementById('navTabs').style.display='flex';
-  document.getElementById('headerSub').textContent=`${stu.firstName} ${stu.lastName} • ${cls.name}`;
+  me.termId=cls.termId||me.termId||window._currentTermId||'';
+  document.getElementById('headerSub').textContent=`${stu.firstName} ${stu.lastName} • ${cls.name} • ${termLabelById(me.termId)}`;
+  updateTermSwitchHeader();
   updateHeaderSchool();
   // โชว์/ซ่อนแท็บ ผลการเรียน ตามการตั้งค่าของครู
   const gTab=document.getElementById('tab-grades');
