@@ -790,6 +790,27 @@ function renderLogin(){
   </div>`;
 }
 let _loginStuId=null;
+function _normStuIdentity(v){return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();}
+function _studentNameKey(s){return _normStuIdentity((s?.firstName||'')+' '+(s?.lastName||''));}
+function _studentIdentityConflict(cid,sid){
+  const stus=stuArr(cid),cur=stus.find(x=>x.id===sid);if(!cur)return null;
+  const code=_normStuIdentity(cur.studentCode),name=_studentNameKey(cur);
+  if(code){
+    const same=stus.filter(x=>_normStuIdentity(x.studentCode)===code);
+    if(same.length>1)return{type:'code',count:same.length};
+  }
+  if(name){
+    const same=stus.filter(x=>_studentNameKey(x)===name);
+    if(same.length>1)return{type:'name',count:same.length};
+  }
+  return null;
+}
+function _findExistingStudent(cid,code,fn,ln){
+  const stus=stuArr(cid),c=_normStuIdentity(code),name=_normStuIdentity(fn+' '+ln);
+  const byCode=c?stus.filter(x=>_normStuIdentity(x.studentCode)===c):[];
+  const byName=name?stus.filter(x=>_studentNameKey(x)===name):[];
+  return{byCode,byName};
+}
 function updateLoginStuList(){
   const cid=document.getElementById('loginCls')?.value;
   const wrap=document.getElementById('stuPickWrap');
@@ -804,7 +825,7 @@ function renderStuPickList(cid,filter){
   const picker=document.getElementById('stuPicker');if(!picker)return;
   const stus=stuArr(cid).slice().sort((a,b)=>a.no-b.no);
   const f=(filter||'').toLowerCase().trim();
-  const filtered=f?stus.filter(s=>(`${s.no} ${s.firstName} ${s.lastName}`).toLowerCase().includes(f)):stus;
+  const filtered=f?stus.filter(s=>(`${s.no} ${s.studentCode||''} ${s.firstName} ${s.lastName}`).toLowerCase().includes(f)):stus;
   if(!filtered.length){
     picker.innerHTML=`<div style="padding:20px;text-align:center;color:var(--mu);font-size:13px">${stus.length?'ไม่พบชื่อที่ค้นหา':'ยังไม่มีนักเรียนในห้องนี้ กดลงทะเบียนด้านล่าง'}</div>`;
     return;
@@ -812,7 +833,7 @@ function renderStuPickList(cid,filter){
   picker.innerHTML=filtered.map(s=>`
     <div class="stu-pick-item${s.id===_loginStuId?' sel':''}" onclick="pickLoginStu('${s.id}')">
       <div class="stu-pick-no">${s.no}</div>
-      <div class="stu-pick-name">${s.firstName} ${s.lastName}</div>
+      <div class="stu-pick-name"><div>${s.firstName} ${s.lastName}</div><div style="font-size:10.5px;color:var(--mu);margin-top:1px">${s.studentCode?'รหัส '+s.studentCode+' • ':''}เลขที่ ${s.no}${_studentIdentityConflict(cid,s.id)?' • <span style="color:var(--rd);font-weight:700">ข้อมูลซ้ำ</span>':''}</div></div>
       ${s.id===_loginStuId?'<i class="ti ti-circle-check stu-pick-check"></i>':''}
     </div>`).join('');
 }
@@ -822,8 +843,17 @@ function filterStuList(){
   renderStuPickList(cid,f);
 }
 function pickLoginStu(sid){
-  _loginStuId=sid;
   const cid=document.getElementById('loginCls')?.value;
+  const conflict=_studentIdentityConflict(cid,sid);
+  if(conflict){
+    _loginStuId=null;
+    const errEl=document.getElementById('loginErr');
+    if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>พบข้อมูลนักเรียนซ้ำในห้องนี้ (${conflict.type==='code'?'รหัสประจำตัวซ้ำ':'ชื่อ-นามสกุลซ้ำ'}) กรุณาแจ้งครูให้แก้ข้อมูลก่อนเข้าสู่ระบบ</div>`;
+    document.getElementById('loginPwWrap').style.display='none';
+    document.getElementById('loginBtn').style.display='none';
+    return;
+  }
+  _loginStuId=sid;
   renderStuPickList(cid,document.getElementById('stuSearch')?.value||'');
   document.getElementById('loginPwWrap').style.display='block';
   document.getElementById('loginBtn').style.display='flex';
@@ -843,6 +873,8 @@ async function doLogin(){
   const pw=(document.getElementById('loginPw')?.value||'').trim();
   const errEl=document.getElementById('loginErr');
   if(!cid||!sid){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณาเลือกห้องและชื่อ</div>`;return;}
+  const conflict=_studentIdentityConflict(cid,sid);
+  if(conflict){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>ข้อมูลบัญชีซ้ำ กรุณาแจ้งครูให้ตรวจสอบรหัสประจำตัวและชื่อ-นามสกุลก่อน</div>`;return;}
   // ถ้ายังไม่มีรหัส → ไปตั้งรหัสก่อน
   if(!hasPw(sid)){renderSetPassword(cid,sid,false);return;}
   if(!pw){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>กรุณากรอกรหัสผ่าน</div>`;return;}
@@ -871,6 +903,7 @@ function renderRegister(){
     <div id="regErr"></div>
     <div class="fg"><label class="fl"><i class="ti ti-calendar-event"></i> ปีการศึกษา / ภาคเรียน</label><select id="regTerm" onchange="updateRegisterClassList()">${termOpts}</select></div>
     <div class="fg"><label class="fl"><i class="ti ti-door"></i> ห้องเรียน</label><select id="regCls">${clsOpts}</select></div>
+    <div class="fg"><label class="fl"><i class="ti ti-id"></i> รหัสประจำตัวนักเรียน</label><input type="text" id="regCode" placeholder="กรอกรหัสประจำตัวนักเรียน" autocomplete="off"></div>
     <div class="fg"><label class="fl"><i class="ti ti-number"></i> เลขที่</label><input type="number" id="regNo" placeholder="เช่น 12" min="1"></div>
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> ชื่อ</label><input type="text" id="regFn" placeholder="ชื่อ"></div>
     <div class="fg"><label class="fl"><i class="ti ti-user"></i> นามสกุล</label><input type="text" id="regLn" placeholder="นามสกุล"></div>
@@ -899,23 +932,76 @@ function updateRegisterClassList(){const termId=document.getElementById('regTerm
 function uid(){return Math.random().toString(36).slice(2,10);}
 async function doRegister(){
   const cid=document.getElementById('regCls')?.value;
+  const code=(document.getElementById('regCode')?.value||'').trim();
   const no=parseInt(document.getElementById('regNo')?.value)||0;
-  const fn=(document.getElementById('regFn')?.value||'').trim();
-  const ln=(document.getElementById('regLn')?.value||'').trim();
+  const fn=(document.getElementById('regFn')?.value||'').trim().replace(/\s+/g,' ');
+  const ln=(document.getElementById('regLn')?.value||'').trim().replace(/\s+/g,' ');
   const pw=(document.getElementById('regPw')?.value||'').trim();
   const pw2=(document.getElementById('regPw2')?.value||'').trim();
   const errEl=document.getElementById('regErr');
-  if(!cid||!no||!fn){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณากรอกข้อมูลให้ครบ</div>`;return;}
+  if(!cid||!code||!no||!fn||!ln){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-circle"></i>กรุณากรอกรหัสประจำตัว เลขที่ ชื่อ และนามสกุลให้ครบ</div>`;return;}
   if(pw.length<4){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock"></i>รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร</div>`;return;}
   if(pw!==pw2){if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-lock-x"></i>รหัสผ่านทั้งสองไม่ตรงกัน</div>`;return;}
+
+  // ตรวจจากข้อมูลล่าสุดบน Supabase ก่อน เพื่อป้องกันสองเครื่องลงทะเบียนพร้อมกัน
+  try{
+    const {data:cloudRows,error}=await sb.from('students').select('id,class_id,no,student_code,first_name,last_name,password').eq('class_id',cid);
+    if(error)throw error;
+    const c=_normStuIdentity(code),name=_normStuIdentity(fn+' '+ln);
+    const byCode=(cloudRows||[]).filter(x=>_normStuIdentity(x.student_code)===c);
+    const byName=(cloudRows||[]).filter(x=>_normStuIdentity((x.first_name||'')+' '+(x.last_name||''))===name);
+    if(byCode.length>1||byName.length>1){
+      if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>พบข้อมูลนักเรียนซ้ำอยู่แล้ว กรุณาแจ้งครูให้แก้ข้อมูลก่อนลงทะเบียน</div>`;return;
+    }
+    if(byCode.length===1){
+      const ex=byCode[0];
+      if(_normStuIdentity((ex.first_name||'')+' '+(ex.last_name||''))!==name){
+        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-id-off"></i>รหัสประจำตัวนี้ถูกใช้กับนักเรียนชื่ออื่นแล้ว กรุณาตรวจสอบรหัสหรือแจ้งครู</div>`;return;
+      }
+      if(ex.password){
+        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-check"></i>บัญชีนี้ลงทะเบียนแล้ว กรุณากลับไปเข้าสู่ระบบ ไม่ต้องสร้างชื่อใหม่</div>`;return;
+      }
+      // รายชื่อถูกครูเพิ่ม/นำเข้าไว้แล้ว → ใช้ record เดิมและตั้งรหัสผ่าน ไม่สร้างชื่อใหม่
+      const studentObj={id:ex.id,no:ex.no||no,studentCode:code,firstName:ex.first_name||fn,lastName:ex.last_name||ln};
+      const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
+      me={classId:cid,studentId:ex.id,termId};
+      await saveStudentInfo(cid,ex.id,studentObj,pw);
+      showToast('เชื่อมกับรายชื่อเดิมและตั้งรหัสผ่านแล้ว ✓');saveSession();renderApp();return;
+    }
+    if(byName.length===1){
+      const ex=byName[0],exCode=_normStuIdentity(ex.student_code);
+      // ครูมีรายชื่อไว้แล้วแต่ยังไม่ได้ใส่รหัส/รหัสผ่าน → ผูกบัญชีกับ record เดิมได้
+      if(!exCode&&!ex.password){
+        const studentObj={id:ex.id,no:ex.no||no,studentCode:code,firstName:ex.first_name||fn,lastName:ex.last_name||ln};
+        const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
+        me={classId:cid,studentId:ex.id,termId};
+        await saveStudentInfo(cid,ex.id,studentObj,pw);
+        showToast('พบรายชื่อเดิมและเชื่อมบัญชีให้แล้ว ✓');saveSession();renderApp();return;
+      }
+      if(exCode!==c){
+        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-x"></i>มีชื่อ-นามสกุลนี้อยู่แล้ว แต่รหัสประจำตัวไม่ตรง กรุณาอย่าสร้างชื่อซ้ำและแจ้งครูตรวจสอบข้อมูล</div>`;return;
+      }
+      if(ex.password){
+        if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-user-check"></i>ชื่อ-นามสกุลนี้มีบัญชีแล้ว กรุณากลับไปเข้าสู่ระบบ</div>`;return;
+      }
+    }
+  }catch(e){console.error(e);if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-cloud-off"></i>ตรวจสอบข้อมูลซ้ำไม่สำเร็จ กรุณาลองใหม่เมื่อเชื่อมต่ออินเทอร์เน็ต</div>`;return;}
+
   const id=uid();
-  const studentObj={id,no,studentCode:'',firstName:fn,lastName:ln};
+  const studentObj={id,no,studentCode:code,firstName:fn,lastName:ln};
   const termId=document.getElementById('regTerm')?.value||db.classes.find(c=>c.id===cid)?.termId||window._currentTermId||'';
   me={classId:cid,studentId:id,termId};
-  showToast('ลงทะเบียนสำเร็จ กำลังบันทึก...');
-  // ส่ง studentObj + รหัสผ่าน ให้ saveStudentInfo merge กับข้อมูลล่าสุดบน cloud
-  await saveStudentInfo(cid,id,studentObj,pw);
-  saveSession();renderApp();
+  try{
+    await saveStudentInfo(cid,id,studentObj,pw);
+    // reload cloud เพื่อยืนยันว่า insert ไม่ถูก trigger ปฏิเสธ
+    await loadData();
+    const ok=stuArr(cid).some(x=>x.id===id);
+    if(!ok)throw new Error('ระบบไม่ยืนยันการสร้างบัญชี อาจมีข้อมูลซ้ำ');
+    showToast('ลงทะเบียนสำเร็จ ✓');saveSession();renderApp();
+  }catch(e){
+    console.error(e);me=null;
+    if(errEl)errEl.innerHTML=`<div class="err-box"><i class="ti ti-alert-triangle"></i>ลงทะเบียนไม่สำเร็จ: ${String(e.message||e).replace(/</g,'&lt;')}</div>`;
+  }
 }
 
 /* ── APP ── */
@@ -2307,6 +2393,22 @@ async function submitQuiz(isTimeout){
   }catch(e){console.error(e);alert('ส่งไม่สำเร็จ: '+e.message);}
 }
 
+// v14.4: สร้างงานคะแนนจากข้อสอบแบบ canonical และรวม legacy ไม่ให้เกิดคอลัมน์ซ้ำ
+async function _ensureStudentQuizAssignment(quiz,cid,subid){
+  const canonical='asg_qz_'+quiz.id+'_'+cid;
+  const legacy='asg_qz_'+quiz.id;
+  const row={id:canonical,class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,max_score:quiz.max_score,type:'score'};
+  const {error}=await sb.from('assignments').upsert(row,{onConflict:'id'});
+  if(error)throw error;
+  // ถ้ามีรายการรุ่นเก่า ย้ายคะแนนเดิมก่อนลบ เพื่อไม่ให้สูญหาย
+  const {data:oldScores}=await sb.from('scores').select('student_id,value').eq('assignment_id',legacy);
+  if(oldScores&&oldScores.length){
+    await sb.from('scores').upsert(oldScores.map(x=>({assignment_id:canonical,student_id:x.student_id,value:x.value})),{onConflict:'assignment_id,student_id'});
+  }
+  await sb.from('assignments').delete().eq('id',legacy);
+  return canonical;
+}
+
 // ── ส่งคะแนนเข้าระบบเกรด ──
 async function _sendQuizScoreToGrade(quiz,rawScore,maxScore){
   _lastSaveTimeStu=Date.now();  const target=quiz.score_target;
@@ -2320,13 +2422,8 @@ async function _sendQuizScoreToGrade(quiz,rawScore,maxScore){
   const cid=myAssign?myAssign.class_id:quiz.class_id;
   const subid=myAssign?myAssign.subject_id:quiz.subject_id;
   if(target==='assignment'){
-    // แยก assignment_id ตามห้อง เพื่อไม่ให้คะแนนของ ม.1 กับ ม.2 ปนกัน
-    const asgId='asg_qz_'+quiz.id+'_'+cid;
-    await sb.from('assignments').upsert({
-      id:asgId, class_id:cid, subject_id:subid,
-      name:'[ข้อสอบ] '+quiz.title,
-      max_score:quiz.max_score, type:'score'
-    },{onConflict:'id'});
+    // ใช้ assignment canonical เดียวต่อข้อสอบ/ห้อง ป้องกันคอลัมน์ซ้ำ
+    const asgId=await _ensureStudentQuizAssignment(quiz,cid,subid);
     await sb.from('scores').upsert({
       assignment_id:asgId, student_id:sid, value:String(scoreRounded)
     },{onConflict:'assignment_id,student_id'});

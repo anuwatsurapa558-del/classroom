@@ -577,7 +577,27 @@ function getCls(id){return db.classes.find(c=>c.id===id);}
 function stuList(cid){return(db.students[tk(cid)]||[]).slice().sort((a,b)=>a.no-b.no);}
 function subList(cid){return db.subjects[tk(cid)]||[];}
 function getSub(cid,sid){return subList(cid).find(s=>s.id===sid);}
-function asgList(cid,sid){return((db.assignments[tk(cid)]||{})[sid])||[];}
+function asgList(cid,sid){
+  const arr=((db.assignments[tk(cid)]||{})[sid])||[];
+  // v14.4: ซ่อนรายการงานที่สร้างจากข้อสอบเดียวกันซ้ำ (รองรับ legacy id)
+  const seen=new Set();
+  return arr.filter(a=>{
+    const id=String(a?.id||'');
+    let key='';
+    if(id.startsWith('asg_qz_practice_')){
+      const rest=id.slice('asg_qz_practice_'.length);
+      const qid=rest.split('_')[0];
+      key='practice:'+qid;
+    }else if(id.startsWith('asg_qz_')){
+      const rest=id.slice('asg_qz_'.length);
+      const qid=rest.split('_')[0];
+      key='quiz:'+qid;
+    }
+    if(!key)return true;
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
+}
 function attRec(cid,sid,date){return(((db.attendance[tk(cid)]||{})[sid])||{})[date]||{};}
 function attDates(cid,subid){
   // คืนรายการวันที่ที่มีการเช็คชื่อจริง (มี status อย่างน้อย 1 คน)
@@ -5716,9 +5736,12 @@ async function toggleQuizStatus(quizId){
     if(!confirm(`ปิดข้อสอบ "${q.title}"?\nนักเรียนจะทำต่อไม่ได้`))return;
   }
   try{
-    // ฝึกทำ: สร้างงานติดตามไว้ก่อน เพื่อให้เห็นทั้งคนที่ทำแล้วและยังไม่ทำ
+    // สร้างรายการเชื่อมคะแนนเพียงครั้งเดียวเมื่อเปิดข้อสอบ
     if(newStatus==='published' && q.score_target==='none'){
       await _ensurePracticeTrackAssignments(q);
+    } else if(newStatus==='published' && q.score_target==='assignment'){
+      const list=(q.assigned_classes&&q.assigned_classes.length)?q.assigned_classes:[{class_id:q.class_id,subject_id:q.subject_id}];
+      for(const a of list){if(a.class_id&&a.subject_id)await _ensureQuizScoreAssignment(q,a.class_id,a.subject_id);}
     }
     const {error}=await sb.from('quizzes').update({status:newStatus}).eq('id',quizId);
     if(error)throw error;
@@ -6665,8 +6688,7 @@ async function _sendQuizScoreToTeacherGrade(quiz,rawScore,maxScore,studentId){
   const subid=myAssign?myAssign.subject_id:quiz.subject_id;
   if(target==='assignment'){
     // แยก assignment_id ตามห้อง
-    const asgId='asg_qz_'+quiz.id+'_'+cid;
-    await sb.from('assignments').upsert({id:asgId,class_id:cid,subject_id:subid,name:'[ข้อสอบ] '+quiz.title,max_score:quiz.max_score,type:'score'},{onConflict:'id'});
+    const asgId=await _ensureQuizScoreAssignment(quiz,cid,subid);
     await sb.from('scores').upsert({assignment_id:asgId,student_id:studentId,value:String(scoreRounded)},{onConflict:'assignment_id,student_id'});
   } else if(target==='mid'||target==='final'){
     const col=target==='mid'?'mid_score':'final_score';
@@ -8173,8 +8195,12 @@ function openAddStu(cid){
     <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitAddStu('${cid}')">เพิ่ม</button></div>`);
 }
 function _studentCodeExists(cid,code,exceptId=''){
-  const c=(code||'').trim().toLowerCase(); if(!c)return false;
-  return (db.students[tk(cid)]||[]).some(s=>s.id!==exceptId&&(s.studentCode||'').trim().toLowerCase()===c);
+  const c=_normNameV14(code); if(!c)return false;
+  return (db.students[tk(cid)]||[]).some(s=>s.id!==exceptId&&_normNameV14(s.studentCode)===c);
+}
+function _studentNameExists(cid,firstName,lastName,exceptId=''){
+  const full=_normNameV14((firstName||'')+' '+(lastName||'')); if(!full)return false;
+  return (db.students[tk(cid)]||[]).some(s=>s.id!==exceptId&&_normNameV14((s.firstName||'')+' '+(s.lastName||''))===full);
 }
 function submitAddStu(cid){
   if(!db.students[tk(cid)])db.students[tk(cid)]=[];
@@ -8187,14 +8213,16 @@ function submitAddStu(cid){
       else if(p.length>=2){no=parseInt(p[0]);fn=p[1];ln=p.slice(2).join(' ');}
       else continue;
       no=no||db.students[tk(cid)].length+pending.length+1;
-      if(code&&(_studentCodeExists(cid,code)||pending.some(x=>x.studentCode===code))){showToast('พบรหัสประจำตัวซ้ำ: '+code);return;}
+      if(code&&(_studentCodeExists(cid,code)||pending.some(x=>_normNameV14(x.studentCode)===_normNameV14(code)))){showToast('พบรหัสประจำตัวซ้ำ: '+code);return;}
+      if(_studentNameExists(cid,fn,ln)||pending.some(x=>_normNameV14((x.firstName||'')+' '+(x.lastName||''))===_normNameV14(fn+' '+ln))){showToast('พบชื่อ-นามสกุลซ้ำ: '+fn+' '+ln);return;}
       pending.push({id:uid(),no,studentCode:code,firstName:fn,lastName:ln});
     }
     db.students[tk(cid)].push(...pending);
   } else {
     const no=parseInt(document.getElementById('mSno')?.value)||db.students[tk(cid)].length+1,fn=val('mSfn');if(!fn)return;
-    const code=val('mScode'); if(code&&_studentCodeExists(cid,code)){showToast('รหัสประจำตัวนักเรียนซ้ำ');return;}
-    db.students[tk(cid)].push({id:uid(),no,studentCode:code,firstName:fn,lastName:val('mSln')});
+    const code=val('mScode'); const ln=val('mSln'); if(code&&_studentCodeExists(cid,code)){showToast('รหัสประจำตัวนักเรียนซ้ำ');return;}
+    if(_studentNameExists(cid,fn,ln)){showToast('มีชื่อ-นามสกุลนี้อยู่แล้วในห้อง');return;}
+    db.students[tk(cid)].push({id:uid(),no,studentCode:code,firstName:fn,lastName:ln});
   }
   save();closeMD();renderStudents();showToast('เพิ่มนักเรียนแล้ว');
 }
@@ -8213,6 +8241,7 @@ async function submitEditStu(cid,sid){
   const studentCode=val('eScode');
   if(studentCode&&_studentCodeExists(cid,studentCode,sid)){showToast('รหัสประจำตัวนักเรียนซ้ำ');return;}
   const firstName=val('eSfn')||s.firstName, lastName=val('eSln')||'';
+  if(_studentNameExists(cid,firstName,lastName,sid)){showToast('มีชื่อ-นามสกุลนี้อยู่แล้วในห้อง');return;}
   try{
     const {error}=await sb.from('students').update({no,student_code:studentCode,first_name:firstName,last_name:lastName}).eq('id',sid);
     if(error)throw error;
@@ -8252,6 +8281,51 @@ async function delStu(cid,sid){
    v11 Teacher extensions: announcements + practice tracking
    ══════════════════════════════════════════════════════════════════ */
 function _escT(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function _ensureQuizScoreAssignment(q,cid,subid){
+  if(!q||q.score_target!=='assignment'||!cid||!subid)return null;
+  const canonical='asg_qz_'+q.id+'_'+cid;
+  const legacy='asg_qz_'+q.id;
+  const name='[ข้อสอบ] '+q.title;
+  try{
+    // สร้าง/อัปเดตรายการหลักก่อน
+    const {error:upErr}=await sb.from('assignments').upsert({
+      id:canonical,class_id:cid,subject_id:subid,name,
+      max_score:q.max_score,type:'score'
+    },{onConflict:'id'});
+    if(upErr)throw upErr;
+
+    // ย้ายคะแนนจาก id รุ่นเก่าเข้าสู่ canonical แล้วลบรายการเก่า
+    const {data:oldScores,error:selErr}=await sb.from('scores').select('student_id,value').eq('assignment_id',legacy);
+    if(selErr)throw selErr;
+    if(oldScores&&oldScores.length){
+      const rows=oldScores.map(x=>({assignment_id:canonical,student_id:x.student_id,value:x.value}));
+      const {error:scErr}=await sb.from('scores').upsert(rows,{onConflict:'assignment_id,student_id'});
+      if(scErr)throw scErr;
+    }
+    await sb.from('assignments').delete().eq('id',legacy);
+
+    // sync local db: เหลือ canonical เพียงรายการเดียว
+    if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};
+    if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];
+    const arr=db.assignments[tk(cid)][subid];
+    const obj={id:canonical,name,maxScore:q.max_score,type:'score',dueDate:'',allowFileSubmit:false};
+    db.assignments[tk(cid)][subid]=arr.filter(x=>{
+      const xid=String(x?.id||'');
+      if(xid===legacy)return false;
+      if(xid.startsWith('asg_qz_'+q.id+'_')&&xid!==canonical)return false;
+      return true;
+    });
+    const cur=db.assignments[tk(cid)][subid];
+    const i=cur.findIndex(x=>x.id===canonical);
+    if(i>=0)cur[i]={...cur[i],...obj}; else cur.push(obj);
+    _lastSaveTime=Date.now();
+    return canonical;
+  }catch(e){
+    console.warn('ensure quiz assignment:',e.message);
+    return canonical;
+  }
+}
 
 async function _ensurePracticeTrackAssignments(q){
   if(!q||q.score_target!=='none')return;
