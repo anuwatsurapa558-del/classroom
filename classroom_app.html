@@ -4246,6 +4246,45 @@ async function saveExam(cid,subid){
 }
 
 /* ภาพรวมคะแนนทั้งหมด */
+
+async function saveExamInline(cid,subid,stuId,type,val,maxScore){
+  if(!db.examScores[tk(cid)])db.examScores[tk(cid)]={};
+  if(!db.examScores[tk(cid)][subid])db.examScores[tk(cid)][subid]={};
+  if(!db.examScores[tk(cid)][subid][stuId])db.examScores[tk(cid)][subid][stuId]={};
+
+  const rec=db.examScores[tk(cid)][subid][stuId];
+  const s=(val??'').toString().trim();
+  const col=type==='mid'?'mid_score':'final_score';
+  const localKey=type==='mid'?'mid':'final';
+
+  try{
+    if(s===''||isNaN(parseFloat(s))){
+      delete rec[localKey];
+    }else{
+      rec[localKey]=Math.min(Math.max(Math.round(parseFloat(s)),0),Math.round(maxScore||0));
+    }
+
+    if(rec.mid===undefined && rec.final===undefined){
+      delete db.examScores[tk(cid)][subid][stuId];
+      const {error}=await sb.from('exam_scores').delete().eq('subject_id',subid).eq('student_id',stuId);
+      if(error)throw error;
+    }else{
+      const row={subject_id:subid,student_id:stuId};
+      if(rec.mid!==undefined)row.mid_score=rec.mid;
+      if(rec.final!==undefined)row.final_score=rec.final;
+      const {error}=await sb.from('exam_scores').upsert(row,{onConflict:'subject_id,student_id'});
+      if(error)throw error;
+    }
+
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    renderScAll();
+  }catch(e){
+    console.error(e);
+    showToast('บันทึกคะแนนสอบไม่สำเร็จ');
+  }
+}
+
 function renderScAll(){
   const el=document.getElementById('sc-all');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
@@ -8750,15 +8789,15 @@ async function saveGradeNoteValue(subid,stuId,value){if(!db.gradeOverrides)db.gr
 function renderScAll(){
   const el=document.getElementById('sc-all'),cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}const{cid,subid}=cs,sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid).filter(a=>a.type!=='track'),sep=asgs.filter(a=>a.gradeMode==='separate'),pool=asgs.filter(a=>a.gradeMode!=='separate'),comps=gradeComps(cid,subid),wA=sub.wAssign??70,wE=sub.wExam??30,res=reservedGradePoints(cid,subid),poolWeight=Math.max(0,wA-res);
   let html=`<div class="card cp mb14" style="background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-color:#DBEAFE"><div class="f ic jb fw g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-adjustments-horizontal"></i> ปรับคะแนนและตัดเกรด</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">งานรวม ${Math.round(poolWeight)} + งานสำคัญ ${Math.round(sep.reduce((s,a)=>s+(parseFloat(a.gradePoints??a.maxScore)||0),0))} + คะแนนอื่น ${Math.round(comps.reduce((s,c)=>s+c.maxScore,0))} = คะแนนเก็บ ${Math.round(wA)}</div></div><div class="f g8 fw"><button class="btn" onclick="openManageGradeComponents('${cid}','${subid}')"><i class="ti ti-columns-3"></i> จัดการช่องคะแนน</button><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มช่องคะแนน</button></div></div>${res>wA?'<div class="info-box" style="background:var(--rdl);color:var(--rd);margin-top:10px;margin-bottom:0">คะแนนที่จัดสรรเกินสัดส่วนคะแนนเก็บ กรุณาปรับงานแยกหรือช่องคะแนน</div>':''}</div>`;
-  const scoreColCount=4+sep.length+comps.length;
+  const scoreColCount=6+sep.length+comps.length;
   const scoreColPct=64/scoreColCount;
   const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
   html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
   sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
   comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
-  html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FEF3C7">คะแนนสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
-  stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
-  html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
+  html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
+  stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
+  html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · คะแนนสอบแสดงแยกกลางภาคและปลายภาค แล้วระบบรวมสองส่วนก่อนแปลงเป็นคะแนนสอบตามสัดส่วนที่กำหนด · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
 }
 
 function renderScGrade(){const el=document.getElementById('sc-grade'),cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}const{cid,subid}=cs,cls=getCls(cid),sub=getSub(cid,subid),stus=stuList(cid),showOn=!!cls?.showGrades;let html=`<div class="card cp mb14" style="border-left:4px solid ${showOn?'var(--gn)':'var(--mu)'}"><div class="f ic jb fw g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-award"></i> ผลการเรียน — ${sub.name}</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">หน้านี้แสดงผลจาก “ปรับคะแนน/ภาพรวม” และใช้เปิดผลการเรียนให้นักเรียนดู</div></div><button class="btn ${showOn?'btn-g':'btn-p'}" onclick="toggleShowGrades('${cid}')"><i class="ti ti-${showOn?'eye-off':'eye'}"></i> ${showOn?'ปิดผลการเรียน':'เปิดให้นักเรียนดู'}</button></div></div><div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr><th>#</th><th style="min-width:150px">ชื่อ-สกุล</th><th>คะแนนเก็บ<br>/${sub.wAssign??70}</th><th>คะแนนสอบ<br>/${sub.wExam??30}</th><th>รวม<br>/100</th><th>เกรด</th><th style="min-width:130px">หมายเหตุ</th></tr></thead><tbody>`;const dist={4:0,'3.5':0,3:0,'2.5':0,2:0,'1.5':0,1:0,0:0,'ร':0};stus.forEach(s=>{const t=calcTotal(cid,subid,s.id);dist[t.finalGrade]=(dist[t.finalGrade]||0)+1;html+=`<tr><td>${s.no}</td><td>${s.firstName} ${s.lastName}</td><td style="text-align:center;font-weight:700">${Math.round(t.assignScore)}</td><td style="text-align:center;font-weight:700">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900">${Math.round(t.totalScore)}</td><td style="text-align:center"><span class="grade ${t.finalCls}">${t.finalGrade}</span></td><td style="text-align:center">${t.note||'-'}</td></tr>`;});html+=`</tbody></table></div></div><div class="card cp mt14"><div class="stitle">การกระจายเกรด</div><div class="sg">${['4','3.5','3','2.5','2','1.5','1','0','ร'].map(g=>`<div class="sc-stat"><div class="sl">เกรด ${g}</div><div class="sv">${dist[g]||0}</div></div>`).join('')}</div></div>`;el.innerHTML=html;}
