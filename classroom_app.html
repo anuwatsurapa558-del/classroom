@@ -652,7 +652,7 @@ function calcTotal(cid,subid,stuId){
   const finRaw=ex.final!==undefined&&ex.final!==''&&!isNaN(parseFloat(ex.final))?parseFloat(ex.final):null;
   // รวมคะแนนกลางภาค + ปลายภาคก่อน แล้วคิดเป็นสัดส่วนคะแนนสอบทั้งหมด
   // ใช้คะแนนเต็มของทั้งสองส่วนเป็นฐานเสมอ (ช่องที่ยังไม่กรอกนับเป็น 0 ชั่วคราว)
-  const examRaw=(midRaw??0)+(finRaw??0);
+  const examRaw=(midMax>0?(midRaw??0):0)+(finMax>0?(finRaw??0):0);
   const examMax=midMax+finMax;
   const examScore=examMax?examRaw/examMax*wE:0;
   // ── คะแนนรวม (เต็ม 100) ──
@@ -2173,8 +2173,8 @@ function renderCrSubjectsTab(cid,cls,subs){
         <td><b>${s.name}</b></td>
         <td>${s.code||'—'}</td>
         <td>${wA}% : ${wE}%</td>
-        <td>${s.midMax||100}</td>
-        <td>${s.finalMax||100}</td>
+        <td>${s.midMax??100}</td>
+        <td>${s.finalMax??100}</td>
         <td><div class="f g8">
           <button class="btn btn-xs" onclick="openEditSubject('${cid}','${s.id}')"><i class="ti ti-edit"></i></button>
           <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${s.id}')"><i class="ti ti-trash"></i></button>
@@ -2948,7 +2948,7 @@ function renderSubjects(){
       const schTxt=sch.length?sch.map(x=>`${DAYS_TH[x.day]} ${x.start.slice(0,5)}-${x.end.slice(0,5)}`).join('<br>'):'<span style="color:var(--hn)">ยังไม่กำหนด</span>';
       html+=`<tr><td style="color:var(--mu);font-weight:700">${i+1}</td><td style="font-weight:600">${sub.name}</td><td>${sub.code?`<span class="badge bx">${sub.code}</span>`:'-'}</td><td style="font-size:11.5px;white-space:nowrap">${schTxt}</td>
         <td><span class="badge bb">${wA}%</span></td><td><span class="badge bt">${wE}%</span></td>
-        <td><span class="badge bp">${sub.midMax||100} คะแนน</span></td><td><span class="badge bp">${sub.finalMax||100} คะแนน</span></td>
+        <td><span class="badge bp">${sub.midMax??100} คะแนน</span></td><td><span class="badge bp">${sub.finalMax??100} คะแนน</span></td>
         <td><div class="f g8"><button class="btn btn-xs" onclick="openEditSubject('${cid}','${sub.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteSubject('${cid}','${sub.id}')"><i class="ti ti-trash"></i></button></div></td></tr>`;
     });
     html+=`</tbody></table></div>`;
@@ -4154,28 +4154,30 @@ function renderScExam(){
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid);
   const wE=sub.wExam??30;
-  const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+  const midMax=sub.midMax??100,finMax=sub.finalMax??100;
   const examMax=midMax+finMax;
   const exMap=examMap(cid,subid);
   let html=`<div class="prop-box"><div class="prop-title">คะแนนสอบ — ${sub.name}</div>
     <div class="f ic g8 fw"><span class="badge bt">คิดเป็น ${wE}% ของคะแนนทั้งหมด</span><span class="badge bp">คะแนนดิบรวมเต็ม ${examMax}</span></div>
     <div style="font-size:12px;color:var(--mu);margin-top:8px">สูตร: (คะแนนกลางภาค + คะแนนปลายภาค) ÷ (${midMax} + ${finMax}) × ${wE}</div>
   </div>
-  <div class="card cp mb14"><div class="f ic g8 fw"><div><b>คะแนนเต็มกลางภาค:</b></div><input type="number" id="midMaxInp" value="${midMax}" style="width:80px" onchange="updateExamMax('${cid}','${subid}','mid',this.value)"><div><b>คะแนนเต็มปลายภาค:</b></div><input type="number" id="finMaxInp" value="${finMax}" style="width:80px" onchange="updateExamMax('${cid}','${subid}','fin',this.value)"></div></div>
+  <div class="card cp mb14"><div class="f ic g8 fw"><div><b>คะแนนเต็มกลางภาค:</b></div><input type="number" id="midMaxInp" value="${midMax}" min="0" style="width:80px" onchange="updateExamMax('${cid}','${subid}','mid',this.value)"><div><b>คะแนนเต็มปลายภาค:</b></div><input type="number" id="finMaxInp" value="${finMax}" min="0" style="width:80px" onchange="updateExamMax('${cid}','${subid}','fin',this.value)"></div></div>
   <div class="card"><div class="cp" style="border-bottom:1px solid var(--bd)"><div class="f ic jb"><div><b>กรอกคะแนนสอบ</b></div><button class="btn btn-g btn-sm" onclick="saveExam('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div></div>
   <div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>กลางภาค (/${midMax})</th><th>ปลายภาค (/${finMax})</th></tr></thead><tbody>`;
   stus.forEach(s=>{
     const ex=exMap[s.id]||{};
     html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td>
-      <td><input type="number" class="sc-inp" id="mid-${s.id}" value="${ex.mid!==undefined?ex.mid:''}" min="0" max="${midMax}" placeholder="—"></td>
-      <td><input type="number" class="sc-inp" id="fin-${s.id}" value="${ex.final!==undefined?ex.final:''}" min="0" max="${finMax}" placeholder="—"></td></tr>`;
+      <td><input type="number" class="sc-inp" id="mid-${s.id}" value="${midMax>0&&ex.mid!==undefined?ex.mid:''}" min="0" max="${midMax}" placeholder="${midMax===0?'ไม่สอบ':'—'}" ${midMax===0?'disabled':''}></td>
+      <td><input type="number" class="sc-inp" id="fin-${s.id}" value="${finMax>0&&ex.final!==undefined?ex.final:''}" min="0" max="${finMax}" placeholder="${finMax===0?'ไม่สอบ':'—'}" ${finMax===0?'disabled':''}></td></tr>`;
   });
   html+=`</tbody></table></div></div>`;
   el.innerHTML=html;
 }
 async function updateExamMax(cid,subid,type,v){
   _lastSaveTime=Date.now();  const sub=getSub(cid,subid);if(!sub)return;
-  const val=parseFloat(v)||100;
+  let val=parseFloat(v);
+  if(isNaN(val))val=0;
+  val=Math.max(0,val);
   if(type==='mid')sub.midMax=val;
   else sub.finalMax=val;
   try{
@@ -4192,7 +4194,7 @@ async function saveExam(cid,subid){
   if(!db.examScores[tk(cid)])db.examScores[tk(cid)]={};
   if(!db.examScores[tk(cid)][subid])db.examScores[tk(cid)][subid]={};
   const sub=getSub(cid,subid);
-  const midMax=sub.midMax||100, finMax=sub.finalMax||100;
+  const midMax=sub.midMax??100, finMax=sub.finalMax??100;
   const store=db.examScores[tk(cid)][subid];
   const upsertRows=[];
   const deleteStuIds=[];
@@ -4254,11 +4256,12 @@ async function saveExamInline(cid,subid,stuId,type,val,maxScore){
 
   const rec=db.examScores[tk(cid)][subid][stuId];
   const s=(val??'').toString().trim();
+  maxScore=Math.max(0,Number(maxScore)||0);
   const col=type==='mid'?'mid_score':'final_score';
   const localKey=type==='mid'?'mid':'final';
 
   try{
-    if(s===''||isNaN(parseFloat(s))){
+    if(maxScore===0||s===''||isNaN(parseFloat(s))){
       delete rec[localKey];
     }else{
       rec[localKey]=Math.min(Math.max(Math.round(parseFloat(s)),0),Math.round(maxScore||0));
@@ -4305,7 +4308,7 @@ function renderScAll(){
       if(v!==undefined&&v!==''){const p=Math.round(v/a.maxScore*100),bg=p>=80?'#DCFCE7':p>=60?'#FEF3C7':'#FEE2E2',fc=p>=80?'#15803D':p>=60?'#92400E':'#B91C1C';html+=`<td style="background:${bg};color:${fc};font-weight:700;text-align:center">${v}</td>`;}
       else html+=`<td style="background:#FEE2E2;color:#B91C1C;text-align:center;font-size:11px">ไม่ส่ง</td>`;
     });
-    const sub2=getSub(cid,subid);const midMax=sub2.midMax||100,finMax=sub2.finalMax||100;
+    const sub2=getSub(cid,subid);const midMax=sub2.midMax??100,finMax=sub2.finalMax??100;
     const noteCol=t.note==='คะแนนไม่ถึงเกณฑ์'?'var(--rd)':t.note==='ส่งงานไม่ครบ'?'var(--am)':'var(--mu)';
     html+=`<td style="text-align:center;font-weight:700">${Math.round(t.assignScore)}</td>
       <td style="text-align:center">${t.midRaw!==null?t.midRaw+'/'+midMax:'-'}</td>
@@ -7839,7 +7842,7 @@ function exportScores(){
   targetSubs.forEach(sub=>{
     const asgs=asgList(cid,sub.id);
     const wA=sub.wAssign??70,wE=sub.wExam??30;
-    const midMax=sub.midMax||100,finMax=sub.finalMax||100;
+    const midMax=sub.midMax??100,finMax=sub.finalMax??100;
     rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}  สัดส่วน: เก็บ${wA}%:สอบ${wE}%`);
     const hdr=['เลขที่','ชื่อ','นามสกุล'];
     asgs.forEach(a=>hdr.push(`${a.name}(/${a.maxScore})`));
@@ -8121,9 +8124,9 @@ function openAddSubject(cid,page){
       <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA" value="70" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar('assign')"> %</div>
       <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><input type="number" id="mWE" value="30" min="0" max="100" style="width:70px;font-size:14px" oninput="updPropBar('exam')"> %</div>
       <div class="prop-bar" id="propBar"><div class="prop-seg" id="pBA" style="width:70%;background:var(--bl)">70% เก็บ</div><div class="prop-seg" id="pBE" style="width:30%;background:var(--tl)">30% สอบ</div></div>
-      <div style="font-size:12px;color:var(--mu);margin:8px 0 6px"><b>คะแนนสอบไม่แบ่งเปอร์เซ็นต์กลางภาค/ปลายภาค</b> — ระบบจะนำคะแนนทั้งสองส่วนมารวมกันแล้วคิดตามสัดส่วนคะแนนสอบด้านบน</div>
-      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
-      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM" value="100" min="1" style="width:70px;font-size:14px"> คะแนน</div>
+      <div style="font-size:12px;color:var(--mu);margin:8px 0 6px"><b>คะแนนสอบไม่แบ่งเปอร์เซ็นต์กลางภาค/ปลายภาค</b> — หากไม่มีสอบส่วนใด ให้ตั้งคะแนนเต็มเป็น 0 ระบบจะไม่นำส่วนนั้นมาคิด และจะคิดจากอีกส่วนตามสัดส่วนคะแนนสอบทั้งหมด</div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM" value="100" min="0" style="width:70px;font-size:14px"> คะแนน</div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM" value="100" min="0" style="width:70px;font-size:14px"> คะแนน</div>
     </div>
     <div class="f g8" style="justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-t" onclick="submitAddSubject('${cid}','${page}')">เพิ่มวิชา</button></div>`);
 }
@@ -8141,7 +8144,9 @@ function submitAddSubject(cid,page){
   const name=val('mSN');if(!name)return;
   const schedule=_collectSubjectSchedule(cid,''); if(schedule===null)return;
   const wA=Math.max(0,Math.min(100,parseInt(val('mWA'))||0));
-  const sub={id:uid(),name,code:val('mSC'),teacher:val('mSTeacher')||'',wAssign:wA,wExam:100-wA,wMid:50,wFinal:50,midMax:parseInt(val('mMM'))||100,finalMax:parseInt(val('mFM'))||100};
+  const midVal=parseInt(val('mMM')),finVal=parseInt(val('mFM'));
+  const sub={id:uid(),name,code:val('mSC'),teacher:val('mSTeacher')||'',wAssign:wA,wExam:100-wA,wMid:50,wFinal:50,
+    midMax:isNaN(midVal)?100:Math.max(0,midVal),finalMax:isNaN(finVal)?100:Math.max(0,finVal)};
   if(!db.subjects[tk(cid)])db.subjects[tk(cid)]=[];
   db.subjects[tk(cid)].push(sub); _applySubjectSchedule(cid,sub.id,schedule);
   save();closeMD();renderPage(page||'subjects');showToast('เพิ่มวิชาและอัปเดตตารางเรียนแล้ว ✓');
@@ -8157,9 +8162,9 @@ function openEditSubject(cid,subid){
       <div class="prop-title">สัดส่วนคะแนน</div>
       <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนเก็บ</label><input type="number" id="mWA2" value="${wA}" min="0" max="100" style="width:70px;font-size:14px" oninput="updEditProp('assign')"> %</div>
       <div class="prop-row"><label style="min-width:120px;font-size:13px">คะแนนสอบ</label><input type="number" id="mWE2" value="${wE}" min="0" max="100" style="width:70px;font-size:14px" oninput="updEditProp('exam')"> %</div>
-      <div style="font-size:12px;color:var(--mu);margin:8px 0 6px"><b>กลางภาคและปลายภาคไม่มีสัดส่วนย่อย</b> — ระบบรวมคะแนนดิบทั้งสองส่วนแล้วแปลงเป็นคะแนนสอบ ${wE}%</div>
-      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM2" value="${sub.midMax||100}" min="1" style="width:70px;font-size:14px"></div>
-      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM2" value="${sub.finalMax||100}" min="1" style="width:70px;font-size:14px"></div>
+      <div style="font-size:12px;color:var(--mu);margin:8px 0 6px"><b>กลางภาคและปลายภาคไม่มีสัดส่วนย่อย</b> — ถ้าไม่มีสอบส่วนใดให้ตั้งเต็ม 0 ระบบจะคิดจากอีกส่วนแล้วแปลงเป็นคะแนนสอบ ${wE}%</div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มกลางภาค</label><input type="number" id="mMM2" value="${sub.midMax??100}" min="0" style="width:70px;font-size:14px"></div>
+      <div class="prop-row"><label style="min-width:160px;font-size:13px">คะแนนเต็มปลายภาค</label><input type="number" id="mFM2" value="${sub.finalMax??100}" min="0" style="width:70px;font-size:14px"></div>
     </div>
     <div class="f g8" style="justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-t" onclick="submitEditSubject('${cid}','${subid}')">บันทึก</button></div>`);
 }
@@ -8177,7 +8182,9 @@ function submitEditSubject(cid,subid){
   sub.name=val('mSN2')||sub.name;sub.code=val('mSC2');
   sub.teacher=val('mSTeacher2')||'';
   sub.wAssign=wA;sub.wExam=100-wA;sub.wMid=50;sub.wFinal=50;
-  sub.midMax=parseInt(val('mMM2'))||100;sub.finalMax=parseInt(val('mFM2'))||100;
+  const midVal=parseInt(val('mMM2')),finVal=parseInt(val('mFM2'));
+  sub.midMax=isNaN(midVal)?0:Math.max(0,midVal);
+  sub.finalMax=isNaN(finVal)?0:Math.max(0,finVal);
   _applySubjectSchedule(cid,subid,schedule);
   save();closeMD();renderSubjects();showToast('บันทึกวิชาและตารางเรียนแล้ว ✓');
 }
@@ -8636,7 +8643,7 @@ function calcTotal(cid,subid,stuId){
   const ex=examMap(cid,subid)[stuId]||{},midMax=parseFloat(sub.midMax)||0,finMax=parseFloat(sub.finalMax)||0;
   const midRaw=ex.mid!==undefined&&ex.mid!==''&&!isNaN(parseFloat(ex.mid))?parseFloat(ex.mid):null;
   const finRaw=ex.final!==undefined&&ex.final!==''&&!isNaN(parseFloat(ex.final))?parseFloat(ex.final):null;
-  const examRaw=(midRaw??0)+(finRaw??0),examMax=midMax+finMax,examScore=examMax?examRaw/examMax*wE:0;
+  const examRaw=(midMax>0?(midRaw??0):0)+(finMax>0?(finRaw??0):0),examMax=midMax+finMax,examScore=examMax?examRaw/examMax*wE:0;
   const totalScore=Math.min(100,assignScore+examScore);
   const roundedTotalScore=Math.round(totalScore);
   const gradeObj=calcGrade(roundedTotalScore);
@@ -8796,7 +8803,7 @@ function renderScAll(){
   sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
   comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
   html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
-  stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
+  stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midMax>0&&t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" placeholder="${t.midMax===0?'ไม่สอบ':'—'}" ${t.midMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finMax>0&&t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" placeholder="${t.finMax===0?'ไม่สอบ':'—'}" ${t.finMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
   html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · คะแนนสอบแสดงแยกกลางภาคและปลายภาค แล้วระบบรวมสองส่วนก่อนแปลงเป็นคะแนนสอบตามสัดส่วนที่กำหนด · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
 }
 
