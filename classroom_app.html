@@ -2638,8 +2638,42 @@ const DAYS_SHORT=['จ.','อ.','พ.','พฤ.','ศ.','ส.','อา.'];
 const DAY_COLORS=['#FEF3C7','#FCE7F3','#DBEAFE','#FED7AA','#DCFCE7','#E9D5FF','#FEE2E2'];
 
 function ttKey(cid){return tk(cid);}
-function ttGet(cid){return (db.timetable&&db.timetable[ttKey(cid)])||[];}
-function ttSet(cid,arr){if(!db.timetable)db.timetable={};db.timetable[ttKey(cid)]=arr;}
+const _ttCleanupRunning=new Set();
+function _ttIdentity(t){
+  if(!t)return '';
+  const base=[String(t.day??''),String(t.start||''),String(t.end||'')].join('|');
+  if(t.isActivity)return 'A|'+base+'|'+String(t.activityName||'').trim().toLowerCase();
+  return 'S|'+base+'|'+String(t.subId||'');
+}
+function _ttUnique(arr){
+  const out=[],seen=new Set();
+  (arr||[]).forEach(t=>{const k=_ttIdentity(t);if(!k||seen.has(k))return;seen.add(k);out.push(t);});
+  return out;
+}
+async function _cleanupDuplicateTimetable(cid){
+  if(_ttCleanupRunning.has(cid))return;
+  const key=ttKey(cid),raw=(db.timetable&&db.timetable[key])||[];
+  const seen=new Set(),keep=[],dup=[];
+  raw.forEach(t=>{const k=_ttIdentity(t);if(k&&seen.has(k)){if(t.id)dup.push(t.id);return;}if(k)seen.add(k);keep.push(t);});
+  if(!dup.length)return;
+  _ttCleanupRunning.add(cid);
+  db.timetable[key]=keep;
+  try{
+    const {error}=await sb.from('timetable').delete().in('id',dup);
+    if(error)throw error;
+    _lastSaveTime=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
+    console.info('ลบคาบซ้ำ',dup.length,'รายการ ห้อง',cid);
+  }catch(e){console.warn('cleanup duplicate timetable:',e.message);}
+  finally{_ttCleanupRunning.delete(cid);}
+}
+function ttGet(cid){
+  const raw=(db.timetable&&db.timetable[ttKey(cid)])||[];
+  const unique=_ttUnique(raw);
+  if(unique.length!==raw.length)setTimeout(()=>_cleanupDuplicateTimetable(cid),0);
+  return unique;
+}
+function ttSet(cid,arr){if(!db.timetable)db.timetable={};db.timetable[ttKey(cid)]=_ttUnique(arr);}
 
 // คาบเวลามาตรฐาน (7 คาบ + กิจกรรมประจำวัน)
 const PERIODS=[
@@ -3556,7 +3590,7 @@ function renderTodayHint(cid,curSubid){
   const today=new Date();
   const jsDay=today.getDay(); // 0=อา 1=จ ... 6=ส
   const day=jsDay===0?6:jsDay-1; // แปลงเป็น 0=จ 1=อ ... 6=อา
-  const todayItems=tt.filter(t=>t.day===day).sort((a,b)=>a.start.localeCompare(b.start));
+  const todayItems=_ttUnique(tt.filter(t=>t.day===day)).sort((a,b)=>a.start.localeCompare(b.start));
   if(!todayItems.length){
     return `<div class="card mb14" style="background:var(--sf2);border-left:4px solid var(--mu)"><div class="cp" style="padding:10px 14px;font-size:13px;color:var(--mu)"><i class="ti ti-calendar-off"></i> วันนี้ (${DAYS_TH[day]}) ไม่มีคาบเรียนในตารางสอน</div></div>`;
   }
@@ -8743,9 +8777,26 @@ function _collectSubjectSchedule(cid,subid=''){
   return out;
 }
 function _applySubjectSchedule(cid,subid,schedule){
-  const keep=ttGet(cid).filter(t=>t.subId!==subid);
-  (schedule||[]).forEach(x=>keep.push({id:uid(),day:x.day,start:x.start,end:x.end,subId:subid,note:''}));
-  ttSet(cid,keep);
+  const key=ttKey(cid);
+  const raw=(db.timetable&&db.timetable[key])||[];
+  const oldRows=raw.filter(t=>t.subId===subid&&!t.isActivity);
+  const keep=raw.filter(t=>t.subId!==subid||t.isActivity);
+  const used=new Set();
+  const fresh=[];
+  (schedule||[]).forEach(x=>{
+    const match=oldRows.find(t=>!used.has(t.id)&&String(t.day)===String(x.day)&&t.start===x.start&&t.end===x.end);
+    if(match){used.add(match.id);fresh.push({...match,day:x.day,start:x.start,end:x.end,subId:subid,note:match.note||''});}
+    else fresh.push({id:uid(),day:x.day,start:x.start,end:x.end,subId:subid,note:''});
+  });
+  const staleIds=oldRows.filter(t=>!used.has(t.id)).map(t=>t.id).filter(Boolean);
+  ttSet(cid,keep.concat(fresh));
+  // ลบแถวเก่าที่ไม่ใช้งานแล้วทันที เพื่อไม่ให้ reload แล้วคาบกลับมาซ้ำ
+  if(staleIds.length){
+    sb.from('timetable').delete().in('id',staleIds).then(({error})=>{
+      if(error)console.warn('delete stale timetable:',error.message);
+      else _lastSaveTime=Date.now();
+    });
+  }
 }
 
 function openAddSubject(cid,page){
@@ -9421,6 +9472,23 @@ load().then(()=>{
   renderDash();
   _setupRealtime();
 });
+
+
+/* v15.2 — restore editable score overview */
+function renderScAll(){
+  const el=document.getElementById('sc-all'),cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}const{cid,subid}=cs,sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid).filter(a=>a.type!=='track'),sep=asgs.filter(a=>a.gradeMode==='separate'),pool=asgs.filter(a=>a.gradeMode!=='separate'),comps=gradeComps(cid,subid),wA=sub.wAssign??70,wE=sub.wExam??30,res=reservedGradePoints(cid,subid),poolWeight=Math.max(0,wA-res);
+  let html=`<div class="card cp mb14" style="background:linear-gradient(135deg,#F7F4FF,#F1FAFF);border:1px solid #E9E2F8;border-radius:20px;box-shadow:0 10px 28px rgba(148,132,195,.08)"><div class="f ic jb fw g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-adjustments-horizontal"></i> ปรับคะแนนและตัดเกรด</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">งานรวม ${Math.round(poolWeight)} + งานสำคัญ ${Math.round(sep.reduce((s,a)=>s+(parseFloat(a.gradePoints??a.maxScore)||0),0))} + คะแนนอื่น ${Math.round(comps.reduce((s,c)=>s+c.maxScore,0))} = คะแนนเก็บ ${Math.round(wA)}</div></div><div class="f g8 fw"><button class="btn" onclick="openManageGradeComponents('${cid}','${subid}')"><i class="ti ti-columns-3"></i> จัดการช่องคะแนน</button><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มช่องคะแนน</button></div></div>${res>wA?'<div class="info-box" style="background:var(--rdl);color:var(--rd);margin-top:10px;margin-bottom:0">คะแนนที่จัดสรรเกินสัดส่วนคะแนนเก็บ กรุณาปรับงานแยกหรือช่องคะแนน</div>':''}</div>`;
+  const scoreColCount=6+sep.length+comps.length;
+  const scoreColPct=64/scoreColCount;
+  const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
+  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
+  sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
+  comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
+  html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
+  stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midMax>0&&t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" placeholder="${t.midMax===0?'ไม่สอบ':'—'}" ${t.midMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finMax>0&&t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" placeholder="${t.finMax===0?'ไม่สอบ':'—'}" ${t.finMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
+  html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · คะแนนสอบแสดงแยกกลางภาคและปลายภาค แล้วระบบรวมสองส่วนก่อนแปลงเป็นคะแนนสอบตามสัดส่วนที่กำหนด · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
+}
+
 </script>
 </body>
 </html>
