@@ -6,7 +6,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ClassRoom">
-<meta name="theme-color" content="#111113">
+<meta name="theme-color" content="#8885CF">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=153">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=153">
 <title>ระบบเช็คชื่อและเก็บคะแนน (ครู)</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -9483,11 +9485,100 @@ function renderScAll(){
   const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
   html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
   sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
-  comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
+  comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${gcEscape(c.name)}<br><small>/${Math.round(c.maxScore)}</small></th>`);
   html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
   stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midMax>0&&t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" placeholder="${t.midMax===0?'ไม่สอบ':'—'}" ${t.midMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finMax>0&&t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" placeholder="${t.finMax===0?'ไม่สอบ':'—'}" ${t.finMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
   html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · คะแนนสอบแสดงแยกกลางภาคและปลายภาค แล้วระบบรวมสองส่วนก่อนแปลงเป็นคะแนนสอบตามสัดส่วนที่กำหนด · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
 }
+
+</script>
+<script>
+/* Score component controls restored in v15.3. */
+const gcEscape = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let gcBusy=false;
+function gcCache(){_lastSaveTime=Date.now();try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}}
+async function gcCheck(query){const r=await query;if(r.error)throw r.error;return r;}
+function gcError(e){console.error(e);alert('บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง\n'+(e.message||e));}
+function openAddGradeComponent(cid,subid,id=''){
+ const c=gradeComps(cid,subid).find(x=>x.id===id);
+ if(id&&!c)return;
+ const available=Math.max(0,Number(getSub(cid,subid)?.wAssign??70)-reservedGradePoints(cid,subid,'',id));
+ showMD(`<div class="mt">${c?'แก้ไข':'เพิ่ม'}ช่องคะแนน</div><div class="fg"><label class="fl">ชื่อช่องคะแนน</label><input id="gc-name" maxlength="100" value="${gcEscape(c?.name)}" placeholder="เช่น ความร่วมมือ / สมุด / จิตพิสัย"></div><div class="fg"><label class="fl">คะแนนเต็ม (จัดสรรได้ไม่เกิน ${available})</label><input id="gc-max" type="number" min="1" max="${available}" step="1" value="${c?.maxScore??Math.min(10,available)}"></div><p style="color:var(--mu)">คะแนนนี้หักจากสัดส่วนงานรวม โดยคะแนนเก็บรวมยังเท่าเดิม${c?' เมื่อเปลี่ยนคะแนนเต็ม คะแนนนักเรียนจะปรับตามสัดส่วน':''}</p><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button id="gc-save" class="btn btn-p">บันทึก</button></div>`);
+ document.getElementById('gc-save').onclick=()=>submitGradeComponent(cid,subid,id);
+}
+function openManageGradeComponents(cid,subid){
+ const comps=gradeComps(cid,subid);
+ showMD(`<div class="mt">จัดการช่องคะแนน</div><div id="gc-list">${comps.length?comps.map((c,i)=>`<div class="f ic jb g8" style="padding:14px 0;border-bottom:1px solid var(--bd)"><div><strong>${gcEscape(c.name)}</strong><div style="color:var(--mu)">คะแนนเต็ม ${c.maxScore}</div></div><div class="f g8"><button class="btn" data-edit="${i}">แก้ไข</button><button class="btn" style="color:var(--rd)" data-delete="${i}">ลบ</button></div></div>`).join(''):'<p>ยังไม่มีช่องคะแนนเพิ่มเติม</p>'}</div><div class="f g8" style="justify-content:flex-end;margin-top:20px"><button class="btn" onclick="closeMD()">ปิด</button><button class="btn btn-p" id="gc-add">เพิ่มช่องคะแนน</button></div>`);
+ document.getElementById('gc-add').onclick=()=>openAddGradeComponent(cid,subid);
+ document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openAddGradeComponent(cid,subid,comps[Number(b.dataset.edit)].id));
+ document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteGradeComponent(cid,subid,comps[Number(b.dataset.delete)].id));
+}
+async function submitGradeComponent(cid,subid,id=''){
+ if(gcBusy)return;
+ const name=document.getElementById('gc-name').value.trim(),max=Number(document.getElementById('gc-max').value);
+ const available=Number(getSub(cid,subid)?.wAssign??70)-reservedGradePoints(cid,subid,'',id);
+ if(!name||!Number.isInteger(max)||max<1||max>available){alert('กรุณาระบุชื่อและคะแนนเต็มเป็นจำนวนเต็ม ตั้งแต่ 1 ถึง '+Math.max(0,available));return;}
+ const old=gradeComps(cid,subid).find(c=>c.id===id);
+ if(id&&!old)return;
+ const comp={id:id||uid(),classId:cid,subjectId:subid,name,maxScore:max,orderNum:old?.orderNum??(Math.max(-1,...gradeComps(cid,subid).map(c=>c.orderNum||0))+1)};
+ const previous={...(db.gradeComponentScores?.[comp.id]||{})},next={...previous};
+ const changed=old&&old.maxScore!==max;
+ const rows=values=>Object.entries(values).filter(([,v])=>v!==''&&v!==null&&v!==undefined).map(([sid,v])=>({component_id:comp.id,student_id:sid,value:v}));
+ gcBusy=true;document.getElementById('gc-save').disabled=true;
+ let scaled=false;
+ try{
+  _lastSaveTime=Date.now();
+  if(changed){for(const sid in next){if(next[sid]!==''&&next[sid]!=null)next[sid]=old.maxScore>0?Number((Number(next[sid])*max/old.maxScore).toFixed(8)):0;}if(rows(next).length){await gcCheck(sb.from('grade_component_scores').upsert(rows(next),{onConflict:'component_id,student_id'}));scaled=true;}}
+  await gcCheck(sb.from('grade_components').upsert({id:comp.id,class_id:cid,subject_id:subid,name,max_score:max,order_num:comp.orderNum},{onConflict:'id'}));
+  db.gradeComponents??={};db.gradeComponents[subid]??=[];
+  const index=db.gradeComponents[subid].findIndex(c=>c.id===comp.id);
+  if(index<0)db.gradeComponents[subid].push(comp);else db.gradeComponents[subid][index]=comp;
+  db.gradeComponentScores??={};db.gradeComponentScores[comp.id]=next;
+  gcCache();closeMD();renderScAll();showToast('บันทึกช่องคะแนนแล้ว');
+ }catch(e){
+  if(scaled){try{await gcCheck(sb.from('grade_component_scores').upsert(rows(previous),{onConflict:'component_id,student_id'}));}catch(rollback){alert('คืนค่าคะแนนไม่สำเร็จ กรุณาตรวจสอบคะแนนก่อนดำเนินการต่อ: '+rollback.message);}}
+  gcError(e);
+ }finally{gcBusy=false;const b=document.getElementById('gc-save');if(b)b.disabled=false;}
+}
+async function deleteGradeComponent(cid,subid,id){
+ if(gcBusy)return;
+ const c=gradeComps(cid,subid).find(c=>c.id===id);if(!c)return;
+ if(!confirm('ลบช่องคะแนน “'+c.name+'” หรือไม่?\nถ้าลบช่องคะแนนนี้ คะแนนทั้งหมดในช่องนี้จะหายด้วย'))return;
+ gcBusy=true;
+ try{
+  _lastSaveTime=Date.now();
+  // Delete parent first: database FK policy controls atomic cascading; RESTRICT fails safely.
+  await gcCheck(sb.from('grade_components').delete().eq('id',id));
+  db.gradeComponents[subid]=db.gradeComponents[subid].filter(c=>c.id!==id);delete db.gradeComponentScores[id];
+  gcCache();renderScAll();openManageGradeComponents(cid,subid);showToast('ลบช่องคะแนนแล้ว');
+ }catch(e){gcError(e);}finally{gcBusy=false;}
+}
+const gcPending=new Set();
+async function saveGradeComponentScore(cid,subid,id,sid,value,max){
+ const key=id+':'+sid;if(gcPending.has(key)){renderScAll();return;}
+ const blank=String(value).trim()==='',n=Number(value);
+ if(!blank&&(!Number.isFinite(n)||n<0||n>max)){alert('กรอกคะแนนระหว่าง 0 ถึง '+max);renderScAll();return;}
+ gcPending.add(key);
+ try{
+  _lastSaveTime=Date.now();
+  if(blank)await gcCheck(sb.from('grade_component_scores').delete().eq('component_id',id).eq('student_id',sid));
+  else await gcCheck(sb.from('grade_component_scores').upsert({component_id:id,student_id:sid,value:Math.round(n)},{onConflict:'component_id,student_id'}));
+  db.gradeComponentScores??={};db.gradeComponentScores[id]??={};
+  if(blank)delete db.gradeComponentScores[id][sid];else db.gradeComponentScores[id][sid]=Math.round(n);
+  gcCache();
+ }catch(e){gcError(e);}finally{gcPending.delete(key);renderScAll();}
+}
+async function gcSaveOverride(subid,sid,field,value){
+ const key=subid+':'+sid;if(gcPending.has(key)){renderScAll();return;}gcPending.add(key);
+ const next={...gradeOverride(subid,sid),[field]:value};
+ try{
+  _lastSaveTime=Date.now();
+  await gcCheck(sb.from('grade_overrides').upsert({subject_id:subid,student_id:sid,grade_override:next.gradeOverride||null,note:next.note||''},{onConflict:'subject_id,student_id'}));
+  db.gradeOverrides??={};db.gradeOverrides[subid]??={};db.gradeOverrides[subid][sid]=next;gcCache();
+ }catch(e){gcError(e);}finally{gcPending.delete(key);renderScAll();}
+}
+function saveGradeOverrideValue(subid,sid,value){return gcSaveOverride(subid,sid,'gradeOverride',value);}
+function saveGradeNoteValue(subid,sid,value){return gcSaveOverride(subid,sid,'note',value);}
 
 </script>
 </body>
