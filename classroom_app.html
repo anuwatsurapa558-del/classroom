@@ -386,6 +386,316 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
   .toast{bottom:18px;left:auto;right:18px;transform:none;}
   .toast.show{transform:none;}
 }
+
+
+/* ═══════════════════════════════════════════════
+   v15 — MINIMAL PASTEL THEME
+   Lavender • Powder blue • Mint • Peach
+═══════════════════════════════════════════════ */
+:root{
+  --bg:#F7F7FB;
+  --sf:#FFFFFF;
+  --s2:#F3F1FA;
+  --s3:#EDEAF7;
+  --bd:rgba(77,74,104,.09);
+  --bmd:rgba(77,74,104,.16);
+  --tx:#434657;
+  --mu:#7C8094;
+  --hn:#B8BBC7;
+
+  --bl:#7B83D5;
+  --bll:#EEEFFF;
+  --gn:#72A985;
+  --gnl:#E7F4EA;
+  --rd:#D98691;
+  --rdl:#FBEAEC;
+  --am:#C99A5A;
+  --aml:#FFF3DA;
+  --pu:#9A89CE;
+  --pul:#F0EBFA;
+  --tl:#6FB5A4;
+  --tll:#E5F5F0;
+  --or:#D79B78;
+  --orl:#FCEDE4;
+
+  --r:12px;
+  --rl:18px;
+  --sh:0 8px 26px rgba(79,76,110,.055),0 2px 8px rgba(79,76,110,.035);
+}
+
+/* overall */
+body{background:
+  radial-gradient(circle at 0% 0%,rgba(238,239,255,.8) 0,transparent 26%),
+  radial-gradient(circle at 100% 100%,rgba(229,245,240,.65) 0,transparent 28%),
+  var(--bg);
+  color:var(--tx);
+}
+
+/* light pastel sidebar */
+.sidebar{
+  background:rgba(252,251,255,.97);
+  color:var(--tx);
+  border-right:1px solid var(--bd);
+  box-shadow:8px 0 28px rgba(86,82,116,.035);
+  backdrop-filter:blur(16px);
+}
+.sb-logo{border-bottom:1px solid var(--bd);padding:15px 14px;}
+.sb-logo-t h1{color:#4B4F63;font-weight:800;}
+.sb-logo-t p{color:var(--mu);}
+.sb-close{color:var(--mu);}
+.nl{color:#AAA8B8;font-size:9px;letter-spacing:.13em;}
+.ni{
+  color:#73778C;
+  border-radius:11px;
+  padding:9px 10px;
+  margin:2px 0;
+  font-weight:600;
+}
+.ni i{
+  width:30px;height:30px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:9px;
+  background:#F1F0F8;
+  color:#7D8196;
+  font-size:17px;
+  transition:all .15s;
+}
+.ni:hover{background:#F6F4FB;color:#4F5368;}
+.ni:hover i{background:#ECEAF7;color:var(--pu);}
+.ni.active{
+  background:linear-gradient(135deg,#EEEFFF,#F3EDFA);
+  color:#595D78;
+  font-weight:800;
+  box-shadow:inset 0 0 0 1px rgba(123,131,213,.08);
+}
+.ni.active i{
+  background:#DDE0FA;
+  color:#666FC6;
+}
+.sb-overlay{background:rgba(67,70,87,.25);backdrop-filter:blur(2px);}
+
+/* header */
+.topbar{
+  background:rgba(255,255,255,.84);
+  border-bottom:1px solid rgba(77,74,104,.07);
+  backdrop-filter:blur(16px);
+  box-shadow:0 4px 20px rgba(79,76,110,.025);
+}
+.topbar-title{color:#45495B;font-weight:800;}
+.topbar-sub{color:#9295A6;}
+
+/* selection bars / term bars */
+.sel-bar,.term-banner{
+  border:1px solid rgba(123,131,213,.09);
+  box-shadow:var(--sh);
+  background:rgba(255,255,255,.94);
+}
+.sel-row+.sel-row{background:#FAF9FD;border-top-color:var(--bd);}
+.sel-tab{border-radius:10px;}
+.sel-tab:hover{background:#F1F0F7;}
+.sel-tab.ac{
+  background:#DEE1FA;
+  color:#5962B7;
+  box-shadow:none;
+}
+.sel-tab.as{
+  background:#DFF2EC;
+  color:#4E8E7F;
+}
+.sel-add{border-color:#DAD8E5;background:#FBFAFD;}
+.term-pill{border-radius:12px!important;}
+.term-pill.act{background:#E1E3FA!important;color:#5E67BA!important;border-color:#D4D8F4!important;}
+
+/* cards */
+.card,.chbox,.dnav,.sc-stat{
+  border:1px solid rgba(77,74,104,.075);
+  box-shadow:var(--sh);
+  background:rgba(255,255,255,.97);
+}
+.card{border-radius:18px;}
+.sc-stat{
+  border-radius:16px;
+  position:relative;
+  overflow:hidden;
+}
+.sc-stat:before{
+  content:"";
+  position:absolute;
+  width:44px;height:44px;border-radius:50%;
+  right:-15px;top:-15px;
+  background:rgba(123,131,213,.08);
+}
+.sl{color:#9295A5;}
+.sv{color:#4B4F62;}
+
+/* buttons */
+.btn{
+  border-radius:11px;
+  border-color:#E1DFE9;
+  background:#FFFFFF;
+  color:#5A5E71;
+  box-shadow:0 2px 6px rgba(79,76,110,.025);
+}
+.btn:hover{background:#FAF9FD;border-color:#D4D1E0;}
+.btn-p{background:#7B83D5;color:#fff;border-color:#7B83D5;}
+.btn-p:hover{background:#7078CA;}
+.btn-t{background:#78B7A8;color:#fff;border-color:#78B7A8;}
+.btn-g{background:#79AA89;color:#fff;border-color:#79AA89;}
+.btn-o{background:#D79B78;color:#fff;border-color:#D79B78;}
+.btn-xs{border-radius:9px;}
+
+/* forms */
+input[type=text],input[type=number],input[type=date],input[type=password],select,textarea{
+  border-color:#DEDCE6;
+  border-radius:11px;
+  background:#FCFCFE;
+  color:#45495B;
+  box-shadow:inset 0 1px 2px rgba(76,72,100,.018);
+}
+input:focus,select:focus,textarea:focus{
+  border-color:#A9AFE5;
+  box-shadow:0 0 0 3px rgba(123,131,213,.11);
+  background:#fff;
+}
+
+/* tables */
+.tw{border-radius:14px;}
+table{background:#fff;}
+th{
+  background:#F6F4FA;
+  color:#85889A;
+  border-bottom-color:#E7E5ED;
+  font-weight:800;
+}
+td{border-bottom-color:#ECEAF0;}
+tr:hover td{background:#FBFAFD;}
+.score-table th{background:#F4F3F9!important;}
+
+/* badges & tabs */
+.badge{border-radius:999px;padding:3px 8px;}
+.tabs,.score-type-bar{background:#F3F1F8;border-color:#E4E1EB;border-radius:13px;}
+.tb,.score-type-btn{border-radius:10px;}
+.tb.active{background:#fff;color:#555A6E;box-shadow:0 2px 7px rgba(79,76,110,.06);}
+.score-type-btn.active{background:#E0E3FA;color:#5962B7;}
+.info-box{background:#F1F1FD;border-color:#E1E3FA;color:#6269B4;}
+
+/* modal */
+.mo{background:rgba(70,72,89,.26);backdrop-filter:blur(4px);}
+.md{
+  border:1px solid rgba(255,255,255,.8);
+  border-radius:22px;
+  box-shadow:0 24px 70px rgba(67,70,87,.16);
+}
+.mt{color:#474B5E;}
+
+/* pastel status controls */
+.ab{border-radius:10px;}
+.ab.s-ma{background:#E7F4EA;color:#668F73;border-color:#BFDAC7;}
+.ab.s-sa{background:#FFF3DA;color:#A57A3E;border-color:#ECD7A8;}
+.ab.s-la{background:#EEEFFF;color:#656DB8;border-color:#D2D6F3;}
+.ab.s-kh{background:#FBEAEC;color:#B26670;border-color:#EEC9CE;}
+
+/* softer scrollable navigation */
+.bottom-nav{
+  background:rgba(255,255,255,.95);
+  backdrop-filter:blur(15px);
+  box-shadow:0 -8px 24px rgba(79,76,110,.05);
+}
+.bn-item.active{
+  color:#666EC3;
+  background:#F0F1FF;
+}
+
+/* logo fallback bubble */
+#sbLogoImg>i,#sbLogoImg>.ti{
+  width:34px;height:34px;border-radius:11px;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:#666EC3;background:#E7E9FC;font-size:19px;
+}
+
+/* grade chips */
+.grade,.g4,.g35,.g3,.g25,.g2,.g15,.g1,.g0{
+  border-radius:10px!important;
+}
+
+/* pastel dashboard / utility highlights */
+.prop-box{background:linear-gradient(135deg,#F4F3FF,#F5FBF9)!important;border-color:#E6E4F3!important;}
+.exp-icon,.quick-icon{border-radius:12px!important;}
+.toast{background:#5B6075;border-radius:12px;box-shadow:0 8px 24px rgba(60,62,78,.18);}
+
+/* mobile */
+@media(max-width:768px){
+  .sidebar{box-shadow:10px 0 35px rgba(76,72,104,.10);}
+  .topbar{background:rgba(255,255,255,.93);}
+  .page{padding:12px;}
+}
+
+
+/* v15.1 — Teacher score page beautify */
+.score-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}
+.score-glass{background:linear-gradient(135deg,#ffffff 0%,#fcfbff 100%);border:1px solid #ece8fb;border-radius:22px;box-shadow:0 12px 36px rgba(140,120,200,.10);padding:16px 18px}
+.score-banner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-banner-main{display:flex;align-items:center;gap:14px}
+.score-icon-wrap{width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dbeafe);display:flex;align-items:center;justify-content:center;color:#6d5bd0;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.score-banner h3{margin:0;font-size:18px;color:#443d66}
+.score-banner p{margin:3px 0 0;color:#8b85a7;font-size:12px}
+.score-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.score-metric{background:#fff;border:1px solid #ede7fb;border-radius:16px;padding:12px 12px 10px;min-height:72px}
+.score-metric .lab{font-size:11px;color:#8f88aa;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.score-metric .val{font-size:22px;font-weight:800;color:#554e74;line-height:1}
+.score-metric .sub{font-size:11px;color:#a29ab9;margin-top:4px}
+.score-split-card{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.score-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;background:#f8f5ff;border:1px solid #ebe5fb;border-radius:999px;color:#70698b;font-size:12px;font-weight:600}
+.score-split{background:#f8f7ff;border:1px solid #ece8fb;border-radius:18px;overflow:hidden;height:18px;display:flex}
+.score-split > div{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
+.score-add-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:14px;margin-bottom:14px}
+.score-panel{background:#fff;border:1px solid #eee9fa;border-radius:22px;box-shadow:0 10px 26px rgba(160,140,200,.08);overflow:hidden}
+.score-panel-head{padding:14px 16px;border-bottom:1px solid #f0ebfb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#fff,#fcfbff)}
+.score-panel-head .title{font-size:14px;font-weight:800;color:#554e74;display:flex;align-items:center;gap:10px}
+.score-panel-head .title .mini{width:34px;height:34px;border-radius:12px;background:#f5f2ff;display:flex;align-items:center;justify-content:center;color:#7b6bcf}
+.score-panel-body{padding:16px}
+.score-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8f6ff;border:1px solid #eee8fb;border-radius:16px;padding:6px;margin-bottom:14px}
+.score-type-btn{border:none;background:transparent;padding:11px 12px;border-radius:12px;font-weight:700;color:#7d7598;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:.2s}
+.score-type-btn.active{background:#fff;color:#584ca8;box-shadow:0 4px 14px rgba(118,102,204,.16)}
+.score-form-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+.score-soft-box{background:#fbfaff;border:1px solid #efeafb;border-radius:16px;padding:12px}
+.score-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.score-hint{font-size:11.5px;color:#8d87a9;background:#faf8ff;border:1px dashed #e7e0fb;padding:10px 12px;border-radius:14px;margin-top:12px}
+.score-table-card{background:#fff;border:1px solid #efe8fb;border-radius:22px;box-shadow:0 12px 28px rgba(148,132,195,.08);overflow:hidden;margin-bottom:14px}
+.score-table-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#fcfbff,#f8f7ff);border-bottom:1px solid #f0eafb}
+.score-table-head .left{display:flex;align-items:center;gap:12px}
+.score-table-head .ic{width:36px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.score-table-head .txt1{font-size:14px;font-weight:800;color:#544c75}
+.score-table-head .txt2{font-size:11.5px;color:#938ba9;margin-top:2px}
+.score-table-wrap{padding:10px 12px 12px;overflow:auto}
+.score-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;table-layout:fixed}
+.score-table thead th{position:relative;background:#fbfaff;color:#61597d;font-weight:700}
+.score-table th,.score-table td{border:1px solid #eee8f8;padding:0;background:#fff}
+.score-table th{padding:6px 4px}
+.score-table tbody td{height:42px}
+.score-table tbody tr:nth-child(even) td{background:#fefeff}
+.score-table .sticky-no{position:sticky;left:0;z-index:5;background:#fcfbff}
+.score-table .sticky-name{position:sticky;left:34px;z-index:5;background:#fff}
+.score-table tbody tr:nth-child(even) .sticky-name{background:#fefeff}
+.score-table tbody tr:nth-child(even) .sticky-no{background:#fcfbff}
+.score-table .name-cell{padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.8px}
+.score-col-title{cursor:pointer;font-weight:700;font-size:11px;line-height:1.15;padding:2px 0;color:#554d78}
+.score-col-sub{font-size:9px;color:#9d95b5;font-weight:600;margin-top:3px}
+.score-input,.score-select{width:100%;height:100%;border:none;background:transparent;text-align:center;padding:8px 2px;font-size:11.8px;font-family:inherit;outline:none;box-sizing:border-box;color:#50496e}
+ .score-input:focus,.score-select:focus{background:#f6f1ff}
+.score-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;font-weight:700}
+.score-cell-filled{background:#f2fbff !important}
+.score-cell-pending{background:#fff5d8 !important}
+.score-footnote{padding:0 16px 14px;font-size:11px;color:#9a92b3}
+@media(max-width:980px){
+ .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:1fr}
+ .score-metrics{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+ .score-metrics{grid-template-columns:1fr 1fr}
+ .score-banner{flex-direction:column;align-items:flex-start}
+}
+
 </style>
 </head>
 <body>
@@ -395,7 +705,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
 <nav class="sidebar" id="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-t" id="sbLogoArea" style="display:flex;align-items:center;gap:8px">
-      <span id="sbLogoImg"><span style="font-size:20px">📚</span></span>
+      <span id="sbLogoImg"><i class="ti ti-school"></i></span>
       <div style="min-width:0"><h1 id="sbSchoolName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ClassRoom</h1><p id="sbSchoolSub">ระบบครู</p></div>
     </div>
     <button class="sb-close" onclick="closeSB()"><i class="ti ti-x"></i></button>
@@ -409,9 +719,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--bl);}
     <button class="ni" onclick="gotoPage('classroom',this)"><i class="ti ti-school"></i><span>จัดการชั้นเรียน</span></button>
     <button class="ni" onclick="gotoPage('timetable',this)"><i class="ti ti-calendar-time"></i><span>ตารางสอน</span></button>
     <button class="ni" onclick="gotoPage('attendance',this)"><i class="ti ti-calendar-check"></i><span>เช็คชื่อ</span></button>
-    <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-pencil"></i><span>บันทึกคะแนน</span></button>
-    <button class="ni" onclick="gotoPage('quiz',this)"><i class="ti ti-file-text"></i><span>แบบทดสอบ</span></button>
-    <button class="ni" onclick="gotoPage('announcements',this)"><i class="ti ti-speakerphone"></i><span>ประกาศถึงนักเรียน</span></button>
+    <button class="ni" onclick="gotoPage('scores',this)"><i class="ti ti-chart-bar"></i><span>บันทึกคะแนน</span></button>
+    <button class="ni" onclick="gotoPage('quiz',this)"><i class="ti ti-clipboard-check"></i><span>แบบทดสอบ</span></button>
+    <button class="ni" onclick="gotoPage('announcements',this)"><i class="ti ti-message-circle-bolt"></i><span>ประกาศถึงนักเรียน</span></button>
     <button class="ni" onclick="gotoPage('fiveS',this)"><i class="ti ti-sparkles"></i><span>กิจกรรม 5 ส</span></button>
     <div class="nl" style="margin-top:6px">รายงาน</div>
     <button class="ni" onclick="gotoPage('export',this)"><i class="ti ti-file-export"></i><span>ส่งออกข้อมูล</span></button>
@@ -1294,7 +1604,7 @@ function updateSidebarLogo(){
   if(imgEl){
     imgEl.innerHTML=sch.logo
       ?`<img src="${sch.logo}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.3)">`
-      :'<span style="font-size:20px">📚</span>';
+      :'<i class="ti ti-school"></i>';
   }
 }
 function openQrCode(cid){
@@ -1343,7 +1653,73 @@ function printQr(clsName,schName,url,qrUrl){
       p{font-size:14px;color:#666;word-break:break-all;margin:6px 0}
       .btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
       @media print{.btn{display:none}}
-    </style>
+    
+/* v15.1 — Teacher score page beautify */
+.score-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}
+.score-glass{background:linear-gradient(135deg,#ffffff 0%,#fcfbff 100%);border:1px solid #ece8fb;border-radius:22px;box-shadow:0 12px 36px rgba(140,120,200,.10);padding:16px 18px}
+.score-banner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-banner-main{display:flex;align-items:center;gap:14px}
+.score-icon-wrap{width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dbeafe);display:flex;align-items:center;justify-content:center;color:#6d5bd0;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.score-banner h3{margin:0;font-size:18px;color:#443d66}
+.score-banner p{margin:3px 0 0;color:#8b85a7;font-size:12px}
+.score-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.score-metric{background:#fff;border:1px solid #ede7fb;border-radius:16px;padding:12px 12px 10px;min-height:72px}
+.score-metric .lab{font-size:11px;color:#8f88aa;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.score-metric .val{font-size:22px;font-weight:800;color:#554e74;line-height:1}
+.score-metric .sub{font-size:11px;color:#a29ab9;margin-top:4px}
+.score-split-card{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.score-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;background:#f8f5ff;border:1px solid #ebe5fb;border-radius:999px;color:#70698b;font-size:12px;font-weight:600}
+.score-split{background:#f8f7ff;border:1px solid #ece8fb;border-radius:18px;overflow:hidden;height:18px;display:flex}
+.score-split > div{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
+.score-add-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:14px;margin-bottom:14px}
+.score-panel{background:#fff;border:1px solid #eee9fa;border-radius:22px;box-shadow:0 10px 26px rgba(160,140,200,.08);overflow:hidden}
+.score-panel-head{padding:14px 16px;border-bottom:1px solid #f0ebfb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#fff,#fcfbff)}
+.score-panel-head .title{font-size:14px;font-weight:800;color:#554e74;display:flex;align-items:center;gap:10px}
+.score-panel-head .title .mini{width:34px;height:34px;border-radius:12px;background:#f5f2ff;display:flex;align-items:center;justify-content:center;color:#7b6bcf}
+.score-panel-body{padding:16px}
+.score-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8f6ff;border:1px solid #eee8fb;border-radius:16px;padding:6px;margin-bottom:14px}
+.score-type-btn{border:none;background:transparent;padding:11px 12px;border-radius:12px;font-weight:700;color:#7d7598;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:.2s}
+.score-type-btn.active{background:#fff;color:#584ca8;box-shadow:0 4px 14px rgba(118,102,204,.16)}
+.score-form-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+.score-soft-box{background:#fbfaff;border:1px solid #efeafb;border-radius:16px;padding:12px}
+.score-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.score-hint{font-size:11.5px;color:#8d87a9;background:#faf8ff;border:1px dashed #e7e0fb;padding:10px 12px;border-radius:14px;margin-top:12px}
+.score-table-card{background:#fff;border:1px solid #efe8fb;border-radius:22px;box-shadow:0 12px 28px rgba(148,132,195,.08);overflow:hidden;margin-bottom:14px}
+.score-table-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#fcfbff,#f8f7ff);border-bottom:1px solid #f0eafb}
+.score-table-head .left{display:flex;align-items:center;gap:12px}
+.score-table-head .ic{width:36px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.score-table-head .txt1{font-size:14px;font-weight:800;color:#544c75}
+.score-table-head .txt2{font-size:11.5px;color:#938ba9;margin-top:2px}
+.score-table-wrap{padding:10px 12px 12px;overflow:auto}
+.score-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;table-layout:fixed}
+.score-table thead th{position:relative;background:#fbfaff;color:#61597d;font-weight:700}
+.score-table th,.score-table td{border:1px solid #eee8f8;padding:0;background:#fff}
+.score-table th{padding:6px 4px}
+.score-table tbody td{height:42px}
+.score-table tbody tr:nth-child(even) td{background:#fefeff}
+.score-table .sticky-no{position:sticky;left:0;z-index:5;background:#fcfbff}
+.score-table .sticky-name{position:sticky;left:34px;z-index:5;background:#fff}
+.score-table tbody tr:nth-child(even) .sticky-name{background:#fefeff}
+.score-table tbody tr:nth-child(even) .sticky-no{background:#fcfbff}
+.score-table .name-cell{padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.8px}
+.score-col-title{cursor:pointer;font-weight:700;font-size:11px;line-height:1.15;padding:2px 0;color:#554d78}
+.score-col-sub{font-size:9px;color:#9d95b5;font-weight:600;margin-top:3px}
+.score-input,.score-select{width:100%;height:100%;border:none;background:transparent;text-align:center;padding:8px 2px;font-size:11.8px;font-family:inherit;outline:none;box-sizing:border-box;color:#50496e}
+ .score-input:focus,.score-select:focus{background:#f6f1ff}
+.score-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;font-weight:700}
+.score-cell-filled{background:#f2fbff !important}
+.score-cell-pending{background:#fff5d8 !important}
+.score-footnote{padding:0 16px 14px;font-size:11px;color:#9a92b3}
+@media(max-width:980px){
+ .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:1fr}
+ .score-metrics{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+ .score-metrics{grid-template-columns:1fr 1fr}
+ .score-banner{flex-direction:column;align-items:flex-start}
+}
+
+</style>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
     </head><body>
     <button class="btn" onclick="window.print()">พิมพ์</button>
@@ -1509,7 +1885,73 @@ function openReport(cid,sid){
         .report-signature{page-break-inside:avoid}
         @page{size:A4;margin:2cm 2cm 1.5cm 2.5cm;}
       }
-    </style></head><body>
+    
+/* v15.1 — Teacher score page beautify */
+.score-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}
+.score-glass{background:linear-gradient(135deg,#ffffff 0%,#fcfbff 100%);border:1px solid #ece8fb;border-radius:22px;box-shadow:0 12px 36px rgba(140,120,200,.10);padding:16px 18px}
+.score-banner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-banner-main{display:flex;align-items:center;gap:14px}
+.score-icon-wrap{width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dbeafe);display:flex;align-items:center;justify-content:center;color:#6d5bd0;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.score-banner h3{margin:0;font-size:18px;color:#443d66}
+.score-banner p{margin:3px 0 0;color:#8b85a7;font-size:12px}
+.score-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.score-metric{background:#fff;border:1px solid #ede7fb;border-radius:16px;padding:12px 12px 10px;min-height:72px}
+.score-metric .lab{font-size:11px;color:#8f88aa;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.score-metric .val{font-size:22px;font-weight:800;color:#554e74;line-height:1}
+.score-metric .sub{font-size:11px;color:#a29ab9;margin-top:4px}
+.score-split-card{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.score-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;background:#f8f5ff;border:1px solid #ebe5fb;border-radius:999px;color:#70698b;font-size:12px;font-weight:600}
+.score-split{background:#f8f7ff;border:1px solid #ece8fb;border-radius:18px;overflow:hidden;height:18px;display:flex}
+.score-split > div{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
+.score-add-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:14px;margin-bottom:14px}
+.score-panel{background:#fff;border:1px solid #eee9fa;border-radius:22px;box-shadow:0 10px 26px rgba(160,140,200,.08);overflow:hidden}
+.score-panel-head{padding:14px 16px;border-bottom:1px solid #f0ebfb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#fff,#fcfbff)}
+.score-panel-head .title{font-size:14px;font-weight:800;color:#554e74;display:flex;align-items:center;gap:10px}
+.score-panel-head .title .mini{width:34px;height:34px;border-radius:12px;background:#f5f2ff;display:flex;align-items:center;justify-content:center;color:#7b6bcf}
+.score-panel-body{padding:16px}
+.score-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8f6ff;border:1px solid #eee8fb;border-radius:16px;padding:6px;margin-bottom:14px}
+.score-type-btn{border:none;background:transparent;padding:11px 12px;border-radius:12px;font-weight:700;color:#7d7598;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:.2s}
+.score-type-btn.active{background:#fff;color:#584ca8;box-shadow:0 4px 14px rgba(118,102,204,.16)}
+.score-form-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+.score-soft-box{background:#fbfaff;border:1px solid #efeafb;border-radius:16px;padding:12px}
+.score-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.score-hint{font-size:11.5px;color:#8d87a9;background:#faf8ff;border:1px dashed #e7e0fb;padding:10px 12px;border-radius:14px;margin-top:12px}
+.score-table-card{background:#fff;border:1px solid #efe8fb;border-radius:22px;box-shadow:0 12px 28px rgba(148,132,195,.08);overflow:hidden;margin-bottom:14px}
+.score-table-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#fcfbff,#f8f7ff);border-bottom:1px solid #f0eafb}
+.score-table-head .left{display:flex;align-items:center;gap:12px}
+.score-table-head .ic{width:36px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.score-table-head .txt1{font-size:14px;font-weight:800;color:#544c75}
+.score-table-head .txt2{font-size:11.5px;color:#938ba9;margin-top:2px}
+.score-table-wrap{padding:10px 12px 12px;overflow:auto}
+.score-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;table-layout:fixed}
+.score-table thead th{position:relative;background:#fbfaff;color:#61597d;font-weight:700}
+.score-table th,.score-table td{border:1px solid #eee8f8;padding:0;background:#fff}
+.score-table th{padding:6px 4px}
+.score-table tbody td{height:42px}
+.score-table tbody tr:nth-child(even) td{background:#fefeff}
+.score-table .sticky-no{position:sticky;left:0;z-index:5;background:#fcfbff}
+.score-table .sticky-name{position:sticky;left:34px;z-index:5;background:#fff}
+.score-table tbody tr:nth-child(even) .sticky-name{background:#fefeff}
+.score-table tbody tr:nth-child(even) .sticky-no{background:#fcfbff}
+.score-table .name-cell{padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.8px}
+.score-col-title{cursor:pointer;font-weight:700;font-size:11px;line-height:1.15;padding:2px 0;color:#554d78}
+.score-col-sub{font-size:9px;color:#9d95b5;font-weight:600;margin-top:3px}
+.score-input,.score-select{width:100%;height:100%;border:none;background:transparent;text-align:center;padding:8px 2px;font-size:11.8px;font-family:inherit;outline:none;box-sizing:border-box;color:#50496e}
+ .score-input:focus,.score-select:focus{background:#f6f1ff}
+.score-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;font-weight:700}
+.score-cell-filled{background:#f2fbff !important}
+.score-cell-pending{background:#fff5d8 !important}
+.score-footnote{padding:0 16px 14px;font-size:11px;color:#9a92b3}
+@media(max-width:980px){
+ .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:1fr}
+ .score-metrics{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+ .score-metrics{grid-template-columns:1fr 1fr}
+ .score-banner{flex-direction:column;align-items:flex-start}
+}
+
+</style></head><body>
     <button class="print-btn no-print" onclick="window.print()">🖨️ พิมพ์ / บันทึกเป็น PDF</button>
     ${html}
     </body></html>`);
@@ -2484,7 +2926,73 @@ function printTimetableClass(cid){
       .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
       .foot{margin-top:14px;font-size:11px;color:#666;text-align:center}
       @media print{.print-btn{display:none}body{padding:8px}@page{size:A4 landscape;margin:1cm}}
-    </style></head><body>
+    
+/* v15.1 — Teacher score page beautify */
+.score-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}
+.score-glass{background:linear-gradient(135deg,#ffffff 0%,#fcfbff 100%);border:1px solid #ece8fb;border-radius:22px;box-shadow:0 12px 36px rgba(140,120,200,.10);padding:16px 18px}
+.score-banner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-banner-main{display:flex;align-items:center;gap:14px}
+.score-icon-wrap{width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dbeafe);display:flex;align-items:center;justify-content:center;color:#6d5bd0;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.score-banner h3{margin:0;font-size:18px;color:#443d66}
+.score-banner p{margin:3px 0 0;color:#8b85a7;font-size:12px}
+.score-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.score-metric{background:#fff;border:1px solid #ede7fb;border-radius:16px;padding:12px 12px 10px;min-height:72px}
+.score-metric .lab{font-size:11px;color:#8f88aa;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.score-metric .val{font-size:22px;font-weight:800;color:#554e74;line-height:1}
+.score-metric .sub{font-size:11px;color:#a29ab9;margin-top:4px}
+.score-split-card{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.score-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;background:#f8f5ff;border:1px solid #ebe5fb;border-radius:999px;color:#70698b;font-size:12px;font-weight:600}
+.score-split{background:#f8f7ff;border:1px solid #ece8fb;border-radius:18px;overflow:hidden;height:18px;display:flex}
+.score-split > div{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
+.score-add-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:14px;margin-bottom:14px}
+.score-panel{background:#fff;border:1px solid #eee9fa;border-radius:22px;box-shadow:0 10px 26px rgba(160,140,200,.08);overflow:hidden}
+.score-panel-head{padding:14px 16px;border-bottom:1px solid #f0ebfb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#fff,#fcfbff)}
+.score-panel-head .title{font-size:14px;font-weight:800;color:#554e74;display:flex;align-items:center;gap:10px}
+.score-panel-head .title .mini{width:34px;height:34px;border-radius:12px;background:#f5f2ff;display:flex;align-items:center;justify-content:center;color:#7b6bcf}
+.score-panel-body{padding:16px}
+.score-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8f6ff;border:1px solid #eee8fb;border-radius:16px;padding:6px;margin-bottom:14px}
+.score-type-btn{border:none;background:transparent;padding:11px 12px;border-radius:12px;font-weight:700;color:#7d7598;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:.2s}
+.score-type-btn.active{background:#fff;color:#584ca8;box-shadow:0 4px 14px rgba(118,102,204,.16)}
+.score-form-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+.score-soft-box{background:#fbfaff;border:1px solid #efeafb;border-radius:16px;padding:12px}
+.score-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.score-hint{font-size:11.5px;color:#8d87a9;background:#faf8ff;border:1px dashed #e7e0fb;padding:10px 12px;border-radius:14px;margin-top:12px}
+.score-table-card{background:#fff;border:1px solid #efe8fb;border-radius:22px;box-shadow:0 12px 28px rgba(148,132,195,.08);overflow:hidden;margin-bottom:14px}
+.score-table-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#fcfbff,#f8f7ff);border-bottom:1px solid #f0eafb}
+.score-table-head .left{display:flex;align-items:center;gap:12px}
+.score-table-head .ic{width:36px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.score-table-head .txt1{font-size:14px;font-weight:800;color:#544c75}
+.score-table-head .txt2{font-size:11.5px;color:#938ba9;margin-top:2px}
+.score-table-wrap{padding:10px 12px 12px;overflow:auto}
+.score-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;table-layout:fixed}
+.score-table thead th{position:relative;background:#fbfaff;color:#61597d;font-weight:700}
+.score-table th,.score-table td{border:1px solid #eee8f8;padding:0;background:#fff}
+.score-table th{padding:6px 4px}
+.score-table tbody td{height:42px}
+.score-table tbody tr:nth-child(even) td{background:#fefeff}
+.score-table .sticky-no{position:sticky;left:0;z-index:5;background:#fcfbff}
+.score-table .sticky-name{position:sticky;left:34px;z-index:5;background:#fff}
+.score-table tbody tr:nth-child(even) .sticky-name{background:#fefeff}
+.score-table tbody tr:nth-child(even) .sticky-no{background:#fcfbff}
+.score-table .name-cell{padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.8px}
+.score-col-title{cursor:pointer;font-weight:700;font-size:11px;line-height:1.15;padding:2px 0;color:#554d78}
+.score-col-sub{font-size:9px;color:#9d95b5;font-weight:600;margin-top:3px}
+.score-input,.score-select{width:100%;height:100%;border:none;background:transparent;text-align:center;padding:8px 2px;font-size:11.8px;font-family:inherit;outline:none;box-sizing:border-box;color:#50496e}
+ .score-input:focus,.score-select:focus{background:#f6f1ff}
+.score-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;font-weight:700}
+.score-cell-filled{background:#f2fbff !important}
+.score-cell-pending{background:#fff5d8 !important}
+.score-footnote{padding:0 16px 14px;font-size:11px;color:#9a92b3}
+@media(max-width:980px){
+ .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:1fr}
+ .score-metrics{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+ .score-metrics{grid-template-columns:1fr 1fr}
+ .score-banner{flex-direction:column;align-items:flex-start}
+}
+
+</style></head><body>
     <button class="print-btn" onclick="window.print()">🖨 พิมพ์</button>
     <div class="hd">
       ${logoHtml}
@@ -2793,7 +3301,73 @@ function printTimetableAll(){
       .hd h2{margin:6px 0;font-size:16px;color:#2563EB}
       .print-btn{position:fixed;top:20px;right:20px;background:#2563EB;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
       @media print{.print-btn{display:none}body{padding:10px}@page{size:landscape}}
-    </style></head><body>
+    
+/* v15.1 — Teacher score page beautify */
+.score-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:14px}
+.score-glass{background:linear-gradient(135deg,#ffffff 0%,#fcfbff 100%);border:1px solid #ece8fb;border-radius:22px;box-shadow:0 12px 36px rgba(140,120,200,.10);padding:16px 18px}
+.score-banner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-banner-main{display:flex;align-items:center;gap:14px}
+.score-icon-wrap{width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dbeafe);display:flex;align-items:center;justify-content:center;color:#6d5bd0;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.score-banner h3{margin:0;font-size:18px;color:#443d66}
+.score-banner p{margin:3px 0 0;color:#8b85a7;font-size:12px}
+.score-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.score-metric{background:#fff;border:1px solid #ede7fb;border-radius:16px;padding:12px 12px 10px;min-height:72px}
+.score-metric .lab{font-size:11px;color:#8f88aa;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.score-metric .val{font-size:22px;font-weight:800;color:#554e74;line-height:1}
+.score-metric .sub{font-size:11px;color:#a29ab9;margin-top:4px}
+.score-split-card{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.score-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;background:#f8f5ff;border:1px solid #ebe5fb;border-radius:999px;color:#70698b;font-size:12px;font-weight:600}
+.score-split{background:#f8f7ff;border:1px solid #ece8fb;border-radius:18px;overflow:hidden;height:18px;display:flex}
+.score-split > div{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
+.score-add-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:14px;margin-bottom:14px}
+.score-panel{background:#fff;border:1px solid #eee9fa;border-radius:22px;box-shadow:0 10px 26px rgba(160,140,200,.08);overflow:hidden}
+.score-panel-head{padding:14px 16px;border-bottom:1px solid #f0ebfb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#fff,#fcfbff)}
+.score-panel-head .title{font-size:14px;font-weight:800;color:#554e74;display:flex;align-items:center;gap:10px}
+.score-panel-head .title .mini{width:34px;height:34px;border-radius:12px;background:#f5f2ff;display:flex;align-items:center;justify-content:center;color:#7b6bcf}
+.score-panel-body{padding:16px}
+.score-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8f6ff;border:1px solid #eee8fb;border-radius:16px;padding:6px;margin-bottom:14px}
+.score-type-btn{border:none;background:transparent;padding:11px 12px;border-radius:12px;font-weight:700;color:#7d7598;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:.2s}
+.score-type-btn.active{background:#fff;color:#584ca8;box-shadow:0 4px 14px rgba(118,102,204,.16)}
+.score-form-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+.score-soft-box{background:#fbfaff;border:1px solid #efeafb;border-radius:16px;padding:12px}
+.score-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.score-hint{font-size:11.5px;color:#8d87a9;background:#faf8ff;border:1px dashed #e7e0fb;padding:10px 12px;border-radius:14px;margin-top:12px}
+.score-table-card{background:#fff;border:1px solid #efe8fb;border-radius:22px;box-shadow:0 12px 28px rgba(148,132,195,.08);overflow:hidden;margin-bottom:14px}
+.score-table-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#fcfbff,#f8f7ff);border-bottom:1px solid #f0eafb}
+.score-table-head .left{display:flex;align-items:center;gap:12px}
+.score-table-head .ic{width:36px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.score-table-head .txt1{font-size:14px;font-weight:800;color:#544c75}
+.score-table-head .txt2{font-size:11.5px;color:#938ba9;margin-top:2px}
+.score-table-wrap{padding:10px 12px 12px;overflow:auto}
+.score-table{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;table-layout:fixed}
+.score-table thead th{position:relative;background:#fbfaff;color:#61597d;font-weight:700}
+.score-table th,.score-table td{border:1px solid #eee8f8;padding:0;background:#fff}
+.score-table th{padding:6px 4px}
+.score-table tbody td{height:42px}
+.score-table tbody tr:nth-child(even) td{background:#fefeff}
+.score-table .sticky-no{position:sticky;left:0;z-index:5;background:#fcfbff}
+.score-table .sticky-name{position:sticky;left:34px;z-index:5;background:#fff}
+.score-table tbody tr:nth-child(even) .sticky-name{background:#fefeff}
+.score-table tbody tr:nth-child(even) .sticky-no{background:#fcfbff}
+.score-table .name-cell{padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.8px}
+.score-col-title{cursor:pointer;font-weight:700;font-size:11px;line-height:1.15;padding:2px 0;color:#554d78}
+.score-col-sub{font-size:9px;color:#9d95b5;font-weight:600;margin-top:3px}
+.score-input,.score-select{width:100%;height:100%;border:none;background:transparent;text-align:center;padding:8px 2px;font-size:11.8px;font-family:inherit;outline:none;box-sizing:border-box;color:#50496e}
+ .score-input:focus,.score-select:focus{background:#f6f1ff}
+.score-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;font-weight:700}
+.score-cell-filled{background:#f2fbff !important}
+.score-cell-pending{background:#fff5d8 !important}
+.score-footnote{padding:0 16px 14px;font-size:11px;color:#9a92b3}
+@media(max-width:980px){
+ .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:1fr}
+ .score-metrics{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+ .score-metrics{grid-template-columns:1fr 1fr}
+ .score-banner{flex-direction:column;align-items:flex-start}
+}
+
+</style></head><body>
     <button class="print-btn" onclick="window.print()">พิมพ์</button>
     <div class="hd">
       ${logoHtml}
@@ -3408,65 +3982,126 @@ function renderScEntry(){
   const el=document.getElementById('sc-entry');
   const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
   const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
-  // โหลด submissions แค่ครั้งแรก ตอนเปลี่ยน cid/subid
   const key=cid+'|'+subid;
   if(window._lastSubKey!==key){
     window._lastSubKey=key;
     loadTeacherSubmissions(cid,subid).then(()=>{
-      // เมื่อโหลดเสร็จ ค่อย re-render (ใช้ setTimeout กันชนกับ event ปัจจุบัน)
       setTimeout(()=>{
-        if(window._lastSubKey===key&&document.getElementById('sc-entry')){
-          renderScEntry();
-        }
+        if(window._lastSubKey===key&&document.getElementById('sc-entry')) renderScEntry();
       },0);
     });
   }
   const wA=sub.wAssign??70;
-  let html=`<div class="prop-box"><div class="prop-title">สัดส่วนคะแนน — ${sub.name}</div>
-    <div class="prop-bar"><div class="prop-seg" style="width:${wA}%;background:var(--bl)">${wA}% เก็บ</div><div class="prop-seg" style="width:${100-wA}%;background:var(--tl)">${100-wA}% สอบ</div></div>
-    <div style="font-size:12px;color:var(--mu)">คะแนนเก็บ = ${wA}% | คะแนนสอบ = ${100-wA}% &nbsp;·&nbsp; <a href="#" onclick="gotoPage('subjects');return false" style="color:var(--bl)">แก้ไขสัดส่วน</a></div>
-  </div>
-  <div class="card cp mb14"><div class="stitle">เพิ่มงาน</div>
-    <div class="score-type-bar" style="margin-bottom:12px">
-      <button class="score-type-btn active" id="atype-score" onclick="setAsgType('score')"><i class="ti ti-star"></i> งานเก็บคะแนน</button>
-      <button class="score-type-btn" id="atype-track" onclick="setAsgType('track')"><i class="ti ti-checklist"></i> งานติดตามการส่ง</button>
-    </div>
-    <div class="fg">
-      <label class="fl" style="font-size:11.5px;color:var(--mu)">ชื่องาน</label>
-      <input type="text" id="asgName" placeholder="เช่น งานชิ้นที่ 1, ใบงาน 3.2">
-    </div>
-    <div class="g2" id="asgMaxWrap">
-      <div class="fg">
-        <label class="fl" style="font-size:11.5px;color:var(--mu)">คะแนนเต็ม</label>
-        <input type="number" id="asgMax" placeholder="เช่น 10" min="1">
-      </div>
-      <div class="fg">
-        <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
-        <input type="date" id="asgDue">
-      </div>
-    </div>
-    <div class="fg" id="asgDueOnlyWrap" style="display:none">
-      <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
-      <input type="date" id="asgDue2">
-    </div>
-    <div class="fg" style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 10px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px">
-        <input type="checkbox" id="asgAllowFile" style="width:16px;height:16px;cursor:pointer">
-        <span><i class="ti ti-upload"></i> เปิดให้นักเรียนส่งไฟล์ (รูป/PDF/Word/Excel)</span>
-      </label>
-    </div>
-    <div class="f g8" style="justify-content:space-between;margin-top:8px">
-      <button class="btn btn-sm" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-adjustments"></i>จัดการงาน</button>
-      <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i>เพิ่มงาน</button>
-    </div>
-    <div style="font-size:11.5px;color:var(--mu);margin-top:6px" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด | งานติดตาม = แค่เช็คว่าส่งหรือยัง ไม่คิดคะแนน</div>
-  </div>`;
+  const wE=100-wA;
   const scoreAsg=asgs.filter(a=>a.type!=='track');
   const trackAsg=asgs.filter(a=>a.type==='track');
+  const allowFileCount=asgs.filter(a=>a.allowFileSubmit).length;
+  let pendingReview=0;
+  Object.values(teacherSubs||{}).forEach(byStu=>{
+    Object.values(byStu||{}).forEach(s=>{ if(s && s.status==='pending' && (s.files||[]).length) pendingReview++; });
+  });
+
+  let html=`
+  <div class="score-hero">
+    <div class="score-glass">
+      <div class="score-banner">
+        <div class="score-banner-main">
+          <div class="score-icon-wrap"><i class="ti ti-chart-dots-3" style="font-size:26px"></i></div>
+          <div>
+            <h3>บันทึกคะแนน · ${sub.name}</h3>
+            <p>จัดการงาน คะแนน และสถานะการส่งของนักเรียนในรายวิชานี้แบบแยกส่วนอย่างชัดเจน</p>
+          </div>
+        </div>
+        <span class="score-pill"><i class="ti ti-sparkles"></i> Workspace ครู</span>
+      </div>
+      <div class="score-metrics">
+        <div class="score-metric"><div class="lab"><i class="ti ti-users"></i> นักเรียน</div><div class="val">${stus.length}</div><div class="sub">คนในห้องนี้</div></div>
+        <div class="score-metric"><div class="lab"><i class="ti ti-star"></i> งานเก็บคะแนน</div><div class="val">${scoreAsg.length}</div><div class="sub">งานที่คิดเกรด</div></div>
+        <div class="score-metric"><div class="lab"><i class="ti ti-checklist"></i> งานติดตาม</div><div class="val">${trackAsg.length}</div><div class="sub">เช็กการส่งงาน</div></div>
+        <div class="score-metric"><div class="lab"><i class="ti ti-clock-exclamation"></i> รอตรวจ</div><div class="val">${pendingReview}</div><div class="sub">ไฟล์ที่รอครูตรวจ</div></div>
+      </div>
+    </div>
+    <div class="score-glass score-split-card">
+      <div class="score-pill"><i class="ti ti-scale-outline"></i> สัดส่วนคะแนนของวิชา</div>
+      <div class="score-split"><div style="width:${wA}%;background:linear-gradient(90deg,#8b7ef0,#7cc6ff)">${wA}% เก็บ</div><div style="width:${wE}%;background:linear-gradient(90deg,#74d6c5,#f7c7a1)">${wE}% สอบ</div></div>
+      <div style="font-size:12px;color:var(--mu)">คะแนนเก็บ = <b>${wA}%</b> · คะแนนสอบ = <b>${wE}%</b> &nbsp;·&nbsp; <a href="#" onclick="gotoPage('subjects');return false" style="color:var(--bl);font-weight:700">แก้ไขสัดส่วน</a></div>
+      <div class="score-soft-box" style="padding:12px 14px">
+        <div style="font-size:12px;color:#6c6587;font-weight:700;margin-bottom:6px"><i class="ti ti-paperclip"></i> งานที่เปิดส่งไฟล์</div>
+        <div style="font-size:22px;font-weight:800;color:#554e74">${allowFileCount}</div>
+        <div style="font-size:11px;color:#9d95b3;margin-top:4px">ระบบจะขึ้นป้าย “รอ” หรือ “ตรวจแล้ว” ในตารางให้อัตโนมัติ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="score-add-grid">
+    <div class="score-panel">
+      <div class="score-panel-head">
+        <div class="title"><span class="mini"><i class="ti ti-plus"></i></span> เพิ่มงานใหม่</div>
+        <span class="score-pill" style="padding:6px 10px;font-size:11px"><i class="ti ti-layout-grid"></i> แยกงานเก็บคะแนน / ติดตามการส่ง</span>
+      </div>
+      <div class="score-panel-body">
+        <div class="score-subtabs">
+          <button class="score-type-btn active" id="atype-score" onclick="setAsgType('score')"><i class="ti ti-star"></i> งานเก็บคะแนน</button>
+          <button class="score-type-btn" id="atype-track" onclick="setAsgType('track')"><i class="ti ti-checklist"></i> งานติดตามการส่ง</button>
+        </div>
+        <div class="score-form-grid">
+          <div class="fg">
+            <label class="fl" style="font-size:11.5px;color:var(--mu)">ชื่องาน</label>
+            <input type="text" id="asgName" placeholder="เช่น งานชิ้นที่ 1, ใบงาน 3.2, แบบทดสอบท้ายบท">
+          </div>
+          <div class="score-soft-box" id="asgMaxWrap">
+            <div class="fg">
+              <label class="fl" style="font-size:11.5px;color:var(--mu)">คะแนนเต็ม</label>
+              <input type="number" id="asgMax" placeholder="เช่น 10" min="1">
+            </div>
+            <div class="fg" style="margin-top:10px">
+              <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
+              <input type="date" id="asgDue">
+            </div>
+          </div>
+        </div>
+        <div class="fg" id="asgDueOnlyWrap" style="display:none;margin-top:12px">
+          <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
+          <input type="date" id="asgDue2">
+        </div>
+        <div class="score-soft-box" style="margin-top:12px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px">
+            <input type="checkbox" id="asgAllowFile" style="width:16px;height:16px;cursor:pointer">
+            <span><i class="ti ti-upload"></i> เปิดให้นักเรียนส่งไฟล์ (รูป/PDF/Word/Excel)</span>
+          </label>
+        </div>
+        <div class="score-actions">
+          <button class="btn btn-sm" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-adjustments"></i> จัดการงานทั้งหมด</button>
+          <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มงาน</button>
+        </div>
+        <div class="score-hint" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด · งานติดตามการส่ง = ใช้เช็กความครบถ้วนและสถานะการส่งเท่านั้น</div>
+      </div>
+    </div>
+
+    <div class="score-panel">
+      <div class="score-panel-head">
+        <div class="title"><span class="mini"><i class="ti ti-wand"></i></span> แนวทางใช้งาน</div>
+        <span class="score-pill" style="padding:6px 10px;font-size:11px"><i class="ti ti-bulb"></i> ใช้ง่ายขึ้น</span>
+      </div>
+      <div class="score-panel-body">
+        <div class="score-soft-box" style="margin-bottom:10px">
+          <div style="font-weight:700;color:#5d567b;font-size:12.5px;margin-bottom:5px"><i class="ti ti-1"></i> งานเก็บคะแนน</div>
+          <div style="font-size:11.5px;color:var(--mu)">เหมาะกับใบงาน แบบฝึกหัด โครงงาน หรือคะแนนกิจกรรมที่ต้องนำไปคิดเกรด</div>
+        </div>
+        <div class="score-soft-box" style="margin-bottom:10px">
+          <div style="font-weight:700;color:#5d567b;font-size:12.5px;margin-bottom:5px"><i class="ti ti-2"></i> งานติดตามการส่ง</div>
+          <div style="font-size:11.5px;color:var(--mu)">ใช้เช็กว่านักเรียนส่งงานหรือยัง โดยไม่คิดคะแนนตรง ๆ แต่ช่วยติดตามความรับผิดชอบ</div>
+        </div>
+        <div class="score-soft-box">
+          <div style="font-weight:700;color:#5d567b;font-size:12.5px;margin-bottom:5px"><i class="ti ti-3"></i> ป้ายไฟล์แนบ</div>
+          <div style="font-size:11.5px;color:var(--mu)">ถ้ามีนักเรียนส่งไฟล์ ระบบจะแสดงป้าย “รอ” หรือ “ตรวจแล้ว” ที่ช่องคะแนน เพื่อเปิดตรวจได้เร็วขึ้น</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
 
   html+=renderAsgTable(cid,subid,stus,scoreAsg,'score');
   html+=renderAsgTable(cid,subid,stus,trackAsg,'track');
-
   el.innerHTML=html;
 }
 
@@ -3503,82 +4138,82 @@ function renderAsgTable(cid,subid,stus,asgs,mode){
   const isScore=(mode==='score');
   const title=isScore?'งานเก็บคะแนน':'งานติดตามการส่ง';
   const icon=isScore?'ti-star':'ti-checklist';
-  const hdBg=isScore?'#EEF2FF':'#FEF3C7';
-  const hint=isScore?'แตะที่ช่องเพื่อกรอกคะแนน':'แตะช่องเพื่อเลือกสถานะ';
+  const hint=isScore?'กรอกคะแนนได้ในแต่ละช่องโดยตรง':'เลือกสถานะการส่งได้จากแต่ละช่อง';
+  const icBg=isScore?'linear-gradient(135deg,#ede9fe,#dbeafe)':'linear-gradient(135deg,#fff0d8,#ffe6a7)';
 
   if(!asgs.length){
-    return `<div class="card cp mb14"><div class="empty" style="padding:20px">
+    return `<div class="score-table-card"><div class="empty" style="padding:28px 20px">
       <i class="ti ${isScore?'ti-star-off':'ti-checklist'}" style="color:var(--mu)"></i>
       <div style="font-size:13px">ยังไม่มี${title}</div>
-      <p style="font-size:11.5px;color:var(--mu)">กดปุ่ม "${title}" ด้านบน + เพิ่มงาน</p>
+      <p style="font-size:11.5px;color:var(--mu)">เพิ่มงานจากกล่องด้านบนได้เลย</p>
     </div></div>`;
   }
 
-  // จัดขนาดคอลัมน์: น้อย = กว้าง, มาก = แคบ
   const n=asgs.length;
   let colW;
-  if(n<=3)colW=90; else if(n<=6)colW=64; else if(n<=10)colW=48; else if(n<=15)colW=38; else colW=32;
-  let hdH=Math.max(70,Math.min(140,60+n*3));
-  const maxChar=colW<40?7:colW<55?10:14;
-  const fontSize=colW<40?9.5:colW<55?10.5:11.5;
+  if(n<=3)colW=96; else if(n<=6)colW=72; else if(n<=10)colW=58; else if(n<=15)colW=48; else colW=40;
+  let hdH=Math.max(76,Math.min(142,66+n*3));
+  const maxChar=colW<46?7:colW<60?10:14;
+  const fontSize=colW<46?9.5:colW<60?10.5:11.5;
 
-  let html=`<div class="card mb14" style="overflow:auto"><div style="padding:10px">
-    <div class="f ic jb" style="margin-bottom:8px">
-      <div style="font-size:12.5px;color:var(--mu)"><i class="ti ${icon}"></i> ${title} <span style="font-size:11px">· ${hint}</span></div>
-      <div style="font-size:11px;color:var(--mu)">${n} งาน</div>
-    </div>
-    <table style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:${280+n*colW}px;table-layout:fixed">
-      <colgroup>
-        <col style="width:34px">
-        <col style="width:130px">
-        ${asgs.map(()=>`<col style="width:${colW}px">`).join('')}
-      </colgroup>
-      <thead><tr style="background:var(--sf2)">
-        <th style="border:1px solid var(--bd);padding:5px 3px;text-align:center;font-size:11px">ที่</th>
-        <th style="border:1px solid var(--bd);padding:5px 6px;text-align:left;font-size:11.5px">ชื่อ-สกุล</th>`;
-  asgs.forEach(a=>{
-    const nameTrim=a.name.length>maxChar?a.name.slice(0,maxChar)+'…':a.name;
-    html+=`<th style="border:1px solid var(--bd);padding:3px 2px;background:${hdBg};position:relative;vertical-align:middle;text-align:center;height:${hdH}px">
-      <div title="${a.name.replace(/"/g,'&quot;')}" onclick="showFullName('${a.id}','${a.name.replace(/'/g,'\\\'').replace(/"/g,'&quot;')}',${isScore?a.maxScore:0},${isScore})" style="cursor:pointer;font-weight:600;font-size:${fontSize}px;line-height:1.15;padding:2px 0">
-        ${nameTrim}
+  let html=`<div class="score-table-card">
+    <div class="score-table-head">
+      <div class="left">
+        <div class="ic" style="background:${icBg}"><i class="ti ${icon}" style="font-size:18px;color:${isScore?'#6f63d0':'#9a6b00'}"></i></div>
+        <div><div class="txt1">${title}</div><div class="txt2">${hint}</div></div>
       </div>
-      ${isScore?`<div style="font-size:9.5px;color:var(--mu);font-weight:400;margin-top:2px">เต็ม ${a.maxScore}</div>`:''}
+      <span class="score-pill" style="padding:7px 11px;font-size:11px">${n} งาน</span>
+    </div>
+    <div class="score-table-wrap">
+      <table class="score-table" style="min-width:${300+n*colW}px">
+        <colgroup>
+          <col style="width:34px">
+          <col style="width:146px">
+          ${asgs.map(()=>`<col style="width:${colW}px">`).join('')}
+        </colgroup>
+        <thead><tr>
+          <th class="sticky-no" style="text-align:center;font-size:11px">ที่</th>
+          <th class="sticky-name" style="text-align:left;padding:6px 10px;font-size:11.5px">ชื่อ-สกุล</th>`;
+  asgs.forEach(a=>{
+    const safeTitle=a.name.replace(/"/g,'&quot;').replace(/'/g,"\'");
+    const nameTrim=a.name.length>maxChar?a.name.slice(0,maxChar)+'…':a.name;
+    html+=`<th style="vertical-align:middle;text-align:center;height:${hdH}px;background:${isScore?'#f6f2ff':'#fff9eb'}">
+      <div class="score-col-title" title="${a.name.replace(/"/g,'&quot;')}" onclick="showFullName('${a.id}','${safeTitle}',${isScore?a.maxScore:0},${isScore})">${nameTrim}</div>
+      ${isScore?`<div class="score-col-sub">เต็ม ${a.maxScore}</div>`:''}
     </th>`;
   });
   html+=`</tr></thead><tbody>`;
+
   stus.forEach(s=>{
     html+=`<tr>
-      <td style="border:1px solid var(--bd);padding:2px 3px;text-align:center;color:var(--mu);font-size:11px">${s.no}</td>
-      <td style="border:1px solid var(--bd);padding:3px 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.firstName} ${s.lastName}</td>`;
+      <td class="sticky-no" style="text-align:center;color:var(--mu);font-size:11px">${s.no}</td>
+      <td class="sticky-name name-cell">${s.firstName} ${s.lastName}</td>`;
     asgs.forEach(a=>{
       const v=scMap(cid,subid,a.id)[s.id];
       const sub=(teacherSubs[a.id]||{})[s.id];
       const hasFiles=sub&&(sub.files||[]).length>0;
       const pending=hasFiles&&sub.status==='pending';
       const reviewed=hasFiles&&sub.status==='reviewed';
-      // Badge สำหรับสถานะไฟล์
       let badge='';
       if(pending){
-        badge=`<div style="position:absolute;top:1px;right:1px;font-size:8.5px;background:var(--rd);color:#fff;border-radius:6px;padding:0 4px;line-height:1.3;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openReviewSubmission('${a.id}','${s.id}','${cid}','${subid}')" title="รอตรวจ">รอ</div>`;
-      } else if(reviewed){
-        badge=`<div style="position:absolute;top:1px;right:1px;font-size:8.5px;background:var(--gn);color:#fff;border-radius:6px;padding:0 4px;line-height:1.3;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openReviewSubmission('${a.id}','${s.id}','${cid}','${subid}')" title="ตรวจแล้ว"><i class="ti ti-check" style="font-size:9px"></i></div>`;
+        badge=`<div style="position:absolute;top:2px;right:2px;font-size:8.5px;background:var(--rd);color:#fff;border-radius:999px;padding:1px 5px;line-height:1.25;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openReviewSubmission('${a.id}','${s.id}','${cid}','${subid}')" title="รอตรวจ">รอ</div>`;
+      }else if(reviewed){
+        badge=`<div style="position:absolute;top:2px;right:2px;font-size:8.5px;background:var(--gn);color:#fff;border-radius:999px;padding:1px 5px;line-height:1.25;font-weight:700;cursor:pointer" onclick="event.stopPropagation();openReviewSubmission('${a.id}','${s.id}','${cid}','${subid}')" title="ตรวจแล้ว">✓</div>`;
       }
       if(isScore){
         const disp=(v!==undefined&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):'';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;position:relative;${disp!==''?'background:#F0F9FF':''}${pending?';background:#FEF3C7':''}">
+        html+=`<td style="text-align:center;position:relative" class="${disp!==''?'score-cell-filled':''} ${pending?'score-cell-pending':''}">
           ${badge}
-          <input type="number" step="0.5" min="0" max="${a.maxScore}" value="${disp}"
-            style="width:100%;border:none;background:transparent;text-align:center;padding:5px 2px;font-size:11.5px;font-family:inherit;outline:none;box-sizing:border-box"
+          <input type="number" step="0.5" min="0" max="${a.maxScore}" value="${disp}" class="score-input"
             onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore})"
             onfocus="this.select()">
         </td>`;
-      } else {
-        const bg=v==='ตรงเวลา'?'#F0FDF4':v==='ส่งช้า'?'#FFFBEB':'';
-        const col=v==='ตรงเวลา'?'#15803D':v==='ส่งช้า'?'#92400E':'var(--mu)';
-        html+=`<td style="border:1px solid var(--bd);padding:0;text-align:center;position:relative;${bg?'background:'+bg:''}${pending?';background:#FEF3C7':''}">
+      }else{
+        const col=v==='ตรงเวลา'?'#15803D':v==='ส่งช้า'?'#92400E':'#7c7790';
+        const bgClass=pending?'score-cell-pending':'';
+        html+=`<td style="text-align:center;position:relative" class="${bgClass}">
           ${badge}
-          <select style="width:100%;border:none;background:transparent;text-align:center;padding:4px 2px;font-size:11px;font-family:inherit;outline:none;color:${col};font-weight:${v?'600':'400'};box-sizing:border-box;-webkit-appearance:none;-moz-appearance:none;appearance:none"
-            onchange="saveTrackInline('${cid}','${subid}','${a.id}','${s.id}',this.value)">
+          <select class="score-select" style="color:${col}" onchange="saveTrackInline('${cid}','${subid}','${a.id}','${s.id}',this.value)">
             <option value="" ${!v?'selected':''}>—</option>
             <option value="ตรงเวลา" ${v==='ตรงเวลา'?'selected':''}>✓ ตรงเวลา</option>
             <option value="ส่งช้า" ${v==='ส่งช้า'?'selected':''}>✓ ส่งช้า</option>
@@ -3588,14 +4223,13 @@ function renderAsgTable(cid,subid,stus,asgs,mode){
     });
     html+=`</tr>`;
   });
-  html+=`</tbody></table>`;
+  html+=`</tbody></table></div>`;
   if(!isScore){
-    html+=`<div style="margin-top:6px;font-size:10.5px;color:var(--mu)">
-      <i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · 
-      <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ว่าง = ยังไม่ส่ง
-    </div>`;
+    html+=`<div class="score-footnote"><i class="ti ti-check" style="color:var(--gn)"></i> ตรงเวลา · <i class="ti ti-check" style="color:var(--am)"></i> ส่งช้า · ช่องว่าง = ยังไม่ส่ง</div>`;
+  }else{
+    html+=`<div class="score-footnote"><i class="ti ti-edit"></i> คลิกในช่องเพื่อกรอกคะแนนโดยตรง และกดออกจากช่องเพื่อบันทึกอัตโนมัติ</div>`;
   }
-  html+=`</div></div>`;
+  html+=`</div>`;
   return html;
 }
 
@@ -8652,159 +9286,130 @@ function calcTotal(cid,subid,stuId){
 }
 
 function renderScEntry(){
-  const el=document.getElementById('sc-entry');const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
-  const{cid,subid}=cs,sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid),scoreAsg=asgs.filter(a=>a.type!=='track'),trackAsg=asgs.filter(a=>a.type==='track');
-  const key=cid+'|'+subid;if(window._lastSubKey!==key){window._lastSubKey=key;loadTeacherSubmissions(cid,subid).then(()=>setTimeout(()=>{if(window._lastSubKey===key&&document.getElementById('sc-entry'))renderScEntry();},0));}
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px">
-    <div class="card" style="overflow:hidden;border-top:4px solid var(--bl)"><div class="cp">
-      <div class="f ic jb g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-star" style="color:var(--bl)"></i> งานเก็บคะแนน</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">ใช้คำนวณคะแนนเก็บ ${sub.wAssign??70}% · ${scoreAsg.length} งาน</div></div><button class="btn btn-p" onclick="openAddScoreAsg('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มงานคะแนน</button></div>
-      <div style="font-size:11.5px;color:var(--mu);background:#EFF6FF;border-radius:8px;padding:8px 10px;margin-top:10px">งานทั่วไปจะรวมเป็น “คะแนนงานรวม” และสามารถกำหนดงานสำคัญให้แยกเป็นช่องคะแนนของตัวเองในหน้าภาพรวมได้</div>
-    </div></div>
-    <div class="card" style="overflow:hidden;border-top:4px solid var(--am)"><div class="cp">
-      <div class="f ic jb g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-checklist" style="color:var(--am)"></i> งานติดตามการส่ง</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">ติดตามส่งตรงเวลา / ส่งช้า / ยังไม่ส่ง · ${trackAsg.length} งาน</div></div><button class="btn btn-o" onclick="openAddTrackAsg('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มงานติดตาม</button></div>
-      <div style="font-size:11.5px;color:var(--mu);background:#FFFBEB;border-radius:8px;padding:8px 10px;margin-top:10px">ไม่นำมาคิดคะแนนโดยอัตโนมัติ ใช้ประกอบการพิจารณา “ร” และหมายเหตุในหน้าปรับเกรด</div>
-    </div></div></div>
-    <div class="f jb ic fw g8 mb14"><div style="font-size:12px;color:var(--mu)"><i class="ti ti-info-circle"></i> แตะช่องนักเรียนเพื่อบันทึกคะแนน/สถานะ</div><button class="btn btn-sm" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-adjustments"></i> จัดการงานทั้งหมด</button></div>
-    ${renderAsgTable(cid,subid,stus,scoreAsg,'score')}${renderAsgTable(cid,subid,stus,trackAsg,'track')}`;
-}
-function openAddScoreAsg(cid,subid){
-  const sub=getSub(cid,subid);showMD(`<div class="mt"><i class="ti ti-star"></i> เพิ่มงานเก็บคะแนน</div>
-    <div class="fg"><label class="fl">ชื่องาน</label><input type="text" id="newAsgName" placeholder="เช่น ใบงานที่ 3, ชิ้นงานสำคัญ"></div>
-    <div class="g2"><div class="fg"><label class="fl">คะแนนเต็ม</label><input type="number" id="newAsgMax" min="0.5" step="0.5" value="10"></div><div class="fg"><label class="fl">กำหนดส่ง (ถ้ามี)</label><input type="date" id="newAsgDue"></div></div>
-    <div class="fg" style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;padding:12px"><label style="display:flex;gap:9px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="newAsgSeparate" onchange="document.getElementById('newAsgPtsWrap').style.display=this.checked?'block':'none'" style="margin-top:3px"><span><b>แยกงานนี้ออกจากคะแนนงานรวม</b><br><small style="color:var(--mu)">เหมาะกับงานสำคัญที่ต้องการเห็นเป็นช่องเดี่ยวในหน้าปรับเกรด</small></span></label><div id="newAsgPtsWrap" style="display:none;margin-top:10px"><label class="fl">คิดเป็นกี่คะแนนจากคะแนนเก็บ ${sub.wAssign??70}%</label><input type="number" id="newAsgPts" min="0.5" step="0.5" value="10"></div></div>
-    <div class="fg" style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="newAsgFile"> เปิดให้นักเรียนแนบไฟล์ส่งงาน</label></div>
-    <div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="submitNewScoreAsg('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มงาน</button></div>`);
-}
-async function submitNewScoreAsg(cid,subid){
-  const name=(document.getElementById('newAsgName')?.value||'').trim(),max=parseFloat(document.getElementById('newAsgMax')?.value),due=document.getElementById('newAsgDue')?.value||'',sep=!!document.getElementById('newAsgSeparate')?.checked,pts=sep?parseFloat(document.getElementById('newAsgPts')?.value):null,allow=!!document.getElementById('newAsgFile')?.checked;
-  if(!name||!max||max<=0){showToast('กรอกชื่องานและคะแนนเต็มให้ถูกต้อง');return;}const sub=getSub(cid,subid);if(sep&&(!pts||pts<=0)){showToast('กรอกคะแนนที่ใช้คิด');return;}if(sep&&reservedGradePoints(cid,subid)+pts>(sub.wAssign??70)+0.0001){showToast('คะแนนที่แยกรวมเกินสัดส่วนคะแนนเก็บ');return;}
-  const id=uid(),row={id,class_id:cid,subject_id:subid,name,max_score:max,type:'score',due_date:due||null,allow_file_submit:allow,grade_mode:sep?'separate':'pool',grade_points:sep?pts:null};
-  try{const{error}=await sb.from('assignments').insert(row);if(error)throw error;if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];db.assignments[tk(cid)][subid].push({id,name,maxScore:max,type:'score',dueDate:due,allowFileSubmit:allow,gradeMode:sep?'separate':'pool',gradePoints:sep?pts:null});_lastSaveTime=Date.now();closeMD();renderScEntry();showToast('เพิ่มงานเก็บคะแนนแล้ว ✓');}catch(e){alert('เพิ่มไม่สำเร็จ: '+e.message);}
-}
-function openAddTrackAsg(cid,subid){showMD(`<div class="mt"><i class="ti ti-checklist"></i> เพิ่มงานติดตามการส่ง</div><div class="fg"><label class="fl">ชื่องาน</label><input type="text" id="newTrName" placeholder="เช่น แบบฝึกทำ, สมุด, งานประจำสัปดาห์"></div><div class="fg"><label class="fl">กำหนดส่ง (ถ้ามี)</label><input type="date" id="newTrDue"></div><div class="fg" style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="newTrFile"> เปิดให้นักเรียนแนบไฟล์ส่งงาน</label></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-o" onclick="submitNewTrackAsg('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มงานติดตาม</button></div>`);}
-async function submitNewTrackAsg(cid,subid){const name=(document.getElementById('newTrName')?.value||'').trim(),due=document.getElementById('newTrDue')?.value||'',allow=!!document.getElementById('newTrFile')?.checked;if(!name){showToast('กรอกชื่องาน');return;}const id=uid(),row={id,class_id:cid,subject_id:subid,name,max_score:0,type:'track',due_date:due||null,allow_file_submit:allow,grade_mode:'pool',grade_points:null};try{const{error}=await sb.from('assignments').insert(row);if(error)throw error;if(!db.assignments[tk(cid)])db.assignments[tk(cid)]={};if(!db.assignments[tk(cid)][subid])db.assignments[tk(cid)][subid]=[];db.assignments[tk(cid)][subid].push({id,name,type:'track',dueDate:due,allowFileSubmit:allow,gradeMode:'pool',gradePoints:null});_lastSaveTime=Date.now();closeMD();renderScEntry();showToast('เพิ่มงานติดตามแล้ว ✓');}catch(e){alert('เพิ่มไม่สำเร็จ: '+e.message);}}
-
-function editAsg(cid,subid,aid){const a=asgList(cid,subid).find(x=>x.id===aid);if(!a)return;const isTrack=a.type==='track',sub=getSub(cid,subid),allow=!!a.allowFileSubmit,sep=a.gradeMode==='separate';showMD(`<div class="mt"><i class="ti ti-edit"></i> แก้ไขงาน</div><div class="fg"><label class="fl">ชื่องาน</label><input type="text" id="edAsgName" value="${(a.name||'').replace(/"/g,'&quot;')}"></div>${!isTrack?`<div class="g2"><div class="fg"><label class="fl">คะแนนเต็ม</label><input type="number" id="edAsgMax" step="0.5" min="0.5" value="${a.maxScore||10}"></div><div class="fg"><label class="fl">กำหนดส่ง</label><input type="date" id="edAsgDue" value="${a.dueDate||''}"></div></div><div class="fg" style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:10px;padding:12px"><label style="display:flex;gap:9px;align-items:flex-start"><input type="checkbox" id="edAsgSeparate" ${sep?'checked':''} onchange="document.getElementById('edAsgPtsWrap').style.display=this.checked?'block':'none'"><span><b>แยกเป็นช่องคะแนนเดี่ยวในหน้าภาพรวม</b><br><small style="color:var(--mu)">งานทั่วไปจะถูกรวมอยู่ในคะแนนงานรวม</small></span></label><div id="edAsgPtsWrap" style="display:${sep?'block':'none'};margin-top:9px"><label class="fl">คิดเป็นกี่คะแนนจากคะแนนเก็บ ${sub.wAssign??70}%</label><input type="number" id="edAsgPts" step="0.5" min="0.5" value="${a.gradePoints??a.maxScore??10}"></div></div>`:`<div class="fg"><label class="fl">กำหนดส่ง</label><input type="date" id="edAsgDue" value="${a.dueDate||''}"></div>`}<div class="fg" style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edAsgAllowFile" ${allow?'checked':''}> เปิดให้นักเรียนแนบไฟล์ส่งงาน</label></div><div class="f g8" style="justify-content:space-between"><button class="btn" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-arrow-left"></i> กลับ</button><button class="btn btn-p" onclick="saveEditAsg('${cid}','${subid}','${aid}',${isTrack})"><i class="ti ti-check"></i> บันทึก</button></div>`);}
-async function saveEditAsg(cid,subid,aid,isTrack){
-  const a=asgList(cid,subid).find(x=>x.id===aid);if(!a)return;
-  const name=(document.getElementById('edAsgName')?.value||'').trim();
-  if(!name){showToast('กรอกชื่องาน');return;}
-  const due=document.getElementById('edAsgDue')?.value||'';
-  const allow=!!document.getElementById('edAsgAllowFile')?.checked;
-  const upd={name,due_date:due||null,allow_file_submit:allow};
-  const oldMax=!isTrack?(parseFloat(a.maxScore)||0):0;
-  let newMax=oldMax;
-  if(!isTrack){
-    const max=parseFloat(document.getElementById('edAsgMax')?.value),
-      sep=!!document.getElementById('edAsgSeparate')?.checked,
-      pts=sep?parseFloat(document.getElementById('edAsgPts')?.value):null,
-      sub=getSub(cid,subid);
-    if(!max||max<=0||sep&&(!pts||pts<=0)){showToast('ตรวจคะแนนเต็ม/คะแนนที่ใช้คิด');return;}
-    if(sep&&reservedGradePoints(cid,subid,aid)+pts>(sub.wAssign??70)+0.0001){showToast('คะแนนที่แยกรวมเกินสัดส่วนคะแนนเก็บ');return;}
-    newMax=max;
-    upd.max_score=max;upd.grade_mode=sep?'separate':'pool';upd.grade_points=sep?pts:null;
+  const el=document.getElementById('sc-entry');
+  const cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}
+  const{cid,subid}=cs;const sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid);
+  const key=cid+'|'+subid;
+  if(window._lastSubKey!==key){
+    window._lastSubKey=key;
+    loadTeacherSubmissions(cid,subid).then(()=>{
+      setTimeout(()=>{
+        if(window._lastSubKey===key&&document.getElementById('sc-entry')) renderScEntry();
+      },0);
+    });
   }
-  try{
-    // ถ้าปรับคะแนนเต็ม ให้ปรับคะแนนนักเรียนทุกคนตามสัดส่วนเดิมก่อน
-    if(!isTrack&&oldMax>0&&newMax>0&&Math.abs(oldMax-newMax)>0.000001){
-      const map=scMap(cid,subid,aid)||{};
-      const scaledRows=[];
-      Object.keys(map).forEach(stuId=>{
-        const raw=map[stuId];
-        if(raw===undefined||raw===null||raw===''||isNaN(parseFloat(raw)))return;
-        const scaled=Math.round((parseFloat(raw)/oldMax*newMax)*100)/100;
-        map[stuId]=String(scaled);
-        scaledRows.push({assignment_id:aid,student_id:stuId,value:String(scaled)});
-      });
-      if(scaledRows.length){
-        const{error:scoreErr}=await sb.from('scores').upsert(scaledRows,{onConflict:'assignment_id,student_id'});
-        if(scoreErr)throw scoreErr;
-      }
-    }
-    const{error}=await sb.from('assignments').update(upd).eq('id',aid);if(error)throw error;
-    a.name=name;a.dueDate=due;a.allowFileSubmit=allow;
-    if(!isTrack){a.maxScore=upd.max_score;a.gradeMode=upd.grade_mode;a.gradePoints=upd.grade_points;}
-    _lastSaveTime=Date.now();
-    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-    openManageAsg(cid,subid);
-    showToast(!isTrack&&oldMax!==newMax?'บันทึกแล้ว และปรับคะแนนนักเรียนตามสัดส่วน ✓':'บันทึกแล้ว ✓');
-  }catch(e){
-    console.error(e);
-    alert('บันทึกไม่สำเร็จ: '+e.message);
-    // โหลดข้อมูลใหม่เพื่อป้องกัน local state ค้าง หากบันทึกบางส่วนไม่สำเร็จ
-    try{await load();}catch(_e){}
-  }
-}
+  const wA=sub.wAssign??70;
+  const wE=100-wA;
+  const scoreAsg=asgs.filter(a=>a.type!=='track');
+  const trackAsg=asgs.filter(a=>a.type==='track');
+  const allowFileCount=asgs.filter(a=>a.allowFileSubmit).length;
+  let pendingReview=0;
+  Object.values(teacherSubs||{}).forEach(byStu=>{
+    Object.values(byStu||{}).forEach(s=>{ if(s && s.status==='pending' && (s.files||[]).length) pendingReview++; });
+  });
 
-function openManageAsg(cid,subid){const asgs=asgList(cid,subid);if(!asgs.length){showToast('ยังไม่มีงาน');return;}const rows=asgs.map((a,i)=>`<tr><td style="padding:7px;text-align:center;color:var(--mu)">${i+1}</td><td style="padding:7px"><b>${a.name}</b> ${a.type==='track'?'<span class="badge ba">ติดตาม</span>':a.gradeMode==='separate'?`<span class="badge bp">แยก ${a.gradePoints??a.maxScore} คะแนน</span>`:'<span class="badge bb">รวมในงานรวม</span>'}<div style="font-size:10.5px;color:var(--mu)">${a.type!=='track'?'เต็ม '+a.maxScore+' · ':''}${a.dueDate?'กำหนด '+thDate(a.dueDate):'ไม่กำหนดวันส่ง'}</div></td><td style="padding:7px;white-space:nowrap;text-align:right"><button class="btn btn-xs" onclick="editAsg('${cid}','${subid}','${a.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-xs" style="color:var(--rd)" onclick="delAsg('${cid}','${subid}','${a.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('');showMD(`<div class="mt">จัดการงาน</div><div class="tw"><table><thead><tr><th>#</th><th>งาน</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><div class="f" style="justify-content:flex-end;margin-top:10px"><button class="btn" onclick="closeMD()">ปิด</button></div>`);}
+  let html=`
+  <div class="score-hero">
+    <div class="score-glass">
+      <div class="score-banner">
+        <div class="score-banner-main">
+          <div class="score-icon-wrap"><i class="ti ti-chart-dots-3" style="font-size:26px"></i></div>
+          <div>
+            <h3>บันทึกคะแนน · ${sub.name}</h3>
+            <p>จัดการงาน คะแนน และสถานะการส่งของนักเรียนในรายวิชานี้แบบแยกส่วนอย่างชัดเจน</p>
+          </div>
+        </div>
+        <span class="score-pill"><i class="ti ti-sparkles"></i> Workspace ครู</span>
+      </div>
+      <div class="score-metrics">
+        <div class="score-metric"><div class="lab"><i class="ti ti-users"></i> นักเรียน</div><div class="val">${stus.length}</div><div class="sub">คนในห้องนี้</div></div>
+        <div class="score-metric"><div class="lab"><i class="ti ti-star"></i> งานเก็บคะแนน</div><div class="val">${scoreAsg.length}</div><div class="sub">งานที่คิดเกรด</div></div>
+        <div class="score-metric"><div class="lab"><i class="ti ti-checklist"></i> งานติดตาม</div><div class="val">${trackAsg.length}</div><div class="sub">เช็กการส่งงาน</div></div>
+        <div class="score-metric"><div class="lab"><i class="ti ti-clock-exclamation"></i> รอตรวจ</div><div class="val">${pendingReview}</div><div class="sub">ไฟล์ที่รอครูตรวจ</div></div>
+      </div>
+    </div>
+    <div class="score-glass score-split-card">
+      <div class="score-pill"><i class="ti ti-scale-outline"></i> สัดส่วนคะแนนของวิชา</div>
+      <div class="score-split"><div style="width:${wA}%;background:linear-gradient(90deg,#8b7ef0,#7cc6ff)">${wA}% เก็บ</div><div style="width:${wE}%;background:linear-gradient(90deg,#74d6c5,#f7c7a1)">${wE}% สอบ</div></div>
+      <div style="font-size:12px;color:var(--mu)">คะแนนเก็บ = <b>${wA}%</b> · คะแนนสอบ = <b>${wE}%</b> &nbsp;·&nbsp; <a href="#" onclick="gotoPage('subjects');return false" style="color:var(--bl);font-weight:700">แก้ไขสัดส่วน</a></div>
+      <div class="score-soft-box" style="padding:12px 14px">
+        <div style="font-size:12px;color:#6c6587;font-weight:700;margin-bottom:6px"><i class="ti ti-paperclip"></i> งานที่เปิดส่งไฟล์</div>
+        <div style="font-size:22px;font-weight:800;color:#554e74">${allowFileCount}</div>
+        <div style="font-size:11px;color:#9d95b3;margin-top:4px">ระบบจะขึ้นป้าย “รอ” หรือ “ตรวจแล้ว” ในตารางให้อัตโนมัติ</div>
+      </div>
+    </div>
+  </div>
 
-function openAddGradeComponent(cid,subid){const sub=getSub(cid,subid),remaining=Math.max(0,(sub.wAssign??70)-reservedGradePoints(cid,subid));showMD(`<div class="mt"><i class="ti ti-columns-3"></i> เพิ่มช่องคะแนนอื่น</div><div class="info-box">ใช้สำหรับคะแนนนอกเหนือจากงาน เช่น จิตอาสา จิตพิสัย การส่งงาน การมีส่วนร่วม ฯลฯ คะแนนช่องนี้รวมอยู่ในคะแนนเก็บ ${sub.wAssign??70}%</div><div class="fg"><label class="fl">ชื่อช่องคะแนน</label><input type="text" id="gcName" placeholder="เช่น จิตพิสัย"></div><div class="fg"><label class="fl">คะแนนเต็ม</label><input type="number" id="gcMax" min="0.5" step="0.5" value="5"><small style="color:var(--mu)">เหลือจัดสรรได้ ${remaining.toFixed(1)} คะแนน</small></div><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button class="btn btn-p" onclick="saveNewGradeComponent('${cid}','${subid}')">เพิ่มช่อง</button></div>`);}
-function _normGradeComponentName(v){return (v||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('th-TH');}
-function _hasDuplicateGradeComponentName(cid,subid,name,excludeId){const key=_normGradeComponentName(name);return gradeComps(cid,subid).some(c=>c.id!==excludeId&&_normGradeComponentName(c.name)===key);}
-async function saveNewGradeComponent(cid,subid){const name=(document.getElementById('gcName')?.value||'').trim(),max=parseFloat(document.getElementById('gcMax')?.value),sub=getSub(cid,subid);if(!name||!max||max<=0){showToast('กรอกข้อมูลให้ครบ');return;}if(_hasDuplicateGradeComponentName(cid,subid,name)){showToast('มีชื่อช่องคะแนนนี้แล้ว กรุณาใช้ชื่ออื่น');document.getElementById('gcName')?.focus();return;}if(reservedGradePoints(cid,subid)+max>(sub.wAssign??70)+0.0001){showToast('คะแนนรวมเกินสัดส่วนคะแนนเก็บ');return;}const id=uid(),order=gradeComps(cid,subid).length;try{const{error}=await sb.from('grade_components').insert({id,class_id:cid,subject_id:subid,name,max_score:max,order_num:order});if(error)throw error;if(!db.gradeComponents)db.gradeComponents={};if(!db.gradeComponents[subid])db.gradeComponents[subid]=[];db.gradeComponents[subid].push({id,classId:cid,subjectId:subid,name,maxScore:max,orderNum:order});_lastSaveTime=Date.now();closeMD();renderScAll();showToast('เพิ่มช่องคะแนนแล้ว ✓');}catch(e){alert('เพิ่มไม่สำเร็จ: '+e.message);}}
-function openManageGradeComponents(cid,subid){
-  const comps=gradeComps(cid,subid);
-  if(!comps.length){openAddGradeComponent(cid,subid);return;}
-  const rows=comps.map(c=>`<tr>
-    <td><div style="font-weight:700">${c.name}</div><div style="font-size:10.5px;color:var(--mu)">คะแนนเพิ่มเติมในคะแนนเก็บ</div></td>
-    <td style="text-align:center;font-weight:700">${c.maxScore}</td>
-    <td style="text-align:right;white-space:nowrap">
-      <button class="btn btn-xs" onclick="openEditGradeComponent('${cid}','${subid}','${c.id}')" title="แก้ไขชื่อและคะแนนเต็ม"><i class="ti ti-edit"></i> แก้ไข</button>
-      <button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="deleteGradeComponent('${cid}','${subid}','${c.id}')" title="ลบช่องคะแนน"><i class="ti ti-trash"></i></button>
-    </td>
-  </tr>`).join('');
-  showMD(`<div class="mt"><i class="ti ti-columns-3"></i> จัดการช่องคะแนนเพิ่มเติม</div>
-    <div class="info-box">สามารถแก้ไขชื่อช่องและคะแนนเต็มได้ภายหลัง โดยคะแนนของนักเรียนที่บันทึกไว้จะยังคงอยู่</div>
-    <div class="tw"><table><thead><tr><th>ชื่อช่องคะแนน</th><th style="text-align:center">คะแนนเต็ม</th><th style="text-align:right">จัดการ</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="f g8" style="justify-content:space-between;margin-top:12px"><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มช่องคะแนน</button><button class="btn" onclick="closeMD()">ปิด</button></div>`);
-}
-function openEditGradeComponent(cid,subid,id){
-  const c=gradeComps(cid,subid).find(x=>x.id===id);if(!c)return;
-  const sub=getSub(cid,subid),wA=sub?.wAssign??70;
-  const reservedWithoutThis=Math.max(0,reservedGradePoints(cid,subid)-(parseFloat(c.maxScore)||0));
-  const available=Math.max(0,wA-reservedWithoutThis);
-  showMD(`<div class="mt"><i class="ti ti-edit"></i> แก้ไขช่องคะแนน</div>
-    <div class="info-box">แก้ไขชื่อและคะแนนเต็มของช่องนี้ได้ คะแนนนักเรียนเดิมจะไม่ถูกลบ</div>
-    <div class="fg"><label class="fl">ชื่อช่องคะแนน</label><input type="text" id="gcEditName" value="${(c.name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"></div>
-    <div class="fg"><label class="fl">คะแนนเต็ม</label><input type="number" id="gcEditMax" min="0.5" step="0.5" value="${c.maxScore}"><small style="color:var(--mu)">ช่องนี้กำหนดได้สูงสุด ${available.toFixed(1)} คะแนน เพื่อให้คะแนนเก็บรวมไม่เกิน ${wA}</small></div>
-    <div class="info-box" style="background:#FFFBEB;color:#92400E;border-color:#FDE68A"><i class="ti ti-alert-triangle"></i> หากลดคะแนนเต็มต่ำกว่าคะแนนที่เคยกรอก ระบบจะเก็บคะแนนเดิมไว้ แต่จะคิดคะแนนไม่เกินคะแนนเต็มใหม่ ควรตรวจคะแนนนักเรียนอีกครั้งหลังแก้ไข</div>
-    <div class="f g8" style="justify-content:space-between"><button class="btn" onclick="openManageGradeComponents('${cid}','${subid}')"><i class="ti ti-arrow-left"></i> กลับ</button><button class="btn btn-p" onclick="saveEditGradeComponent('${cid}','${subid}','${id}')"><i class="ti ti-device-floppy"></i> บันทึกการแก้ไข</button></div>`);
-}
-async function saveEditGradeComponent(cid,subid,id){
-  const c=gradeComps(cid,subid).find(x=>x.id===id);if(!c)return;
-  const name=(document.getElementById('gcEditName')?.value||'').trim();
-  const max=parseFloat(document.getElementById('gcEditMax')?.value);
-  const sub=getSub(cid,subid),wA=sub?.wAssign??70;
-  if(!name){showToast('กรุณากรอกชื่อช่องคะแนน');return;}
-  if(_hasDuplicateGradeComponentName(cid,subid,name,id)){showToast('มีชื่อช่องคะแนนนี้แล้ว กรุณาใช้ชื่ออื่น');document.getElementById('gcEditName')?.focus();return;}
-  if(!max||max<=0){showToast('กรุณากรอกคะแนนเต็มให้ถูกต้อง');return;}
-  const reservedWithoutThis=Math.max(0,reservedGradePoints(cid,subid)-(parseFloat(c.maxScore)||0));
-  if(reservedWithoutThis+max>wA+0.0001){showToast(`คะแนนรวมเกินคะแนนเก็บ ${Math.round(wA)} คะแนน`);return;}
-  try{
-    const{error}=await sb.from('grade_components').update({name,max_score:max}).eq('id',id);if(error)throw error;
-    c.name=name;c.maxScore=max;
-    _lastSaveTime=Date.now();
-    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}
-    closeMD();renderScAll();showToast('แก้ไขช่องคะแนนแล้ว ✓');
-  }catch(e){alert('แก้ไขไม่สำเร็จ: '+e.message);}
-}
-async function deleteGradeComponent(cid,subid,id){const c=gradeComps(cid,subid).find(x=>x.id===id);if(!c||!confirm(`${c.name}\nลบช่องคะแนนนี้และคะแนนนักเรียนทั้งหมด?`))return;try{const{error}=await sb.from('grade_components').delete().eq('id',id);if(error)throw error;db.gradeComponents[subid]=(db.gradeComponents[subid]||[]).filter(x=>x.id!==id);delete db.gradeComponentScores[id];_lastSaveTime=Date.now();closeMD();renderScAll();showToast('ลบแล้ว');}catch(e){alert('ลบไม่สำเร็จ: '+e.message);}}
-async function saveGradeComponentScore(cid,subid,compId,stuId,val,max){if(!db.gradeComponentScores)db.gradeComponentScores={};if(!db.gradeComponentScores[compId])db.gradeComponentScores[compId]={};const s=(val??'').toString().trim();try{if(s===''||isNaN(parseFloat(s))){delete db.gradeComponentScores[compId][stuId];await sb.from('grade_component_scores').delete().eq('component_id',compId).eq('student_id',stuId);}else{const n=Math.min(Math.max(parseFloat(s),0),max);db.gradeComponentScores[compId][stuId]=n;const{error}=await sb.from('grade_component_scores').upsert({component_id:compId,student_id:stuId,value:n},{onConflict:'component_id,student_id'});if(error)throw error;}_lastSaveTime=Date.now();renderScAll();}catch(e){showToast('บันทึกไม่สำเร็จ');}}
-async function saveGradeOverrideValue(subid,stuId,value){if(!db.gradeOverrides)db.gradeOverrides={};if(!db.gradeOverrides[subid])db.gradeOverrides[subid]={};const cur=gradeOverride(subid,stuId);const rec={gradeOverride:value||'',note:cur.note||''};db.gradeOverrides[subid][stuId]=rec;try{const{error}=await sb.from('grade_overrides').upsert({subject_id:subid,student_id:stuId,grade_override:value||null,note:rec.note},{onConflict:'subject_id,student_id'});if(error)throw error;_lastSaveTime=Date.now();renderScAll();}catch(e){showToast('บันทึกเกรดไม่สำเร็จ');}}
-async function saveGradeNoteValue(subid,stuId,value){if(!db.gradeOverrides)db.gradeOverrides={};if(!db.gradeOverrides[subid])db.gradeOverrides[subid]={};const cur=gradeOverride(subid,stuId);const rec={gradeOverride:cur.gradeOverride||'',note:value||''};db.gradeOverrides[subid][stuId]=rec;try{const{error}=await sb.from('grade_overrides').upsert({subject_id:subid,student_id:stuId,grade_override:rec.gradeOverride||null,note:value||''},{onConflict:'subject_id,student_id'});if(error)throw error;_lastSaveTime=Date.now();renderScAll();}catch(e){showToast('บันทึกหมายเหตุไม่สำเร็จ');}}
+  <div class="score-add-grid">
+    <div class="score-panel">
+      <div class="score-panel-head">
+        <div class="title"><span class="mini"><i class="ti ti-plus"></i></span> เพิ่มงานใหม่</div>
+        <span class="score-pill" style="padding:6px 10px;font-size:11px"><i class="ti ti-layout-grid"></i> แยกงานเก็บคะแนน / ติดตามการส่ง</span>
+      </div>
+      <div class="score-panel-body">
+        <div class="score-subtabs">
+          <button class="score-type-btn active" id="atype-score" onclick="setAsgType('score')"><i class="ti ti-star"></i> งานเก็บคะแนน</button>
+          <button class="score-type-btn" id="atype-track" onclick="setAsgType('track')"><i class="ti ti-checklist"></i> งานติดตามการส่ง</button>
+        </div>
+        <div class="score-form-grid">
+          <div class="fg">
+            <label class="fl" style="font-size:11.5px;color:var(--mu)">ชื่องาน</label>
+            <input type="text" id="asgName" placeholder="เช่น งานชิ้นที่ 1, ใบงาน 3.2, แบบทดสอบท้ายบท">
+          </div>
+          <div class="score-soft-box" id="asgMaxWrap">
+            <div class="fg">
+              <label class="fl" style="font-size:11.5px;color:var(--mu)">คะแนนเต็ม</label>
+              <input type="number" id="asgMax" placeholder="เช่น 10" min="1">
+            </div>
+            <div class="fg" style="margin-top:10px">
+              <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
+              <input type="date" id="asgDue">
+            </div>
+          </div>
+        </div>
+        <div class="fg" id="asgDueOnlyWrap" style="display:none;margin-top:12px">
+          <label class="fl" style="font-size:11.5px;color:var(--mu)">กำหนดส่ง (ถ้ามี)</label>
+          <input type="date" id="asgDue2">
+        </div>
+        <div class="score-soft-box" style="margin-top:12px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px">
+            <input type="checkbox" id="asgAllowFile" style="width:16px;height:16px;cursor:pointer">
+            <span><i class="ti ti-upload"></i> เปิดให้นักเรียนส่งไฟล์ (รูป/PDF/Word/Excel)</span>
+          </label>
+        </div>
+        <div class="score-actions">
+          <button class="btn btn-sm" onclick="openManageAsg('${cid}','${subid}')"><i class="ti ti-adjustments"></i> จัดการงานทั้งหมด</button>
+          <button class="btn btn-p" onclick="addAsg('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มงาน</button>
+        </div>
+        <div class="score-hint" id="asgTypeHint"><i class="ti ti-info-circle"></i> งานเก็บคะแนน = นำไปคำนวณเกรด · งานติดตามการส่ง = ใช้เช็กความครบถ้วนและสถานะการส่งเท่านั้น</div>
+      </div>
+    </div>
 
-function renderScAll(){
-  const el=document.getElementById('sc-all'),cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}const{cid,subid}=cs,sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid).filter(a=>a.type!=='track'),sep=asgs.filter(a=>a.gradeMode==='separate'),pool=asgs.filter(a=>a.gradeMode!=='separate'),comps=gradeComps(cid,subid),wA=sub.wAssign??70,wE=sub.wExam??30,res=reservedGradePoints(cid,subid),poolWeight=Math.max(0,wA-res);
-  let html=`<div class="card cp mb14" style="background:linear-gradient(135deg,#EFF6FF,#F5F3FF);border-color:#DBEAFE"><div class="f ic jb fw g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-adjustments-horizontal"></i> ปรับคะแนนและตัดเกรด</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">งานรวม ${Math.round(poolWeight)} + งานสำคัญ ${Math.round(sep.reduce((s,a)=>s+(parseFloat(a.gradePoints??a.maxScore)||0),0))} + คะแนนอื่น ${Math.round(comps.reduce((s,c)=>s+c.maxScore,0))} = คะแนนเก็บ ${Math.round(wA)}</div></div><div class="f g8 fw"><button class="btn" onclick="openManageGradeComponents('${cid}','${subid}')"><i class="ti ti-columns-3"></i> จัดการช่องคะแนน</button><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มช่องคะแนน</button></div></div>${res>wA?'<div class="info-box" style="background:var(--rdl);color:var(--rd);margin-top:10px;margin-bottom:0">คะแนนที่จัดสรรเกินสัดส่วนคะแนนเก็บ กรุณาปรับงานแยกหรือช่องคะแนน</div>':''}</div>`;
-  const scoreColCount=6+sep.length+comps.length;
-  const scoreColPct=64/scoreColCount;
-  const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
-  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
-  sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
-  comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
-  html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
-  stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midMax>0&&t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" placeholder="${t.midMax===0?'ไม่สอบ':'—'}" ${t.midMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finMax>0&&t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" placeholder="${t.finMax===0?'ไม่สอบ':'—'}" ${t.finMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
-  html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · คะแนนสอบแสดงแยกกลางภาคและปลายภาค แล้วระบบรวมสองส่วนก่อนแปลงเป็นคะแนนสอบตามสัดส่วนที่กำหนด · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
+    <div class="score-panel">
+      <div class="score-panel-head">
+        <div class="title"><span class="mini"><i class="ti ti-wand"></i></span> แนวทางใช้งาน</div>
+        <span class="score-pill" style="padding:6px 10px;font-size:11px"><i class="ti ti-bulb"></i> ใช้ง่ายขึ้น</span>
+      </div>
+      <div class="score-panel-body">
+        <div class="score-soft-box" style="margin-bottom:10px">
+          <div style="font-weight:700;color:#5d567b;font-size:12.5px;margin-bottom:5px"><i class="ti ti-1"></i> งานเก็บคะแนน</div>
+          <div style="font-size:11.5px;color:var(--mu)">เหมาะกับใบงาน แบบฝึกหัด โครงงาน หรือคะแนนกิจกรรมที่ต้องนำไปคิดเกรด</div>
+        </div>
+        <div class="score-soft-box" style="margin-bottom:10px">
+          <div style="font-weight:700;color:#5d567b;font-size:12.5px;margin-bottom:5px"><i class="ti ti-2"></i> งานติดตามการส่ง</div>
+          <div style="font-size:11.5px;color:var(--mu)">ใช้เช็กว่านักเรียนส่งงานหรือยัง โดยไม่คิดคะแนนตรง ๆ แต่ช่วยติดตามความรับผิดชอบ</div>
+        </div>
+        <div class="score-soft-box">
+          <div style="font-weight:700;color:#5d567b;font-size:12.5px;margin-bottom:5px"><i class="ti ti-3"></i> ป้ายไฟล์แนบ</div>
+          <div style="font-size:11.5px;color:var(--mu)">ถ้ามีนักเรียนส่งไฟล์ ระบบจะแสดงป้าย “รอ” หรือ “ตรวจแล้ว” ที่ช่องคะแนน เพื่อเปิดตรวจได้เร็วขึ้น</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  html+=renderAsgTable(cid,subid,stus,scoreAsg,'score');
+  html+=renderAsgTable(cid,subid,stus,trackAsg,'track');
+  el.innerHTML=html;
 }
 
 function renderScGrade(){const el=document.getElementById('sc-grade'),cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}const{cid,subid}=cs,cls=getCls(cid),sub=getSub(cid,subid),stus=stuList(cid),showOn=!!cls?.showGrades;let html=`<div class="card cp mb14" style="border-left:4px solid ${showOn?'var(--gn)':'var(--mu)'}"><div class="f ic jb fw g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-award"></i> ผลการเรียน — ${sub.name}</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">หน้านี้แสดงผลจาก “ปรับคะแนน/ภาพรวม” และใช้เปิดผลการเรียนให้นักเรียนดู</div></div><button class="btn ${showOn?'btn-g':'btn-p'}" onclick="toggleShowGrades('${cid}')"><i class="ti ti-${showOn?'eye-off':'eye'}"></i> ${showOn?'ปิดผลการเรียน':'เปิดให้นักเรียนดู'}</button></div></div><div class="card" style="overflow:hidden"><div class="tw"><table class="score-table"><thead><tr><th>#</th><th style="min-width:150px">ชื่อ-สกุล</th><th>คะแนนเก็บ<br>/${sub.wAssign??70}</th><th>คะแนนสอบ<br>/${sub.wExam??30}</th><th>รวม<br>/100</th><th>เกรด</th><th style="min-width:130px">หมายเหตุ</th></tr></thead><tbody>`;const dist={4:0,'3.5':0,3:0,'2.5':0,2:0,'1.5':0,1:0,0:0,'ร':0};stus.forEach(s=>{const t=calcTotal(cid,subid,s.id);dist[t.finalGrade]=(dist[t.finalGrade]||0)+1;html+=`<tr><td>${s.no}</td><td>${s.firstName} ${s.lastName}</td><td style="text-align:center;font-weight:700">${Math.round(t.assignScore)}</td><td style="text-align:center;font-weight:700">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900">${Math.round(t.totalScore)}</td><td style="text-align:center"><span class="grade ${t.finalCls}">${t.finalGrade}</span></td><td style="text-align:center">${t.note||'-'}</td></tr>`;});html+=`</tbody></table></div></div><div class="card cp mt14"><div class="stitle">การกระจายเกรด</div><div class="sg">${['4','3.5','3','2.5','2','1.5','1','0','ร'].map(g=>`<div class="sc-stat"><div class="sl">เกรด ${g}</div><div class="sv">${dist[g]||0}</div></div>`).join('')}</div></div>`;el.innerHTML=html;}

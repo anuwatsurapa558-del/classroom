@@ -210,6 +210,272 @@ input[type=password]:focus{border-color:var(--tl);}
   .toast{bottom:88px;max-width:90vw;white-space:normal;text-align:center}
 }
 
+
+
+/* ═══════════════════════════════════════════════
+   v15 — MINIMAL PASTEL THEME
+   Lavender • Powder blue • Mint • Peach
+═══════════════════════════════════════════════ */
+:root{
+  --bg:#F8F8FC;
+  --sf:#FFFFFF;
+  --sf2:#F7F6FB;
+  --s2:#F2F0F8;
+  --s3:#EAE7F2;
+  --bd:rgba(78,78,105,.09);
+  --bmd:rgba(78,78,105,.15);
+  --tx:#454859;
+  --mu:#85899B;
+  --hn:#BEC0CA;
+
+  --tl:#75B7A8;
+  --tll:#E7F5F1;
+  --tld:#5E9D8E;
+  --bl:#7E87D8;
+  --bll:#EEF0FF;
+  --gn:#76A986;
+  --gnl:#E7F4EA;
+  --rd:#D98A94;
+  --rdl:#FBEAEC;
+  --am:#CAA05F;
+  --aml:#FFF3DA;
+  --pu:#9A89CF;
+  --pul:#F0EBFA;
+
+  --r:13px;
+  --rl:18px;
+  --sh:0 8px 25px rgba(79,76,110,.055),0 2px 8px rgba(79,76,110,.03);
+}
+
+body{
+  background:
+    radial-gradient(circle at 0% 0%,rgba(238,240,255,.85) 0,transparent 25%),
+    radial-gradient(circle at 100% 100%,rgba(231,245,241,.75) 0,transparent 28%),
+    var(--bg);
+  color:var(--tx);
+}
+
+/* pastel header */
+.header{
+  background:rgba(250,249,255,.94);
+  color:#4B4E62;
+  border-bottom:1px solid rgba(78,78,105,.08);
+  box-shadow:0 5px 22px rgba(79,76,110,.045);
+  backdrop-filter:blur(18px);
+}
+.header h1{color:#4D5064;font-weight:800;}
+.header p{color:#9799A8;opacity:1;}
+.header-right{color:#5E6275;}
+.sync-dot{background:#DADAE3;}
+.sync-dot.ok{background:#8CC8A0;}
+#termSwitchBtn{
+  border-color:#DDDCEC!important;
+  background:#F3F1FA!important;
+  color:#666A80!important;
+}
+
+/* top tabs on desktop */
+.nav-tabs{
+  background:rgba(245,243,250,.82);
+  border-top:1px solid rgba(78,78,105,.04);
+  gap:3px;
+}
+.nav-tab{
+  color:#838698;
+  border-bottom:none;
+  border-radius:10px 10px 0 0;
+  font-weight:600;
+}
+.nav-tab i{
+  width:26px;height:26px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:8px;background:#ECEAF4;color:#85889B;
+}
+.nav-tab.active{
+  color:#6169BB;
+  background:#EEEFFF;
+  border-bottom:none;
+}
+.nav-tab.active i{background:#DDE1FA;color:#626BC0;}
+
+/* logo bubble */
+#hdrLogo>i,#hdrLogo>.ti{
+  width:38px;height:38px;border-radius:12px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#E7E9FC;color:#646DC3;font-size:20px;
+}
+
+/* cards */
+.card,.login-box,.sc,.quick-btn,.dash-kpi .kpi{
+  border:1px solid rgba(78,78,105,.065);
+  box-shadow:var(--sh);
+}
+.card{border-radius:18px;}
+.login-box{border-radius:22px;background:rgba(255,255,255,.97);}
+.login-logo i{
+  width:64px;height:64px;margin:0 auto;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:20px;
+  background:#EEEFFF;color:#6972C7;font-size:34px;
+}
+.card-hd{border-bottom-color:#ECEAF1;}
+.card-hd-title{color:#505366;}
+.sc{border-radius:16px;}
+.sl{color:#989AAA;}
+.sv{color:#4F5365;}
+
+/* profile hero */
+.profile-card{
+  background:linear-gradient(135deg,#ECEEFF 0%,#EFF8F5 56%,#FFF4EB 100%);
+  color:#4E5265;
+  border:1px solid rgba(126,135,216,.10);
+  border-radius:20px;
+  box-shadow:var(--sh);
+}
+.profile-info{color:#85899A;opacity:1;}
+.profile-name{color:#4C5064;}
+
+/* buttons */
+.btn{border-radius:12px;}
+.btn-tl{background:#7E87D8;color:#fff;}
+.btn-outline{background:#FAF9FD;border-color:#CFCFE1;color:#6B6F84;}
+.btn-tl:active{background:#727ACD;}
+
+/* forms */
+input[type=text],input[type=number],input[type=password],input[type=date],select,textarea{
+  border-color:#DEDEE8;
+  background:#FCFCFE;
+  border-radius:12px;
+  color:#4B4E61;
+}
+input:focus,select:focus,textarea:focus,input[type=password]:focus{
+  border-color:#AAB0E3;
+  box-shadow:0 0 0 3px rgba(126,135,216,.11);
+}
+
+/* tables */
+.tw{border-radius:14px;}
+th{background:#F5F3F9;color:#8B8E9F;border-bottom-color:#E8E6EE;}
+td{border-bottom-color:#ECEAF0;}
+tr:nth-child(even) td{background:#FDFCFD;}
+
+/* badges */
+.badge{border-radius:999px;padding:3px 8px;}
+.bg{background:#E8F4EA;color:#6A9276;}
+.br{background:#FBEAEC;color:#B36E77;}
+.ba{background:#FFF3DA;color:#A17C44;}
+.bb{background:#EEF0FF;color:#666FBE;}
+.bt{background:#E7F5F1;color:#5D9789;}
+.bp{background:#F0EBFA;color:#8574B8;}
+.bx{background:#F1F0F5;color:#808395;}
+
+/* grade chips minimal pastel */
+.grade{
+  min-width:42px;
+  height:30px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 10px;
+  border-radius:10px;
+  font-size:14px;
+}
+.g4{background:#DDEFE3;color:#477A57;}
+.g35{background:#E5F3E8;color:#5E896A;}
+.g3{background:#E8F5EC;color:#61906E;}
+.g25,.g2{background:#EEF0FF;color:#6570C0;}
+.g15,.g1{background:#FFF1D6;color:#A1783B;}
+.g0{background:#FBEAEC;color:#B46A74;}
+
+/* quick buttons / dashboard */
+.quick-btn{
+  border-radius:16px;
+  background:#fff;
+  transition:transform .15s,box-shadow .15s;
+}
+.quick-btn:active{transform:scale(.97);}
+.quick-btn i{
+  width:38px;height:38px;
+  margin:0 auto 6px!important;
+  display:flex!important;align-items:center;justify-content:center;
+  border-radius:12px;
+  background:#EEF0FF;
+  color:#6972C5!important;
+  font-size:20px!important;
+}
+.quick-btn:nth-child(2) i{background:#E7F5F1;color:#5E9C8D!important;}
+.quick-btn:nth-child(3) i{background:#FFF3E8;color:#B58361!important;}
+.quick-btn:nth-child(4) i{background:#F3ECFA;color:#8A78B9!important;}
+.dash-kpi .kpi{border-radius:16px;}
+.dash-kpi .kpi:nth-child(1){background:#FAF0F2;}
+.dash-kpi .kpi:nth-child(2){background:#F0F2FF;}
+.dash-kpi .kpi:nth-child(3){background:#EDF7F3;}
+
+/* announcements */
+.ann-card{
+  border-left:none;
+  border:1px solid #EBE9F1;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:var(--sh);
+}
+.ann-card.urgent{background:#FFF7F8;border-color:#F4DADD;}
+
+/* calendar */
+.cal-day{border-color:#E7E5ED;border-radius:12px;background:#fff;}
+.cal-day.today{border:2px solid #AAB0E3;background:#F8F8FF;}
+.cal-dot{background:#D9A169;}
+
+/* segmented controls */
+.score-type-bar{
+  border-color:#E4E2EA;
+  border-radius:13px;
+  background:#F4F2F8;
+}
+.score-type-btn{background:transparent;color:#85889B;}
+.score-type-btn.active{background:#E7E9FC;color:#626BC0;}
+.sub-tab{border-color:#E1DFE8;border-radius:12px;}
+.sub-tab.active{background:#E4F3EE;color:#5C9788;border-color:#D8EEE7;}
+
+/* modal / toast */
+.mo{background:rgba(69,72,89,.24);backdrop-filter:blur(4px);}
+.md{
+  border:1px solid rgba(255,255,255,.85);
+  border-radius:22px;
+  box-shadow:0 24px 70px rgba(67,70,87,.15);
+}
+.toast{background:#5A5E72;border-radius:12px;box-shadow:0 8px 24px rgba(62,64,80,.18);}
+
+/* picker */
+.stu-picker{border-color:#E0DEE8;border-radius:14px;}
+.stu-pick-item.sel{background:#F0F1FF;border-left-color:#7E87D8;}
+.stu-pick-no{background:#EEEFFF;color:#626CC0;}
+
+/* mobile bottom navigation */
+@media(max-width:600px){
+  .nav-tabs{
+    background:rgba(255,255,255,.96)!important;
+    box-shadow:0 -8px 28px rgba(79,76,110,.07)!important;
+    border-top:1px solid rgba(78,78,105,.08)!important;
+    backdrop-filter:blur(16px);
+  }
+  .nav-tab{
+    border-radius:12px!important;
+    color:#8B8E9F!important;
+    background:transparent!important;
+  }
+  .nav-tab i{
+    width:28px;height:28px;border-radius:9px;
+    background:#F1F0F6;color:#8A8D9F;
+  }
+  .nav-tab.active{
+    color:#626BC0!important;
+    background:#F2F2FF!important;
+  }
+  .nav-tab.active i{background:#E1E4FB;color:#626BC0;}
+  .profile-card{border-radius:20px;}
+}
+
 </style>
 </head>
 <body>
@@ -218,7 +484,7 @@ input[type=password]:focus{border-color:var(--tl);}
 <div class="header">
   <div class="header-inner">
     <div style="display:flex;align-items:center;gap:10px;min-width:0">
-      <span id="hdrLogo"><span style="font-size:22px">📚</span></span>
+      <span id="hdrLogo"><i class="ti ti-school"></i></span>
       <div style="min-width:0">
         <h1 id="hdrName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ClassRoom</h1>
         <p id="headerSub">ระบบสำหรับนักเรียน</p>
@@ -234,8 +500,8 @@ input[type=password]:focus{border-color:var(--tl);}
     <button class="nav-tab" onclick="switchTab('attendance',this)"><i class="ti ti-calendar-check"></i> เวลาเรียน</button>
     <button class="nav-tab" onclick="switchTab('assignments',this)"><i class="ti ti-clipboard-list"></i> งาน</button>
     <button class="nav-tab" onclick="switchTab('calendar',this)"><i class="ti ti-calendar-event"></i> ปฏิทิน</button>
-    <button class="nav-tab" onclick="switchTab('announcements',this)"><i class="ti ti-speakerphone"></i> ประกาศ</button>
-    <button class="nav-tab" onclick="switchTab('quiz',this)"><i class="ti ti-file-text"></i> แบบทดสอบ</button>
+    <button class="nav-tab" onclick="switchTab('announcements',this)"><i class="ti ti-message-circle-bolt"></i> ประกาศ</button>
+    <button class="nav-tab" onclick="switchTab('quiz',this)"><i class="ti ti-clipboard-check"></i> แบบทดสอบ</button>
     <button class="nav-tab" id="tab-grades" onclick="switchTab('grades',this)" style="display:none"><i class="ti ti-award"></i> ผลการเรียน</button>
     <button class="nav-tab" id="tab-fiveS" onclick="switchTab('fiveS',this)" style="display:none"><i class="ti ti-sparkles"></i> 5 ส</button>
   </div>
@@ -357,7 +623,7 @@ function updateHeaderSchool(){
   if(nameEl)nameEl.textContent=sch.name||'ClassRoom';
   if(logoEl)logoEl.innerHTML=sch.logo
     ?`<img src="${sch.logo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.4)">`
-    :'<span style="font-size:22px">📚</span>';
+    :'<i class="ti ti-school"></i>';
 }
 function _normalizeDB(){
   if(!db.examScores)db.examScores={};
