@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ClassRoom">
@@ -696,6 +696,69 @@ tr:hover td{background:#FBFAFD;}
 @media(max-width:640px){
  .score-metrics{grid-template-columns:1fr 1fr}
  .score-banner{flex-direction:column;align-items:flex-start}
+}
+
+</style>
+<style id="responsive-layout-v154">
+/* Responsive layout: screen-only; score calculations and persistence unchanged. */
+@media screen {
+ .main,.page,.card,.score-panel,.score-hero>*,.score-add-grid>*{min-width:0;}
+ .page{max-width:1800px;margin-inline:auto;}
+ .tw,.score-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
+ .score-overview-wrap{overflow-x:auto!important;}
+ .score-overview-table{min-width:1100px;}
+ .score-overview-table .fc1,.score-overview-table .fc2{position:static;}
+ .score-overview-table th,.score-overview-table td{font-size:13px!important;padding:8px 6px!important;}
+ .score-overview-table th small{font-size:11px!important;}
+ .score-overview-table .sc-inp{font-size:16px!important;min-height:40px;max-width:80px!important;}
+ .score-overview-table select{font-size:14px!important;min-height:40px;}
+ .score-table-head,.score-panel-head{flex-wrap:wrap;gap:10px;}
+ .score-banner-main,.score-table-head .left{min-width:0;}
+ .score-banner-main>div:last-child{min-width:0;overflow-wrap:break-word;}
+ .tabs{overflow-x:auto;}
+ .tb{min-height:42px;}
+ .sel-tab,.sel-add{flex-shrink:0;min-height:40px;}
+ .md{max-width:min(680px,100%);max-height:calc(100dvh - 32px);overscroll-behavior:contain;}
+ .md input:not([type=checkbox]):not([type=radio]):not([type=file]),.md select,.md textarea{max-width:100%;box-sizing:border-box;font-size:16px;}
+ .md .f{flex-wrap:wrap;}
+ .md .fg{min-width:0;}
+ .md p{overflow-wrap:break-word;line-height:1.6;}
+ .sidebar{padding-top:env(safe-area-inset-top);}
+}
+@media screen and (min-width:768px) and (max-width:1199px){
+ :root{--sbw:72px;}
+ .sb-logo-t,.nl,.ni span{display:none;}
+ .ni{justify-content:center;padding:12px 0;}
+ .ni i{width:auto;font-size:22px;}
+ .page{padding:18px;}
+ .score-hero,.score-add-grid{grid-template-columns:minmax(0,1fr);}
+ .score-form-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);}
+}
+@media screen and (max-width:767px){
+ .page{padding:12px 10px calc(90px + env(safe-area-inset-bottom));}
+ .topbar{padding-inline:10px;gap:8px;}
+ #sync-status{max-width:110px;overflow:hidden;text-overflow:ellipsis;font-size:10px;}
+ .tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+ .tb{white-space:normal;padding:9px 6px;line-height:1.4;}
+ .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:minmax(0,1fr);}
+ .score-panel-body{padding:12px;}
+ .score-type-btn{padding:10px 6px;font-size:13px;}
+ .score-actions .btn{flex:1;min-height:44px;}
+ .score-banner{padding:16px;}
+ .score-banner h3{font-size:17px;}
+ .score-metric{padding:10px;}
+ .btn{min-height:40px;white-space:normal;}
+ .dnav{flex-wrap:wrap;}
+ .bottom-nav{height:calc(var(--bnh) + env(safe-area-inset-bottom));}
+ .bottom-nav-inner{min-height:var(--bnh);}
+ .mo{padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom));}
+ .md{padding:18px;border-radius:18px;max-height:calc(100dvh - 32px);}
+ #sc-grade .score-table{min-width:740px;}
+ .score-input,.score-select{font-size:16px;min-height:44px;}
+}
+@media screen and (min-width:1200px){
+ .page{padding:24px 24px 28px;}
+ .score-hero,.score-add-grid{gap:18px;}
 }
 
 </style>
@@ -9483,7 +9546,7 @@ function renderScAll(){
   const scoreColCount=6+sep.length+comps.length;
   const scoreColPct=64/scoreColCount;
   const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
-  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
+  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table" style="min-width:${Math.max(1100,Math.ceil(scoreColCount*100/0.64))}px">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
   sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
   comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${gcEscape(c.name)}<br><small>/${Math.round(c.maxScore)}</small></th>`);
   html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
