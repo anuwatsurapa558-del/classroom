@@ -2,14 +2,12 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ClassRoom">
-<meta name="theme-color" content="#8885CF">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=153">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=153">
-<title>ระบบเช็คชื่อและเก็บคะแนน (ครู)</title>
+<meta name="theme-color" content="#EEF2FF">
+<title>Class Room • ระบบครู</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -699,69 +697,90 @@ tr:hover td{background:#FBFAFD;}
 }
 
 </style>
-<style id="responsive-layout-v154">
-/* Responsive layout: screen-only; score calculations and persistence unchanged. */
-@media screen {
- .main,.page,.card,.score-panel,.score-hero>*,.score-add-grid>*{min-width:0;}
- .page{max-width:1800px;margin-inline:auto;}
- .tw,.score-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
- .score-overview-wrap{overflow-x:auto!important;}
- .score-overview-table{min-width:1100px;}
- .score-overview-table .fc1,.score-overview-table .fc2{position:static;}
- .score-overview-table th,.score-overview-table td{font-size:13px!important;padding:8px 6px!important;}
- .score-overview-table th small{font-size:11px!important;}
- .score-overview-table .sc-inp{font-size:16px!important;min-height:40px;max-width:80px!important;}
- .score-overview-table select{font-size:14px!important;min-height:40px;}
- .score-table-head,.score-panel-head{flex-wrap:wrap;gap:10px;}
- .score-banner-main,.score-table-head .left{min-width:0;}
- .score-banner-main>div:last-child{min-width:0;overflow-wrap:break-word;}
- .tabs{overflow-x:auto;}
- .tb{min-height:42px;}
- .sel-tab,.sel-add{flex-shrink:0;min-height:40px;}
- .md{max-width:min(680px,100%);max-height:calc(100dvh - 32px);overscroll-behavior:contain;}
- .md input:not([type=checkbox]):not([type=radio]):not([type=file]),.md select,.md textarea{max-width:100%;box-sizing:border-box;font-size:16px;}
- .md .f{flex-wrap:wrap;}
- .md .fg{min-width:0;}
- .md p{overflow-wrap:break-word;line-height:1.6;}
- .sidebar{padding-top:env(safe-area-inset-top);}
-}
-@media screen and (min-width:768px) and (max-width:1199px){
- :root{--sbw:72px;}
- .sb-logo-t,.nl,.ni span{display:none;}
- .ni{justify-content:center;padding:12px 0;}
- .ni i{width:auto;font-size:22px;}
- .page{padding:18px;}
- .score-hero,.score-add-grid{grid-template-columns:minmax(0,1fr);}
- .score-form-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);}
-}
-@media screen and (max-width:767px){
- .page{padding:12px 10px calc(90px + env(safe-area-inset-bottom));}
- .topbar{padding-inline:10px;gap:8px;}
- #sync-status{max-width:110px;overflow:hidden;text-overflow:ellipsis;font-size:10px;}
- .tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
- .tb{white-space:normal;padding:9px 6px;line-height:1.4;}
- .score-hero,.score-add-grid,.score-form-grid{grid-template-columns:minmax(0,1fr);}
- .score-panel-body{padding:12px;}
- .score-type-btn{padding:10px 6px;font-size:13px;}
- .score-actions .btn{flex:1;min-height:44px;}
- .score-banner{padding:16px;}
- .score-banner h3{font-size:17px;}
- .score-metric{padding:10px;}
- .btn{min-height:40px;white-space:normal;}
- .dnav{flex-wrap:wrap;}
- .bottom-nav{height:calc(var(--bnh) + env(safe-area-inset-bottom));}
- .bottom-nav-inner{min-height:var(--bnh);}
- .mo{padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom));}
- .md{padding:18px;border-radius:18px;max-height:calc(100dvh - 32px);}
- #sc-grade .score-table{min-width:740px;}
- .score-input,.score-select{font-size:16px;min-height:44px;}
-}
-@media screen and (min-width:1200px){
- .page{padding:24px 24px 28px;}
- .score-hero,.score-add-grid{gap:18px;}
-}
+<link rel="manifest" href="teacher-manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="classroom_teacher_192.png">
+<link rel="apple-touch-icon" href="classroom_teacher_180.png">
+<meta name="description" content="Class Room ระบบจัดการชั้นเรียนสำหรับครู">
 
+<style id="classroom-v16-teacher-theme">
+/* Class Room v16 — visual layer only. Existing page IDs, events and data logic are untouched. */
+:root{
+ --bg:#F6F7FD;--sf:#FFFFFF;--s2:#F7F5FE;--s3:#EEEBFA;
+ --bd:#E9E7F2;--bmd:#DAD6E8;--tx:#34384D;--mu:#7F849B;--hn:#B0B4C5;
+ --bl:#5267DD;--bll:#EEF2FF;--tl:#47AD9A;--tll:#E7F9F4;
+ --gn:#2EAE72;--gnl:#E8F9F0;--rd:#E85D67;--rdl:#FFF0F1;
+ --am:#D9933D;--aml:#FFF6E8;--pu:#8B71E8;--pul:#F1EDFF;--or:#E8895B;--orl:#FFF0E7;
+ --r:15px;--rl:22px;--sh:0 12px 36px rgba(75,74,130,.08),0 2px 8px rgba(78,83,120,.04);
+ --sbw:252px;--tbh:70px;
+}
+html{background:#F6F7FD}
+body{background:
+ radial-gradient(circle at 8% 4%,rgba(220,224,255,.75),transparent 27%),
+ radial-gradient(circle at 97% 8%,rgba(222,250,242,.68),transparent 26%),
+ linear-gradient(180deg,#FBFBFF 0%,#F5F6FC 100%);color:var(--tx)}
+.app{background:transparent}
+.sidebar{
+ width:232px;top:14px;left:14px;bottom:14px;border-radius:28px;background:rgba(255,255,255,.94);color:var(--tx);
+ border:1px solid rgba(228,226,241,.96);box-shadow:0 22px 55px rgba(72,75,120,.13);backdrop-filter:blur(18px);overflow:hidden
+}
+.sb-logo{min-height:92px;padding:14px 14px 13px;border-bottom:1px solid #F0EEF7;background:linear-gradient(145deg,#FFFFFF,#FAF8FF);justify-content:flex-start;gap:10px}
+#sbLogoArea{width:100%!important;gap:11px!important}
+#sbLogoImg{width:50px;height:50px;border-radius:17px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#EEF3FF,#F3ECFF);box-shadow:0 9px 22px rgba(92,85,180,.15),inset 0 1px 0 #fff;flex:0 0 50px;overflow:hidden}
+#sbLogoImg>i{font-size:25px!important;color:#5267DD!important}
+#sbLogoImg img{width:50px!important;height:50px!important;border-radius:17px!important;border:0!important}
+.sb-logo-t h1{font-size:17px;color:#303650;font-weight:800;letter-spacing:-.02em}.sb-logo-t p{font-size:10.5px;color:#969AAF;margin-top:1px}
+.sb-nav{padding:12px 10px 16px}.nl{font-size:9px;color:#B4B6C5;padding:11px 10px 4px;letter-spacing:.12em}
+.ni{padding:7px 9px;border-radius:15px;color:#646A81;font-size:12.5px;font-weight:600;gap:10px;margin:2px 0;transition:.18s ease}
+.ni i{width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;background:#F4F5FA;color:#667085;box-shadow:inset 0 1px 0 #fff}
+.sb-nav .ni:nth-of-type(1) i{background:#FFF1E9;color:#EE8A55}.sb-nav .ni:nth-of-type(2) i{background:#EEF2FF;color:#5368DD}
+.sb-nav .ni:nth-of-type(3) i{background:#EAF9F5;color:#39A78F}.sb-nav .ni:nth-of-type(4) i{background:#F3EEFF;color:#856EE2}
+.sb-nav .ni:nth-of-type(5) i{background:#EAF6FF;color:#4C95D9}.sb-nav .ni:nth-of-type(6) i{background:#FFF2E5;color:#DF8B3E}
+.sb-nav .ni:nth-of-type(7) i{background:#FFF0F2;color:#E86B79}.sb-nav .ni:nth-of-type(8) i{background:#F4EEFF;color:#8E70E3}
+.sb-nav .ni:nth-of-type(9) i{background:#EAF9F1;color:#42A873}.sb-nav .ni:nth-of-type(10) i{background:#EEF4FF;color:#5C79D9}
+.ni:hover{background:#F7F5FD;color:#3D435B;transform:translateX(1px)}
+.ni.active{background:linear-gradient(135deg,#EEF1FF,#F3EEFF);color:#4354B4;font-weight:800;box-shadow:inset 0 0 0 1px #E4DFF7}
+.ni.active i{background:linear-gradient(145deg,#6477E8,#8A78ED)!important;color:#fff!important;box-shadow:0 6px 16px rgba(96,91,205,.25)}
+.main{margin-left:260px;padding-right:10px}
+.topbar{height:70px;margin:14px 14px 0 4px;border:1px solid #EBE9F3;border-radius:22px;background:rgba(255,255,255,.88);box-shadow:0 10px 28px rgba(73,76,120,.07);backdrop-filter:blur(18px);padding:0 20px}
+.topbar-title{font-size:17px;font-weight:800;color:#343A54}.topbar-sub{font-size:11.5px;color:#9A9EB0;margin-top:1px}
+#sync-status{padding:7px 11px;border-radius:999px;background:#F7F7FB;color:#7E8298}
+.page{padding:18px 14px 88px 4px}
+.card,.sel-bar,.chbox,.sc-stat,.score-table-card,.score-panel,.score-glass{border-color:#EBE8F4!important;box-shadow:0 12px 32px rgba(79,76,126,.075)!important}
+.card,.sel-bar,.chbox{border-radius:22px!important;background:rgba(255,255,255,.96)!important}
+.cp{padding:18px}
+.sel-bar{overflow:visible;padding:2px}.sel-row{padding:7px 8px;gap:5px}.sel-row+.sel-row{background:#FAF9FE;border-radius:0 0 20px 20px}
+.sel-lbl{font-size:10px;color:#9699AB}.sel-tab{padding:8px 14px;border-radius:13px;font-size:12px;font-weight:700;color:#777C91}
+.sel-tab:hover{background:#F2F0FA}.sel-tab.ac{background:linear-gradient(135deg,#6578E5,#7B6BE3);color:#fff;box-shadow:0 7px 16px rgba(91,90,205,.20)}
+.sel-tab.as{background:linear-gradient(135deg,#48B8A3,#6BCDBB);color:#fff;box-shadow:0 7px 16px rgba(57,161,143,.18)}
+.sel-add{border-color:#D9D6E6;border-radius:13px;padding:7px 11px;background:#FCFBFF}
+.tabs{border-radius:18px!important;background:#F5F3FB!important;padding:6px!important;gap:6px!important;border:1px solid #EBE8F3!important;margin-bottom:15px!important}
+.tb{border:0!important;border-radius:13px!important;padding:9px 14px!important;color:#85899C!important;font-weight:700!important;background:transparent!important}
+.tb.active{background:#fff!important;color:#4D59A9!important;box-shadow:0 6px 16px rgba(80,77,132,.10)!important}
+.btn{border-radius:13px;border-color:#DFDCEB;background:#fff;color:#5D6279;box-shadow:0 4px 10px rgba(69,74,110,.04);font-weight:700}
+.btn:hover{transform:translateY(-1px);box-shadow:0 7px 15px rgba(69,74,110,.08)}
+.btn-p{background:linear-gradient(135deg,#6176E5,#7E6DE7)!important;color:#fff!important;border:0!important;box-shadow:0 8px 20px rgba(94,88,207,.20)!important}
+.btn-t,.btn-tl{background:linear-gradient(135deg,#42B49F,#62C6B4)!important;color:#fff!important;border:0!important}
+.sg{gap:12px}.sc-stat{min-height:118px;border-radius:22px;padding:17px 16px;position:relative;overflow:hidden;background:rgba(255,255,255,.97)}
+.sc-stat:after{content:'';position:absolute;width:70px;height:70px;border-radius:24px;right:-18px;top:-16px;background:#F2F3FF;transform:rotate(18deg)}
+.sc-stat:nth-child(2):after{background:#E9FBF6}.sc-stat:nth-child(3):after{background:#ECFAF0}.sc-stat:nth-child(4):after{background:#FFF4E9}
+.sl{font-size:10px;color:#969AAF;letter-spacing:.05em}.sv{font-size:29px;margin-top:8px;position:relative;z-index:1}
+.chbox{padding:17px}.chtitle{font-size:13px;font-weight:800;color:#4F556F;margin-bottom:8px}
+table{border-collapse:separate;border-spacing:0}th{background:#F7F6FB;color:#81869B;border-bottom:1px solid #EAE8F1}td{border-bottom:1px solid #F0EEF5}
+tbody tr:hover td{background:#FCFBFF}
+input[type=text],input[type=number],input[type=date],input[type=password],select,textarea{border-radius:13px!important;border-color:#DDD9E8!important;background:#FEFEFF!important;color:#454A61!important}
+input:focus,select:focus,textarea:focus{border-color:#8C82E4!important;box-shadow:0 0 0 3px rgba(125,112,226,.10)!important}
+.badge{border-radius:999px!important;padding:4px 9px!important}.mo{backdrop-filter:blur(8px)}.md{border-radius:25px!important;border:1px solid #ECE9F4!important;box-shadow:0 28px 80px rgba(52,52,85,.22)!important}
+.bottom-nav{background:rgba(255,255,255,.94);border-top:1px solid #EBE8F3;box-shadow:0 -12px 32px rgba(68,70,110,.10);backdrop-filter:blur(18px)}
+.bn-item i{width:34px;height:30px;border-radius:11px;display:flex;align-items:center;justify-content:center}.bn-item.active i{background:#EEF1FF;color:#5668D6}
+/* soft 3D treatment for score/attendance cells */
+#page-scores .card,#page-attendance .card{overflow:hidden}#page-scores td input,#page-scores td select{font-weight:700}
+.toast{border-radius:16px!important;box-shadow:0 16px 40px rgba(60,61,100,.20)!important}
+@media(max-width:767px){
+ .sidebar{top:0;left:0;bottom:0;margin:0;border-radius:0;width:248px}.main{margin-left:0;padding-right:0}.topbar{margin:0;border-radius:0;border-left:0;border-right:0;border-top:0;height:62px}.page{padding:12px 10px 82px}.sg{grid-template-columns:1fr 1fr}.sc-stat{min-height:98px;padding:14px}.sv{font-size:25px}
+}
+@media(min-width:768px) and (max-width:1023px){.sidebar{width:82px}.main{margin-left:102px}.sb-logo{padding:12px 9px;justify-content:center}#sbLogoImg{width:50px;height:50px}.ni{justify-content:center;padding:8px}.ni i{width:38px;height:38px}.topbar{margin-left:0}}
 </style>
+
 </head>
 <body>
 <div class="app">
@@ -770,8 +789,8 @@ tr:hover td{background:#FBFAFD;}
 <nav class="sidebar" id="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-t" id="sbLogoArea" style="display:flex;align-items:center;gap:8px">
-      <span id="sbLogoImg"><i class="ti ti-school"></i></span>
-      <div style="min-width:0"><h1 id="sbSchoolName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ClassRoom</h1><p id="sbSchoolSub">ระบบครู</p></div>
+      <span id="sbLogoImg"><img src="classroom_teacher_192.png" alt="Class Room"></span>
+      <div style="min-width:0"><h1 id="sbSchoolName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Class Room</h1><p id="sbSchoolSub">ระบบครู</p></div>
     </div>
     <button class="sb-close" onclick="closeSB()"><i class="ti ti-x"></i></button>
   </div>
@@ -801,7 +820,7 @@ tr:hover td{background:#FBFAFD;}
       <div class="topbar-title" id="ttitle">แดชบอร์ด</div>
       <div class="topbar-sub" id="tsub">ภาพรวมทุกห้องเรียน</div>
     </div>
-    <div id="sync-status"></div>
+    <div class="classroom-brand-chip" style="display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:14px;background:linear-gradient(135deg,#F2F4FF,#F2EEFF);border:1px solid #E7E4F5;color:#5660A8;font-size:11px;font-weight:800"><img src="classroom_teacher_192.png" style="width:26px;height:26px;border-radius:9px"> Class Room</div><div id="sync-status"></div>
   </div>
 
   <div class="page active" id="page-dashboard"><div id="db-content"></div></div>
@@ -1664,7 +1683,7 @@ function updateSidebarLogo(){
   const nameEl=document.getElementById('sbSchoolName');
   const subEl=document.getElementById('sbSchoolSub');
   const imgEl=document.getElementById('sbLogoImg');
-  if(nameEl)nameEl.textContent=sch.name||'ClassRoom';
+  if(nameEl)nameEl.textContent=sch.name||'Class Room';
   if(subEl)subEl.textContent=sch.name?(sch.subdistrict||'ระบบครู'):'ระบบครู';
   if(imgEl){
     imgEl.innerHTML=sch.logo
@@ -1674,7 +1693,7 @@ function updateSidebarLogo(){
 }
 function openQrCode(cid){
   const cls=getCls(cid);
-  const sch=db.school?.name||'ClassRoom';
+  const sch=db.school?.name||'Class Room';
   // สร้าง URL ของฝั่งนักเรียน พร้อม parameter ห้อง (ให้ auto-select)
   const currentUrl=location.href.split('/');
   currentUrl.pop();
@@ -9546,102 +9565,13 @@ function renderScAll(){
   const scoreColCount=6+sep.length+comps.length;
   const scoreColPct=64/scoreColCount;
   const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
-  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table" style="min-width:${Math.max(1100,Math.ceil(scoreColCount*100/0.64))}px">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
+  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
   sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
-  comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${gcEscape(c.name)}<br><small>/${Math.round(c.maxScore)}</small></th>`);
+  comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
   html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
   stus.forEach(s=>{const t=calcTotal(cid,subid,s.id),ov=gradeOverride(subid,s.id);html+=`<tr><td class="fc1">${s.no}</td><td class="fc2 ov-name">${s.firstName} ${s.lastName}${t.missing?`<div style="font-size:9.5px;color:var(--am)"><i class="ti ti-alert-circle"></i> งานค้าง ${t.missing}</div>`:''}</td><td style="text-align:center;font-weight:700;background:#F8FAFC">${Math.round(t.poolScore)}</td>`;sep.forEach(a=>{const v=scMap(cid,subid,a.id)[s.id];html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${a.maxScore}" step="1" value="${v!==undefined&&v!==''?Math.round(Number(v)):''}" onchange="saveScoreInline('${cid}','${subid}','${a.id}','${s.id}',this.value,${a.maxScore});setTimeout(()=>renderScAll(),250)"></td>`;});comps.forEach(c=>{const v=gradeCompVal(c.id,s.id);html+=`<td style="text-align:center"><input type="number" class="sc-inp" min="0" max="${c.maxScore}" step="1" value="${v!==null&&v!==undefined?Math.round(Number(v)):''}" onchange="saveGradeComponentScore('${cid}','${subid}','${c.id}','${s.id}',this.value,${c.maxScore})"></td>`;});html+=`<td style="text-align:center;font-weight:800;background:#EFF6FF">${Math.round(t.assignScore)}</td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.midMax||0)}" step="1" value="${t.midMax>0&&t.midRaw!==null&&t.midRaw!==undefined?Math.round(t.midRaw):''}" placeholder="${t.midMax===0?'ไม่สอบ':'—'}" ${t.midMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','mid',this.value,${Math.round(t.midMax||0)})"></td><td style="text-align:center;background:#FFFEF5"><input type="number" class="sc-inp" min="0" max="${Math.round(t.finMax||0)}" step="1" value="${t.finMax>0&&t.finRaw!==null&&t.finRaw!==undefined?Math.round(t.finRaw):''}" placeholder="${t.finMax===0?'ไม่สอบ':'—'}" ${t.finMax===0?'disabled':''} onchange="saveExamInline('${cid}','${subid}','${s.id}','final',this.value,${Math.round(t.finMax||0)})"></td><td style="text-align:center;font-weight:700;background:#FFFBEB">${Math.round(t.examScore)}</td><td style="text-align:center;font-weight:900;background:#F0FDF4">${Math.round(t.totalScore)}</td><td style="text-align:center"><select onchange="saveGradeOverrideValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.gradeOverride?'selected':''}>${t.grade.g} (อัตโนมัติ)</option><option value="ร" ${ov.gradeOverride==='ร'?'selected':''}>ร</option></select></td><td><select onchange="saveGradeNoteValue('${subid}','${s.id}',this.value)"><option value="" ${!ov.note?'selected':''}>— ไม่มี —</option><option value="คะแนนไม่ถึงเกณฑ์" ${ov.note==='คะแนนไม่ถึงเกณฑ์'?'selected':''}>คะแนนไม่ถึงเกณฑ์</option><option value="งานไม่ครบ" ${ov.note==='งานไม่ครบ'?'selected':''}>งานไม่ครบ</option></select></td></tr>`;});
   html+=`</tbody></table></div></div><div class="info-box mt14"><b>หลักการ:</b> งานที่ไม่แยกจะรวมเป็นคะแนนงานรวมเพียงช่องเดียว · งานสำคัญที่เลือก “แยก” จะแสดงเป็นช่องของตัวเอง · ช่องคะแนนเพิ่มเติมและทั้งหมดรวมกันต้องไม่เกินคะแนนเก็บ ${Math.round(wA)} คะแนน · คะแนนสอบแสดงแยกกลางภาคและปลายภาค แล้วระบบรวมสองส่วนก่อนแปลงเป็นคะแนนสอบตามสัดส่วนที่กำหนด · งานไม่ครบไม่เปลี่ยนเกรดเป็น ร อัตโนมัติ ครูเป็นผู้เลือก ร และหมายเหตุเอง</div>`;el.innerHTML=html;
 }
-
-</script>
-<script>
-/* Score component controls restored in v15.3. */
-const gcEscape = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let gcBusy=false;
-function gcCache(){_lastSaveTime=Date.now();try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){}}
-async function gcCheck(query){const r=await query;if(r.error)throw r.error;return r;}
-function gcError(e){console.error(e);alert('บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง\n'+(e.message||e));}
-function openAddGradeComponent(cid,subid,id=''){
- const c=gradeComps(cid,subid).find(x=>x.id===id);
- if(id&&!c)return;
- const available=Math.max(0,Number(getSub(cid,subid)?.wAssign??70)-reservedGradePoints(cid,subid,'',id));
- showMD(`<div class="mt">${c?'แก้ไข':'เพิ่ม'}ช่องคะแนน</div><div class="fg"><label class="fl">ชื่อช่องคะแนน</label><input id="gc-name" type="text" maxlength="100" value="${gcEscape(c?.name)}" placeholder="เช่น ความร่วมมือ / สมุด / จิตพิสัย"></div><div class="fg"><label class="fl">คะแนนเต็ม (จัดสรรได้ไม่เกิน ${available})</label><input id="gc-max" type="number" min="1" max="${available}" step="1" value="${c?.maxScore??Math.min(10,available)}"></div><p style="color:var(--mu)">คะแนนนี้หักจากสัดส่วนงานรวม โดยคะแนนเก็บรวมยังเท่าเดิม${c?' เมื่อเปลี่ยนคะแนนเต็ม คะแนนนักเรียนจะปรับตามสัดส่วน':''}</p><div class="f g8" style="justify-content:flex-end"><button class="btn" onclick="closeMD()">ยกเลิก</button><button id="gc-save" class="btn btn-p">บันทึก</button></div>`);
- document.getElementById('gc-save').onclick=()=>submitGradeComponent(cid,subid,id);
-}
-function openManageGradeComponents(cid,subid){
- const comps=gradeComps(cid,subid);
- showMD(`<div class="mt">จัดการช่องคะแนน</div><div id="gc-list">${comps.length?comps.map((c,i)=>`<div class="f ic jb g8" style="padding:14px 0;border-bottom:1px solid var(--bd)"><div><strong>${gcEscape(c.name)}</strong><div style="color:var(--mu)">คะแนนเต็ม ${c.maxScore}</div></div><div class="f g8"><button class="btn" data-edit="${i}">แก้ไข</button><button class="btn" style="color:var(--rd)" data-delete="${i}">ลบ</button></div></div>`).join(''):'<p>ยังไม่มีช่องคะแนนเพิ่มเติม</p>'}</div><div class="f g8" style="justify-content:flex-end;margin-top:20px"><button class="btn" onclick="closeMD()">ปิด</button><button class="btn btn-p" id="gc-add">เพิ่มช่องคะแนน</button></div>`);
- document.getElementById('gc-add').onclick=()=>openAddGradeComponent(cid,subid);
- document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openAddGradeComponent(cid,subid,comps[Number(b.dataset.edit)].id));
- document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteGradeComponent(cid,subid,comps[Number(b.dataset.delete)].id));
-}
-async function submitGradeComponent(cid,subid,id=''){
- if(gcBusy)return;
- const name=document.getElementById('gc-name').value.trim(),max=Number(document.getElementById('gc-max').value);
- const available=Number(getSub(cid,subid)?.wAssign??70)-reservedGradePoints(cid,subid,'',id);
- if(!name||!Number.isInteger(max)||max<1||max>available){alert('กรุณาระบุชื่อและคะแนนเต็มเป็นจำนวนเต็ม ตั้งแต่ 1 ถึง '+Math.max(0,available));return;}
- const old=gradeComps(cid,subid).find(c=>c.id===id);
- if(id&&!old)return;
- const comp={id:id||uid(),classId:cid,subjectId:subid,name,maxScore:max,orderNum:old?.orderNum??(Math.max(-1,...gradeComps(cid,subid).map(c=>c.orderNum||0))+1)};
- const previous={...(db.gradeComponentScores?.[comp.id]||{})},next={...previous};
- const changed=old&&old.maxScore!==max;
- const rows=values=>Object.entries(values).filter(([,v])=>v!==''&&v!==null&&v!==undefined).map(([sid,v])=>({component_id:comp.id,student_id:sid,value:v}));
- gcBusy=true;document.getElementById('gc-save').disabled=true;
- let scaled=false;
- try{
-  _lastSaveTime=Date.now();
-  if(changed){for(const sid in next){if(next[sid]!==''&&next[sid]!=null)next[sid]=old.maxScore>0?Number((Number(next[sid])*max/old.maxScore).toFixed(8)):0;}if(rows(next).length){await gcCheck(sb.from('grade_component_scores').upsert(rows(next),{onConflict:'component_id,student_id'}));scaled=true;}}
-  await gcCheck(sb.from('grade_components').upsert({id:comp.id,class_id:cid,subject_id:subid,name,max_score:max,order_num:comp.orderNum},{onConflict:'id'}));
-  db.gradeComponents??={};db.gradeComponents[subid]??=[];
-  const index=db.gradeComponents[subid].findIndex(c=>c.id===comp.id);
-  if(index<0)db.gradeComponents[subid].push(comp);else db.gradeComponents[subid][index]=comp;
-  db.gradeComponentScores??={};db.gradeComponentScores[comp.id]=next;
-  gcCache();closeMD();renderScAll();showToast('บันทึกช่องคะแนนแล้ว');
- }catch(e){
-  if(scaled){try{await gcCheck(sb.from('grade_component_scores').upsert(rows(previous),{onConflict:'component_id,student_id'}));}catch(rollback){alert('คืนค่าคะแนนไม่สำเร็จ กรุณาตรวจสอบคะแนนก่อนดำเนินการต่อ: '+rollback.message);}}
-  gcError(e);
- }finally{gcBusy=false;const b=document.getElementById('gc-save');if(b)b.disabled=false;}
-}
-async function deleteGradeComponent(cid,subid,id){
- if(gcBusy)return;
- const c=gradeComps(cid,subid).find(c=>c.id===id);if(!c)return;
- if(!confirm('ลบช่องคะแนน “'+c.name+'” หรือไม่?\nถ้าลบช่องคะแนนนี้ คะแนนทั้งหมดในช่องนี้จะหายด้วย'))return;
- gcBusy=true;
- try{
-  _lastSaveTime=Date.now();
-  // Delete parent first: database FK policy controls atomic cascading; RESTRICT fails safely.
-  await gcCheck(sb.from('grade_components').delete().eq('id',id));
-  db.gradeComponents[subid]=db.gradeComponents[subid].filter(c=>c.id!==id);delete db.gradeComponentScores[id];
-  gcCache();renderScAll();openManageGradeComponents(cid,subid);showToast('ลบช่องคะแนนแล้ว');
- }catch(e){gcError(e);}finally{gcBusy=false;}
-}
-const gcPending=new Set();
-async function saveGradeComponentScore(cid,subid,id,sid,value,max){
- const key=id+':'+sid;if(gcPending.has(key)){renderScAll();return;}
- const blank=String(value).trim()==='',n=Number(value);
- if(!blank&&(!Number.isFinite(n)||n<0||n>max)){alert('กรอกคะแนนระหว่าง 0 ถึง '+max);renderScAll();return;}
- gcPending.add(key);
- try{
-  _lastSaveTime=Date.now();
-  if(blank)await gcCheck(sb.from('grade_component_scores').delete().eq('component_id',id).eq('student_id',sid));
-  else await gcCheck(sb.from('grade_component_scores').upsert({component_id:id,student_id:sid,value:Math.round(n)},{onConflict:'component_id,student_id'}));
-  db.gradeComponentScores??={};db.gradeComponentScores[id]??={};
-  if(blank)delete db.gradeComponentScores[id][sid];else db.gradeComponentScores[id][sid]=Math.round(n);
-  gcCache();
- }catch(e){gcError(e);}finally{gcPending.delete(key);renderScAll();}
-}
-async function gcSaveOverride(subid,sid,field,value){
- const key=subid+':'+sid;if(gcPending.has(key)){renderScAll();return;}gcPending.add(key);
- const next={...gradeOverride(subid,sid),[field]:value};
- try{
-  _lastSaveTime=Date.now();
-  await gcCheck(sb.from('grade_overrides').upsert({subject_id:subid,student_id:sid,grade_override:next.gradeOverride||null,note:next.note||''},{onConflict:'subject_id,student_id'}));
-  db.gradeOverrides??={};db.gradeOverrides[subid]??={};db.gradeOverrides[subid][sid]=next;gcCache();
- }catch(e){gcError(e);}finally{gcPending.delete(key);renderScAll();}
-}
-function saveGradeOverrideValue(subid,sid,value){return gcSaveOverride(subid,sid,'gradeOverride',value);}
-function saveGradeNoteValue(subid,sid,value){return gcSaveOverride(subid,sid,'note',value);}
 
 </script>
 </body>

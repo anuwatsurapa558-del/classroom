@@ -6,8 +6,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ClassRoom นักเรียน">
-<meta name="theme-color" content="#0D9488">
-<title>ระบบดูคะแนนและเวลาเรียน (นักเรียน)</title>
+<meta name="theme-color" content="#F0F7FF">
+<title>Class Room • นักเรียน</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -477,6 +477,47 @@ tr:nth-child(even) td{background:#FDFCFD;}
 }
 
 </style>
+<link rel="manifest" href="student-manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="classroom_student_192.png">
+<link rel="apple-touch-icon" href="classroom_student_180.png">
+<meta name="description" content="Class Room ระบบชั้นเรียนสำหรับนักเรียน">
+
+<style id="classroom-v16-student-theme">
+/* Class Room v16 — student visual layer only */
+:root{
+ --bg:#F7F9FF;--sf:#FFFFFF;--s2:#F5F4FB;--s3:#ECEAF5;--bd:#E9E8F1;--bmd:#D9D6E6;
+ --tx:#34394F;--mu:#7C829A;--hn:#B0B4C5;--tl:#4FAE9C;--tll:#E9F9F4;--tld:#3D9E8D;
+ --gn:#2EAE72;--gnl:#E8F9F0;--rd:#E85E68;--rdl:#FFF0F2;--am:#D9933D;--aml:#FFF6E8;
+ --bl:#546BE0;--bll:#EEF2FF;--pu:#8A71E8;--pul:#F1EDFF;--r:16px;--rl:22px;
+ --sh:0 13px 34px rgba(73,77,125,.08),0 2px 8px rgba(73,77,125,.04)
+}
+body{background:radial-gradient(circle at 4% 4%,rgba(223,228,255,.75),transparent 28%),radial-gradient(circle at 96% 8%,rgba(224,252,244,.70),transparent 27%),linear-gradient(180deg,#FCFCFF,#F6F8FE);color:var(--tx)}
+.header{margin:14px auto 0;max-width:1120px;width:calc(100% - 28px);border-radius:25px;background:rgba(255,255,255,.92);color:var(--tx);border:1px solid #EAE8F3;box-shadow:0 15px 36px rgba(70,74,120,.10);backdrop-filter:blur(18px);overflow:hidden;position:sticky;top:8px}
+.header-inner{padding:12px 16px}.header h1{font-size:17px;color:#333A55;font-weight:800}.header p{color:#9498AB;opacity:1;font-size:10.5px}
+#hdrLogo{width:48px;height:48px;border-radius:16px;background:linear-gradient(145deg,#E9FFF7,#EEF2FF);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(74,103,170,.12);overflow:hidden;flex:0 0 48px}
+#hdrLogo>i{font-size:23px!important;color:#4FAE9C!important}#hdrLogo img{width:48px!important;height:48px!important;border-radius:16px!important;border:0!important}
+.header-right #termSwitchBtn{border:1px solid #E1DEED!important;background:#F7F5FC!important;color:#666C83!important;border-radius:13px!important;padding:7px 10px!important}
+.sync-dot{background:#D9DCE7}.sync-dot.ok{background:#43C888;box-shadow:0 0 0 4px #EAF9F1}
+.nav-tabs{background:#F7F6FC;display:flex;padding:6px 8px;justify-content:center;gap:5px;border-top:1px solid #F0EEF5}
+.nav-tab{color:#7D8298;border:0;border-radius:13px;padding:9px 11px;font-size:11.5px;font-weight:700;gap:6px;transition:.16s}.nav-tab i{font-size:17px}
+.nav-tab.active{background:#fff;color:#5364C8;border:0;box-shadow:0 5px 15px rgba(75,76,120,.09)}
+.content{max-width:1040px;padding:20px 16px 90px}
+.card{border:1px solid #EBE9F3;border-radius:22px;box-shadow:var(--sh);background:rgba(255,255,255,.97)}.card-hd{padding:15px 17px;border-bottom-color:#F0EEF5}.card-hd-title{font-size:13.5px;color:#4B516B;font-weight:800}.card-bd{padding:15px 17px}
+.profile-card{background:linear-gradient(135deg,#EEF3FF 0%,#F2F0FF 50%,#EAFBF6 100%);color:#343A55;border:1px solid #E7E7F3;border-radius:25px;padding:22px;box-shadow:0 16px 38px rgba(75,79,130,.10);position:relative;overflow:hidden}
+.profile-card:after{content:'';position:absolute;width:150px;height:150px;border-radius:50%;right:-48px;top:-58px;background:linear-gradient(135deg,rgba(122,108,232,.15),rgba(73,192,169,.10))}.profile-name{font-size:21px;color:#35405E}.profile-info{color:#7C829A;opacity:1}.profile-card .btn{background:rgba(255,255,255,.80)!important;color:#5B6179!important;border:1px solid #E4E2EE!important;position:relative;z-index:1}
+.sg{gap:11px}.sc{border:1px solid #ECEAF4;border-radius:20px;padding:14px 12px;box-shadow:0 10px 24px rgba(76,80,126,.06);position:relative;overflow:hidden}.sc:after{content:'';position:absolute;width:58px;height:58px;right:-18px;top:-18px;border-radius:20px;background:#F1F2FF;transform:rotate(18deg)}.sc:nth-child(2):after{background:#EAFBF5}.sc:nth-child(3):after{background:#FFF4E9}.sc:nth-child(4):after{background:#F5EEFF}.sl{font-size:9.5px;color:#989CAF}.sv{font-size:24px;position:relative;z-index:1;margin-top:5px}
+.btn{border-radius:13px;font-weight:700}.btn-tl{background:linear-gradient(135deg,#46B39F,#66C9B6);box-shadow:0 8px 18px rgba(56,167,147,.18)}.btn-outline{border-color:#D9D6E7;color:#66708A;background:#fff}
+.badge{border-radius:999px;padding:4px 9px}th{background:#F7F6FB;color:#858A9E;border-bottom-color:#EAE8F2}td{border-bottom-color:#F0EEF5}
+.login-box{border:1px solid #E9E7F2;border-radius:26px;box-shadow:0 22px 55px rgba(74,79,125,.12);background:rgba(255,255,255,.96);padding:30px 26px}.login-logo i{width:72px;height:72px;margin:0 auto;border-radius:24px;background:linear-gradient(145deg,#E9FFF7,#EEF2FF);display:flex;align-items:center;justify-content:center;color:#536AE0;font-size:32px;box-shadow:0 12px 28px rgba(84,103,190,.14)}.login-logo h2{font-size:22px;color:#343B57}.login-logo p{color:#9599AC}
+input[type=text],input[type=number],input[type=password],select,textarea{border-radius:14px!important;border-color:#DDD9E8!important;background:#FEFEFF!important;color:#454A61!important}input:focus,select:focus,textarea:focus{border-color:#7F77DF!important;box-shadow:0 0 0 3px rgba(125,113,223,.10)!important}
+.grade{min-width:44px;height:32px;border-radius:13px!important;display:inline-flex!important;align-items:center;justify-content:center;padding:0 9px!important}
+.mo{backdrop-filter:blur(8px)}.md{border-radius:25px!important;border:1px solid #ECE9F4!important;box-shadow:0 28px 80px rgba(52,52,85,.22)!important}
+@media(max-width:600px){
+ body{background:#F8F9FE}.header{width:100%;margin:0;border-radius:0;top:0;border-left:0;border-right:0;border-top:0}.header-inner{padding:10px 12px}#hdrLogo{width:42px;height:42px;flex-basis:42px;border-radius:14px}#hdrLogo img{width:42px!important;height:42px!important;border-radius:14px!important}.header h1{font-size:15px}.content{padding:13px 10px 92px}.profile-card{padding:18px;border-radius:22px}.profile-name{font-size:19px}
+ .nav-tabs{background:rgba(255,255,255,.95)!important;border-top:1px solid #E9E7F2!important;box-shadow:0 -12px 30px rgba(70,73,116,.10)!important;backdrop-filter:blur(18px);padding:5px 4px env(safe-area-inset-bottom)!important}.nav-tab{border-radius:13px!important;font-size:9px!important;color:#8A8EA1!important}.nav-tab i{font-size:18px!important}.nav-tab.active{background:#EEF2FF!important;color:#5366D3!important}
+}
+</style>
+
 </head>
 <body>
 
@@ -484,9 +525,9 @@ tr:nth-child(even) td{background:#FDFCFD;}
 <div class="header">
   <div class="header-inner">
     <div style="display:flex;align-items:center;gap:10px;min-width:0">
-      <span id="hdrLogo"><i class="ti ti-school"></i></span>
+      <span id="hdrLogo"><img src="classroom_student_192.png" alt="Class Room"></span>
       <div style="min-width:0">
-        <h1 id="hdrName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ClassRoom</h1>
+        <h1 id="hdrName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Class Room</h1>
         <p id="headerSub">ระบบสำหรับนักเรียน</p>
       </div>
     </div>
@@ -620,7 +661,7 @@ function updateHeaderSchool(){
   const sch=db.school||{};
   const nameEl=document.getElementById('hdrName');
   const logoEl=document.getElementById('hdrLogo');
-  if(nameEl)nameEl.textContent=sch.name||'ClassRoom';
+  if(nameEl)nameEl.textContent=sch.name||'Class Room';
   if(logoEl)logoEl.innerHTML=sch.logo
     ?`<img src="${sch.logo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.4)">`
     :'<i class="ti ti-school"></i>';
