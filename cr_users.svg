@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="users">
+<svg shape-rendering="geometricPrecision" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="users">
       <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e8e5ff"/><stop offset="1" stop-color="#b2a1ef"/></linearGradient>
-      <filter id="s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#6d55ca" flood-opacity=".2"/></filter></defs>
+      </defs>
       <rect x="3" y="3" width="58" height="58" rx="18" fill="url(#g)" stroke="#fff" stroke-width="2"/>
       <path d="M13 14Q32 6 50 16" fill="none" stroke="#fff" opacity=".5" stroke-width="2.5" stroke-linecap="round"/>
-      <g filter="url(#s)"><circle cx="32" cy="25" r="7" fill="#fff" stroke="#6b53cc" stroke-width="3"/><path d="M19 48c0-8 6-13 13-13s13 5 13 13" fill="#c4b7ff" stroke="#6b53cc" stroke-width="3" stroke-linecap="round"/><circle cx="15" cy="29" r="5" fill="#c4f0ea" stroke="#5c92bf" stroke-width="2"/><path d="M8 47c0-6 4-10 9-10" stroke="#5c92bf" stroke-width="3" fill="none"/><circle cx="49" cy="29" r="5" fill="#ffdfca" stroke="#d99b9e" stroke-width="2"/><path d="M56 47c0-6-4-10-9-10" stroke="#d99b9e" stroke-width="3" fill="none"/></g></svg>
+      <g><circle cx="32" cy="25" r="7" fill="#fff" stroke="#6b53cc" stroke-width="3"/><path d="M19 48c0-8 6-13 13-13s13 5 13 13" fill="#c4b7ff" stroke="#6b53cc" stroke-width="3" stroke-linecap="round"/><circle cx="15" cy="29" r="5" fill="#c4f0ea" stroke="#5c92bf" stroke-width="2"/><path d="M8 47c0-6 4-10 9-10" stroke="#5c92bf" stroke-width="3" fill="none"/><circle cx="49" cy="29" r="5" fill="#ffdfca" stroke="#d99b9e" stroke-width="2"/><path d="M56 47c0-6-4-10-9-10" stroke="#d99b9e" stroke-width="3" fill="none"/></g></svg>
