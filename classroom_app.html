@@ -992,6 +992,81 @@ body{background:linear-gradient(130deg,#f6faff,#f6f2ff 65%,#f1f9ff);color:var(--
  #db-content .cr-welcome h2{font-size:18px;line-height:1.25}
 }
 </style>
+
+<style id="classroom-v17-3-sticky-grade-and-brand">
+/* Only the teacher Grade workspace table; preserve other score and attendance tables. */
+.score-overview-wrap:has(.cr-fixed-overview){
+  max-width:100%!important;width:100%!important;overflow-x:auto!important;overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;position:relative;
+  border-radius:0 0 16px 16px;
+}
+.cr-fixed-overview{
+  --cr-no-width:46px;--cr-name-width:204px;--cr-score-width:112px;
+  --cr-grade-width:122px;--cr-note-width:162px;
+  box-sizing:border-box!important;
+  table-layout:fixed!important;border-collapse:separate!important;border-spacing:0!important;
+  width:max(100%,var(--cr-desktop-min))!important;min-width:var(--cr-desktop-min)!important;
+  margin:0!important;
+}
+.cr-fixed-overview col.cr-grade-col-no{width:var(--cr-no-width)!important;}
+.cr-fixed-overview col.cr-grade-col-name{width:var(--cr-name-width)!important;}
+.cr-fixed-overview col.cr-grade-col-score{width:var(--cr-score-width)!important;}
+.cr-fixed-overview col.cr-grade-col-grade{width:var(--cr-grade-width)!important;}
+.cr-fixed-overview col.cr-grade-col-note{width:var(--cr-note-width)!important;}
+.cr-fixed-overview thead th,.cr-fixed-overview tbody td{
+  box-sizing:border-box!important;min-width:0!important;max-width:none!important;
+  padding:8px 6px!important;border:0!important;border-right:1px solid #e7e5f1!important;
+  border-bottom:1px solid #e7e5f1!important;text-align:center;vertical-align:middle;
+  position:relative;overflow:hidden;
+}
+.cr-fixed-overview thead th{height:78px;line-height:1.28!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;font-size:11.5px!important;}
+.cr-fixed-overview tbody td{height:54px;white-space:normal!important;font-size:12px!important;}
+/* Two frozen columns: both TH and TD use identical widths and left offsets. */
+.cr-fixed-overview thead th.fc1,.cr-fixed-overview tbody td.fc1{
+  position:sticky!important;left:0!important;z-index:8!important;
+  width:var(--cr-no-width)!important;min-width:var(--cr-no-width)!important;max-width:var(--cr-no-width)!important;
+  box-shadow:none!important;white-space:nowrap!important;text-align:center!important;
+  background:#f4f4ff!important;
+}
+.cr-fixed-overview thead th.fc2,.cr-fixed-overview tbody td.fc2{
+  position:sticky!important;left:var(--cr-no-width)!important;z-index:8!important;
+  width:var(--cr-name-width)!important;min-width:var(--cr-name-width)!important;max-width:var(--cr-name-width)!important;
+  box-shadow:3px 0 8px -5px rgba(56,54,90,.32)!important;
+  background:#fff!important;text-align:left!important;
+}
+.cr-fixed-overview thead th.fc1,.cr-fixed-overview thead th.fc2{z-index:12!important;background:#f3f2fb!important;font-weight:800!important;}
+.cr-fixed-overview tbody tr:nth-child(even) td.fc1{background:#f7f7ff!important;}
+.cr-fixed-overview tbody tr:nth-child(even) td.fc2{background:#fefcff!important;}
+.cr-fixed-overview .ov-name{white-space:normal!important;word-break:normal!important;overflow-wrap:anywhere!important;line-height:1.35!important;padding:8px 9px!important;}
+.cr-fixed-overview .sc-inp{max-width:calc(100% - 8px)!important;min-width:0!important;width:100%!important;box-sizing:border-box!important;margin:auto!important;}
+.cr-fixed-overview select{max-width:calc(100% - 5px)!important;min-width:0!important;width:100%!important;box-sizing:border-box!important;}
+/* Brand: separate the label so it can disappear without text spilling beyond the icon. */
+.classroom-brand-chip{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;max-width:150px!important;min-width:0!important;overflow:hidden!important;flex-shrink:0!important;}
+.classroom-brand-chip .cr-brand-label{white-space:nowrap;line-height:1.1;display:inline-block;overflow:hidden;}
+.classroom-brand-chip img{flex:0 0 26px!important;width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;object-fit:contain!important;}
+@media (min-width:768px) and (max-width:1180px){
+  .cr-fixed-overview{--cr-no-width:44px;--cr-name-width:170px;--cr-score-width:108px;--cr-grade-width:120px;--cr-note-width:158px;
+    width:var(--cr-tablet-min)!important;min-width:var(--cr-tablet-min)!important;}
+}
+@media(max-width:767px){
+  .cr-fixed-overview{--cr-no-width:42px;--cr-name-width:148px;--cr-score-width:96px;--cr-grade-width:112px;--cr-note-width:148px;
+    width:var(--cr-mobile-min)!important;min-width:var(--cr-mobile-min)!important;}
+  .cr-fixed-overview thead th{height:84px!important;font-size:11px!important;padding:7px 5px!important;}
+  .cr-fixed-overview tbody td{height:55px!important;padding:5px 4px!important;font-size:11.5px!important;}
+  .cr-fixed-overview thead th.fc1,.cr-fixed-overview tbody td.fc1{width:var(--cr-no-width)!important;min-width:var(--cr-no-width)!important;max-width:var(--cr-no-width)!important;}
+  .cr-fixed-overview thead th.fc2,.cr-fixed-overview tbody td.fc2{left:var(--cr-no-width)!important;width:var(--cr-name-width)!important;min-width:var(--cr-name-width)!important;max-width:var(--cr-name-width)!important;}
+  .cr-fixed-overview .ov-name{font-size:11.5px!important;padding:6px 7px!important;}
+  .cr-fixed-overview .sc-inp{max-width:100%!important;width:82px!important;min-width:0!important;padding:5px 3px!important;}
+  .cr-fixed-overview select{max-width:100%!important;width:100%!important;min-width:0!important;font-size:10px!important;}
+  .topbar .classroom-brand-chip{flex:0 0 40px!important;width:40px!important;max-width:40px!important;min-width:40px!important;
+    height:40px!important;min-height:40px!important;max-height:40px!important;
+    padding:5px!important;border-radius:13px!important;font-size:0!important;}
+  .topbar .classroom-brand-chip .cr-brand-label{display:none!important;}
+  .topbar .classroom-brand-chip img{width:29px!important;height:29px!important;min-width:29px!important;min-height:29px!important;max-width:29px!important;max-height:29px!important;flex:0 0 29px!important;}
+  .topbar-left{min-width:0!important;flex:1 1 0%!important;}
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -1033,7 +1108,7 @@ body{background:linear-gradient(130deg,#f6faff,#f6f2ff 65%,#f1f9ff);color:var(--
       <div class="topbar-title" id="ttitle">แดชบอร์ด</div>
       <div class="topbar-sub" id="tsub">ภาพรวมทุกห้องเรียน</div>
     </div>
-    <div class="classroom-brand-chip" style="display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:14px;background:linear-gradient(135deg,#F2F4FF,#F2EEFF);border:1px solid #E7E4F5;color:#5660A8;font-size:11px;font-weight:800"><img src="cr_logo.svg" alt=""> Class Room</div><div id="sync-status"></div>
+    <div class="classroom-brand-chip" aria-label="Class Room" title="Class Room" style="display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:14px;background:linear-gradient(135deg,#F2F4FF,#F2EEFF);border:1px solid #E7E4F5;color:#5660A8;font-size:11px;font-weight:800"><img src="cr_logo.svg" alt="" aria-hidden="true"><span class="cr-brand-label">Class Room</span></div><div id="sync-status"></div>
   </div>
 
   <div class="page active" id="page-dashboard"><div id="db-content"></div></div>
@@ -10077,9 +10152,13 @@ function renderScAll(){
   const el=document.getElementById('sc-all'),cs=needCS('scores');if(!cs){el.innerHTML=noData('book','เลือกห้องและวิชาด้านบน');return;}const{cid,subid}=cs,sub=getSub(cid,subid),stus=stuList(cid),asgs=asgList(cid,subid).filter(a=>a.type!=='track'),sep=asgs.filter(a=>a.gradeMode==='separate'),pool=asgs.filter(a=>a.gradeMode!=='separate'),comps=gradeComps(cid,subid),wA=sub.wAssign??70,wE=sub.wExam??30,res=reservedGradePoints(cid,subid),poolWeight=Math.max(0,wA-res);
   let html=`<div class="card cp mb14" style="background:linear-gradient(135deg,#F7F4FF,#F1FAFF);border:1px solid #E9E2F8;border-radius:20px;box-shadow:0 10px 28px rgba(148,132,195,.08)"><div class="f ic jb fw g8"><div><div style="font-size:16px;font-weight:800"><i class="ti ti-adjustments-horizontal"></i> ปรับคะแนนและตัดเกรด</div><div style="font-size:11.5px;color:var(--mu);margin-top:3px">งานรวม ${Math.round(poolWeight)} + งานสำคัญ ${Math.round(sep.reduce((s,a)=>s+(parseFloat(a.gradePoints??a.maxScore)||0),0))} + คะแนนอื่น ${Math.round(comps.reduce((s,c)=>s+c.maxScore,0))} = คะแนนเก็บ ${Math.round(wA)}</div></div><div class="f g8 fw"><button class="btn" onclick="openManageGradeComponents('${cid}','${subid}')"><i class="ti ti-columns-3"></i> จัดการช่องคะแนน</button><button class="btn btn-p" onclick="openAddGradeComponent('${cid}','${subid}')"><i class="ti ti-plus"></i> เพิ่มช่องคะแนน</button></div></div>${res>wA?'<div class="info-box" style="background:var(--rdl);color:var(--rd);margin-top:10px;margin-bottom:0">คะแนนที่จัดสรรเกินสัดส่วนคะแนนเก็บ กรุณาปรับงานแยกหรือช่องคะแนน</div>':''}</div>`;
   const scoreColCount=6+sep.length+comps.length;
-  const scoreColPct=64/scoreColCount;
-  const colGroup=`<colgroup><col style="width:3%"><col style="width:14%">${Array(scoreColCount).fill(`<col style="width:${scoreColPct}%">`).join('')}<col style="width:8%"><col style="width:11%"></colgroup>`;
-  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap"><table class="score-table score-overview-table">${colGroup}<thead><tr><th class="fc1">#</th><th class="fc2">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
+  // v17.3: One shared fixed-width colgroup for header and body. Do not rely on percentages
+  // or auto table-layout, which caused Safari mobile to shift the frozen columns.
+  const mobileWidth=42+148+scoreColCount*96+112+148;
+  const tabletWidth=44+170+scoreColCount*108+120+158;
+  const desktopWidth=46+204+scoreColCount*112+122+162;
+  const colGroup=`<colgroup><col class="cr-grade-col-no"><col class="cr-grade-col-name">${Array(scoreColCount).fill('<col class="cr-grade-col-score">').join('')}<col class="cr-grade-col-grade"><col class="cr-grade-col-note"></colgroup>`;
+  html+=`<div class="card" style="overflow:hidden"><div class="tw score-overview-wrap" tabindex="0" aria-label="ตารางปรับคะแนน เลื่อนในแนวนอนเพื่อดูคะแนน"><table class="score-table score-overview-table cr-fixed-overview" style="--cr-mobile-min:${mobileWidth}px;--cr-tablet-min:${tabletWidth}px;--cr-desktop-min:${desktopWidth}px">${colGroup}<thead><tr><th class="fc1" scope="col">#</th><th class="fc2" scope="col">ชื่อ-สกุล</th><th style="background:#DBEAFE">คะแนนงานรวม<br><small>/${Math.round(poolWeight)}</small></th>`;
   sep.forEach(a=>html+=`<th style="background:#EDE9FE" title="${(a.name||'').replace(/"/g,'&quot;')}">${a.name}<br><small>ดิบ /${Math.round(a.maxScore)} → ${Math.round(a.gradePoints??a.maxScore)} คะแนน</small></th>`);
   comps.forEach(c=>html+=`<th style="background:#CCFBF1" title="${(c.name||'').replace(/"/g,'&quot;')}">${c.name}<br><small>/${Math.round(c.maxScore)}</small></th>`);
   html+=`<th style="background:#DBEAFE">รวมเก็บ<br><small>/${Math.round(wA)}</small></th><th style="background:#FFF7D6">กลางภาค<br><small>/${Math.round(sub.midMax||0)}</small></th><th style="background:#FFF7D6">ปลายภาค<br><small>/${Math.round(sub.finalMax||0)}</small></th><th style="background:#FEF3C7">รวมสอบ<br><small>/${Math.round(wE)}</small></th><th style="background:#DCFCE7">รวม<br>/100</th><th style="background:#DCFCE7">เกรด</th><th style="background:#FEE2E2">หมายเหตุ</th></tr></thead><tbody>`;
