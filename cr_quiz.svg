@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="quiz">
-<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#fff2c2"/></linearGradient><linearGradient id="fill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2c2"/><stop offset=".5" stop-color="#f9c964"/><stop offset="1" stop-color="#db9430"/></linearGradient><filter id="shadow" x="-30%" y="-30%" width="170%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#db9430" flood-opacity=".28"/></filter></defs>
-<rect x="2.5" y="2.5" width="59" height="59" rx="17" fill="url(#bg)" stroke="#fff" stroke-width="2"/>
-<g filter="url(#shadow)"><rect x="12" y="9" width="42" height="48" rx="8" fill="url(#fill)" stroke="#db9430" stroke-width="2"/><path d="M20 23H41M20 33H40M20 43H33" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><path d="M35 44L41 50L51 37" fill="none" stroke="#db9430" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g><path d="M14 9Q18 5 28 5" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="quiz">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0d9"/><stop offset="1" stop-color="#f6c783"/></linearGradient>
+      <filter id="s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#e5963d" flood-opacity=".2"/></filter></defs>
+      <rect x="3" y="3" width="58" height="58" rx="18" fill="url(#g)" stroke="#fff" stroke-width="2"/>
+      <path d="M13 14Q32 6 50 16" fill="none" stroke="#fff" opacity=".5" stroke-width="2.5" stroke-linecap="round"/>
+      <g filter="url(#s)"><rect x="14" y="10" width="36" height="45" rx="6" fill="#fff" stroke="#e49d53" stroke-width="3"/><path d="M22 22h17M22 30h17M22 38h11" stroke="#c9bddf" stroke-width="3" stroke-linecap="round"/><path d="m38 40 4 3 7-7" stroke="#36bc9a" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M25 15h15" stroke="#ffd28f" stroke-width="2"/></g></svg>

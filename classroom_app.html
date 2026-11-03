@@ -789,7 +789,7 @@ tr:hover td{background:#FBFAFD;}
 
 </style>
 
-<link rel="icon" type="image/png" sizes="192x192" href="classroom_teacher_192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="cr_teacher_192.png">
 
 <meta name="description" content="Class Room ระบบจัดการชั้นเรียนสำหรับครู">
 
@@ -915,7 +915,47 @@ body{background:linear-gradient(130deg,#f6faff,#f6f2ff 65%,#f1f9ff);color:var(--
 @media(max-width:767px){.sidebar{border-radius:0!important;border:0!important}.cr-welcome{padding:18px 15px 16px 114px!important;min-height:197px;margin-bottom:12px}.cr-welcome .cr-avatar{left:-19px;width:142px;height:172px}.cr-welcome h2{font-size:19px}.cr-welcome p{font-size:11.5px}.cr-welcome-tag{display:none}.cr-eyebrow{font-size:8px}.cr-primary,.cr-secondary{padding:8px 9px;font-size:10.5px}.cr-welcome-actions{gap:5px;margin-top:10px}#db-content .cr-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#db-content .cr-kpis .sc-stat{padding:13px 10px 12px 48px;min-height:92px}#db-content .cr-kpis .sc-stat:before{width:33px;height:33px;left:9px;top:22px}#db-content .cr-kpis .sv{font-size:24px}.cr-subject-grid{grid-template-columns:1fr}.cr-nav-icon{width:23px!important;height:23px!important}.bottom-nav .bn-item{gap:2px}.bottom-nav{min-height:66px}}
 @media(max-width:375px){.cr-welcome{padding-left:95px!important}.cr-welcome .cr-avatar{width:126px;left:-24px}.cr-welcome h2{font-size:17px}}
 
-</style></head>
+</style><style id="classroom-v17-1-ui">
+/* v17.1 — visual balance & clear icons, no change to scoring logic */
+.school-card{padding:23px 18px!important;overflow:visible!important}
+.school-name-big{font-size:clamp(17px,2.4vw,27px);line-height:1.38;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:normal;max-width:min(100%,880px);margin:9px auto 10px;text-align:center}
+#sbSchoolName{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:normal;line-height:1.25;max-width:170px}
+.sb-logo-t{min-width:0;max-width:100%}
+.sb-logo-t>div{min-width:0;flex:1}
+.classroom-brand-chip{height:42px!important;min-height:42px!important;max-height:42px!important;padding:5px 10px!important;gap:7px!important;border-radius:15px!important;white-space:nowrap;font-size:11px!important;line-height:1!important;box-sizing:border-box}
+.classroom-brand-chip img{height:28px!important;width:28px!important;max-height:28px!important;max-width:28px!important;min-width:28px!important;min-height:28px!important;display:block!important;object-fit:contain!important;box-shadow:none!important;filter:none!important;flex:0 0 28px!important}
+.topbar{min-width:0;gap:10px}
+.topbar-left{min-width:0;flex:1}
+.cr-nav-icon{width:27px!important;height:27px!important;max-width:27px!important;max-height:27px!important;object-fit:contain!important;image-rendering:auto!important;filter:drop-shadow(0 2px 2px rgba(61,67,118,.09))}
+.ni .cr-nav-icon{width:28px!important;height:28px!important;max-width:28px!important;max-height:28px!important}
+#sbLogoImg img{width:46px!important;height:46px!important;object-fit:contain!important}
+.cr-subject-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.cr-subject-card{min-height:84px;padding:13px 14px;gap:10px;overflow:hidden}
+.cr-subject-card img{width:43px!important;height:43px!important;flex:0 0 43px;object-fit:contain}
+.cr-subject-card strong{white-space:normal;overflow-wrap:anywhere;line-height:1.35;font-size:13.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cr-subject-card span{line-height:1.35;white-space:normal;font-size:11px}
+.cr-sub-count{font-size:11px;color:#6b76b3;font-weight:700;padding:5px 9px;background:#edf0ff;border-radius:30px;margin-left:5px;white-space:nowrap}
+#db-content .cr-welcome{min-height:188px;padding-top:20px;padding-bottom:18px}
+#db-content .cr-welcome .cr-avatar{height:185px;width:176px}
+#db-content .cr-kpis{gap:10px;margin-bottom:14px}
+#db-content .cr-kpis .sc-stat{min-height:90px;padding-top:14px;padding-bottom:10px}
+#db-content .cr-kpis .sc-stat:before{top:16px;width:39px;height:39px}
+#db-content .cr-kpis .sv{font-size:27px;margin-top:3px}
+.cr-dash-shortcuts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 16px}
+.cr-dash-shortcuts button{display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font:inherit;font-size:12px;font-weight:700;background:#fff;color:#345090;border:1px solid #e3e9fb;border-radius:15px;padding:7px 10px;min-width:0;box-shadow:0 6px 16px rgba(74,90,167,.06);transition:transform .15s}
+.cr-dash-shortcuts button:hover{transform:translateY(-1px);border-color:#aabbed}
+.cr-dash-shortcuts img{width:32px;height:32px;object-fit:contain}
+.cr-tt-actions{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:5px}
+.cr-tt-actions button{display:inline-flex;gap:3px;align-items:center;justify-content:center;min-height:28px;min-width:28px;padding:3px 6px;border:1px solid #dce4fc;border-radius:7px;background:#fff;color:#3c5fc1;font:inherit;font-weight:700;font-size:10px;cursor:pointer}
+.cr-tt-actions button.danger{color:#c34255;background:#fff6f6;border-color:#f5ccd2}
+.cr-tt-actions button:hover{filter:brightness(.98)}
+.tt-grid .cr-tt-actions button{white-space:nowrap}
+.tt-grid td{vertical-align:top}
+@media(min-width:768px) and (max-width:1200px){.cr-subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cr-dash-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:767px){.classroom-brand-chip{height:36px!important;min-height:36px!important;max-height:36px!important;padding:4px 7px!important;gap:3px!important}.classroom-brand-chip img{height:26px!important;width:26px!important;min-height:26px!important;min-width:26px!important}.school-name-big{font-size:clamp(16px,4.6vw,22px)!important}.cr-subject-grid{grid-template-columns:1fr}.cr-dash-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.cr-dash-shortcuts button{font-size:10px;padding:6px 3px;gap:4px;flex-direction:column}.cr-dash-shortcuts img{width:30px;height:30px}#db-content .cr-welcome{min-height:182px}#db-content .cr-welcome .cr-avatar{width:136px;height:166px}.cr-sub-count{font-size:10px}.cr-tt-actions button{font-size:9px;padding:2px 4px;min-height:30px;min-width:30px}}
+@media(max-width:380px){.cr-dash-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}.cr-section-title{flex-wrap:wrap}}
+</style>
+</head>
 <body>
 <div class="app">
 
@@ -1819,12 +1859,19 @@ function updateSidebarLogo(){
   const nameEl=document.getElementById('sbSchoolName');
   const subEl=document.getElementById('sbSchoolSub');
   const imgEl=document.getElementById('sbLogoImg');
-  if(nameEl)nameEl.textContent=sch.name||'Class Room';
+  if(nameEl){
+    const nm=sch.name||'Class Room';
+    nameEl.textContent=nm;
+    nameEl.title=nm;
+    nameEl.style.fontSize=(nm.length>40?11:nm.length>24?12:15)+'px';
+    nameEl.style.whiteSpace='normal';
+    nameEl.style.overflowWrap='anywhere';
+  }
   if(subEl)subEl.textContent=sch.name?(sch.subdistrict||'ระบบครู'):'ระบบครู';
   if(imgEl){
     imgEl.innerHTML=sch.logo
       ?`<img src="${sch.logo}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.3)">`
-      :'<i class="ti ti-school"></i>';
+      :'<img src="cr_logo.svg" alt="Class Room" style="width:46px;height:46px;object-fit:contain">';
   }
 }
 function openQrCode(cid){
@@ -2330,11 +2377,13 @@ function renderSchool(){
   const terms=db.terms||[];
   const cur=curTerm();
   const logoHtml=sch.logo?`<img src="${sch.logo}" alt="ตราโรงเรียน">`:`<i class="ti ti-building-bank"></i>`;
+  const schoolName=sch.name||'ชื่อโรงเรียน (กดแก้ไข)';
+  const schoolFont=schoolName.length>48?17:schoolName.length>34?20:schoolName.length>24?23:27;
   let html=`
   <div class="school-card">
     <div class="school-logo-area" onclick="document.getElementById('logoInput').click()" title="คลิกเปลี่ยนตราโรงเรียน">${logoHtml}</div>
     <input type="file" id="logoInput" class="logo-input" accept="image/*" onchange="uploadLogo(this)">
-    <div class="school-name-big">${sch.name||'ชื่อโรงเรียน (กดแก้ไข)'}</div>
+    <div class="school-name-big" title="${_escT(schoolName)}" style="font-size:${schoolFont}px">${_escT(schoolName)}</div>
     <div class="school-sub-txt">${sch.subdistrict||'สังกัด...'}</div>
     <div class="school-sub-txt">${[sch.district,sch.province].filter(Boolean).join(' ')}</div>
     <div style="margin-top:12px"><button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3)" onclick="openEditSchool()"><i class="ti ti-edit"></i> แก้ไขข้อมูล</button></div>
@@ -2980,7 +3029,7 @@ function renderTimetable(){
           cell+=`<div style="background:${isAct?'#FEF3C7':'var(--tll)'};border-left:3px solid ${isAct?'#F59E0B':'var(--tl)'};padding:5px 6px;border-radius:5px;margin-bottom:2px;position:relative">
             <div style="font-weight:700;font-size:11.5px;color:var(--tld);padding-right:16px">${isAct?'★ ':''}${name}</div>
             ${item.note?`<div style="font-size:10px;color:var(--mu);margin-top:1px">${item.note}</div>`:''}
-            <button class="btn btn-xs" style="position:absolute;top:1px;right:1px;padding:0 3px;font-size:9px;color:var(--rd);border-color:var(--rd)" onclick="delPeriod('${cid}','${item.id}')" title="ลบ"><i class="ti ti-x"></i></button>
+            <div class="cr-tt-actions"><button type="button" onclick="openEditTimetableEntry('${cid}','${item.id}')" title="แก้ไขคาบ"><i class="ti ti-pencil"></i></button><button type="button" class="danger" onclick="delPeriod('${cid}','${item.id}')" title="ลบคาบ"><i class="ti ti-trash"></i></button></div>
           </div>`;
         });
         html+=`<td style="padding:3px;border-radius:6px;vertical-align:top;background:#fafafa">${cell}</td>`;
@@ -3008,7 +3057,7 @@ function renderTimetable(){
         <td>${t.start} - ${t.end}</td>
         <td><b>${name}</b>${tag}</td>
         <td style="color:var(--mu);font-size:12px">${t.note||'—'}</td>
-        <td><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delPeriod('${cid}','${t.id}')"><i class="ti ti-trash"></i></button></td>
+        <td><div class="f g8"><button class="btn btn-xs" onclick="openEditTimetableEntry('${cid}','${t.id}')" title="แก้ไข"><i class="ti ti-pencil"></i></button><button class="btn btn-xs" style="color:var(--rd);border-color:var(--rd)" onclick="delPeriod('${cid}','${t.id}')" title="ลบ"><i class="ti ti-trash"></i></button></div></td>
       </tr>`;
     });
     html+=`</tbody></table></div></div>`;
@@ -3028,7 +3077,7 @@ function renderTimetableAllRooms(){
     const subs=subList(c2.id);
     tt.forEach(t=>{
       const name=t.isActivity?t.activityName:(subs.find(s=>s.id===t.subId)?.name||'—');
-      all.push({clsId:c2.id,clsName:c2.name,day:t.day,start:t.start,end:t.end,name,note:t.note||'',isActivity:t.isActivity});
+      all.push({id:t.id,clsId:c2.id,clsName:c2.name,day:t.day,start:t.start,end:t.end,name,note:t.note||'',isActivity:t.isActivity});
     });
   });
 
@@ -3047,8 +3096,9 @@ function renderTimetableAllRooms(){
         <span style="font-size:12px;color:var(--mu);margin-left:8px">${cls.length} ห้อง · ${all.length} คาบ</span>
       </div>
       <div class="f g8">
-        <button class="btn btn-p btn-sm" onclick="openAddPeriod()"><i class="ti ti-plus"></i>เพิ่มคาบ</button>
-        <button class="btn btn-sm" onclick="printTimetableAll()"><i class="ti ti-printer"></i>พิมพ์</button>
+        <button class="btn btn-p btn-sm" onclick="openAddPeriod()"><i class="ti ti-plus"></i> เพิ่มคาบ</button>
+        <button class="btn btn-sm" onclick="openManageTimetableAll()"><i class="ti ti-edit"></i> แก้ไขภาพรวม</button>
+        <button class="btn btn-sm" onclick="printTimetableAll()"><i class="ti ti-printer"></i> พิมพ์</button>
       </div>
     </div>
   </div>`;
@@ -3096,7 +3146,8 @@ function renderTimetableAllRooms(){
           cell+=`<div style="background:${clsColorMap[item.clsId]};padding:3px 5px;border-radius:4px;margin-bottom:2px;font-size:10.5px;line-height:1.25;${isAct?'border-left:3px solid #F59E0B':''}">
             <div style="font-weight:700;color:#1a1a1a">${item.clsName}</div>
             <div style="color:#333;font-size:10px">${isAct?'★ ':''}${item.name}</div>
-            ${item.note?`<div style="font-size:9px;color:#666">${item.note}</div>`:''}
+            ${item.note?`<div style="font-size:9px;color:#666">${_escT(item.note)}</div>`:''}
+            <div class="cr-tt-actions"><button type="button" onclick="openEditTimetableEntry('${item.clsId}','${item.id}')" title="แก้ไขคาบ"><i class="ti ti-pencil"></i> แก้ไข</button><button type="button" class="danger" onclick="delPeriod('${item.clsId}','${item.id}')" title="ลบเฉพาะคาบนี้"><i class="ti ti-trash"></i></button></div>
           </div>`;
         });
         html+=`<td style="padding:3px;border-radius:6px;vertical-align:top;background:#fafafa">${cell}</td>`;
@@ -3108,7 +3159,7 @@ function renderTimetableAllRooms(){
   }
   html+=`</tbody></table>
     <div style="margin-top:14px;font-size:12px;color:var(--mu);text-align:center">
-      <i class="ti ti-info-circle"></i> แถบสีอ่อน = กิจกรรมประจำ (โฮมรูม/พักเที่ยง/บำเพ็ญประโยชน์) · ★ = กิจกรรมพิเศษ · กด "รายห้อง" เพื่อแก้ไข
+      <i class="ti ti-info-circle"></i> แถบสีอ่อน = กิจกรรมประจำ · ★ = กิจกรรมพิเศษ · กด “แก้ไข” หรือถังขยะใต้คาบที่ต้องการได้โดยตรง
     </div>
   </div></div>`;
   return html;
@@ -3389,6 +3440,7 @@ function submitAddPeriod(){
     const match=subs.find(s=>s.id===subId)||subs.find(s=>s.name===subName);
     if(match){
       const tt=ttGet(clsId);
+      if(tt.some(t=>+t.day===day&&t.start===start&&t.end===end&&t.subId===match.id)){skipped++;return;}
       tt.push({id:uid(),day,start,end,subId:match.id,note});
       ttSet(clsId,tt);
       added++;
@@ -3398,6 +3450,81 @@ function submitAddPeriod(){
   });
   save();closeMD();renderTimetable();
   showToast(`เพิ่มแล้ว ${added} ห้อง`+(skipped?` (ข้าม ${skipped})`:''));
+}
+
+
+/* Class Room v17.1: แก้ไขคาบจริงด้วย ID เดิม ไม่เปลี่ยนรายวิชา/คะแนน */
+function openManageTimetableAll(){
+  const rows=[];
+  termClasses().forEach(c=>{
+    ttGet(c.id).forEach(t=>{
+      const subject=t.isActivity?(t.activityName||'กิจกรรม'):(subList(c.id).find(s=>s.id===t.subId)?.name||'ไม่พบรายวิชา');
+      rows.push({c,t,subject});
+    });
+  });
+  rows.sort((a,b)=>a.t.day-b.t.day||a.t.start.localeCompare(b.t.start)||a.c.name.localeCompare(b.c.name,'th'));
+  let html=`<div class="mt"><i class="ti ti-calendar-stats"></i> จัดการตารางสอนทุกห้อง</div>
+    <p style="font-size:12px;color:var(--mu);margin-bottom:12px">เลือกแก้ไขหรือลบเฉพาะคาบที่ต้องการ ไม่ส่งผลต่อคะแนนหรือรายวิชาเดิม</p>`;
+  if(!rows.length)html+='<div class="empty">ยังไม่มีรายการคาบ</div>';
+  else{
+    html+=`<div class="tw" style="max-height:55vh;overflow:auto"><table><thead><tr><th>ห้อง</th><th>วัน/เวลา</th><th>วิชา/กิจกรรม</th><th>จัดการ</th></tr></thead><tbody>`;
+    rows.forEach(({c,t,subject})=>{
+      html+=`<tr><td>${_escT(c.name)}</td><td style="white-space:nowrap">${DAYS_TH[t.day]}<br><small>${t.start}-${t.end}</small></td><td>${_escT(subject)}</td><td><div class="f g8"><button class="btn btn-xs" onclick="openEditTimetableEntry('${c.id}','${t.id}')" title="แก้ไข"><i class="ti ti-pencil"></i></button><button class="btn btn-xs" style="color:var(--rd)" onclick="delPeriod('${c.id}','${t.id}')" title="ลบ"><i class="ti ti-trash"></i></button></div></td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+  html+=`<div class="f g8" style="justify-content:flex-end;margin-top:12px"><button class="btn" onclick="closeMD()">ปิด</button><button class="btn btn-p" onclick="closeMD();openAddPeriod()"><i class="ti ti-plus"></i>เพิ่มคาบ</button></div>`;
+  showMD(html);
+}
+
+function toggleTimetableEntryKind(){
+  const activity=document.getElementById('ttEditKind')?.value==='act';
+  const subject=document.getElementById('ttEditSubjectWrap');
+  const actName=document.getElementById('ttEditActivityWrap');
+  if(subject)subject.style.display=activity?'none':'block';
+  if(actName)actName.style.display=activity?'block':'none';
+}
+
+function openEditTimetableEntry(cid,pid){
+  const cls=getCls(cid), item=ttGet(cid).find(t=>t.id===pid);
+  if(!cls||!item){showToast('ไม่พบคาบเรียน');return;}
+  const dayOptions=DAYS_TH.slice(0,5).map((d,i)=>`<option value="${i}" ${+item.day===i?'selected':''}>${d}</option>`).join('');
+  const subjectOptions=subList(cid).map(s=>`<option value="${_escT(s.id)}" ${s.id===item.subId?'selected':''}>${_escT(s.name)}${s.code?' ('+_escT(s.code)+')':''}</option>`).join('');
+  showMD(`<div class="mt"><i class="ti ti-pencil"></i> แก้ไขคาบ — ${_escT(cls.name)}</div>
+    <div class="fg"><label class="fl">ประเภท</label><select id="ttEditKind" onchange="toggleTimetableEntryKind()"><option value="sub" ${!item.isActivity?'selected':''}>รายวิชา</option><option value="act" ${item.isActivity?'selected':''}>กิจกรรม</option></select></div>
+    <div class="fg" id="ttEditSubjectWrap" style="display:${item.isActivity?'none':'block'}"><label class="fl">รายวิชา</label><select id="ttEditSub">${subjectOptions}</select></div>
+    <div class="fg" id="ttEditActivityWrap" style="display:${item.isActivity?'block':'none'}"><label class="fl">ชื่อกิจกรรม</label><input id="ttEditAct" type="text" value="${_escT(item.activityName||'')}"></div>
+    <div class="fg"><label class="fl">วัน</label><select id="ttEditDay">${dayOptions}</select></div>
+    <div class="g2"><div class="fg"><label class="fl">เวลาเริ่ม</label><input id="ttEditStart" type="time" value="${_escT(item.start)}"></div><div class="fg"><label class="fl">เวลาสิ้นสุด</label><input id="ttEditEnd" type="time" value="${_escT(item.end)}"></div></div>
+    <div class="fg"><label class="fl">หมายเหตุ (ถ้ามี)</label><input id="ttEditNote" type="text" value="${_escT(item.note||'')}"></div>
+    <div class="f g8" style="justify-content:flex-end;flex-wrap:wrap"><button class="btn" onclick="closeMD();openManageTimetableAll()">กลับไปภาพรวม</button><button class="btn btn-p" onclick="saveTimetableEntry('${cid}','${pid}')"><i class="ti ti-check"></i> บันทึกคาบ</button></div>`);
+}
+
+async function saveTimetableEntry(cid,pid){
+  const old=ttGet(cid).find(t=>t.id===pid);
+  if(!old){showToast('ไม่พบคาบนี้');return;}
+  const day=Number(document.getElementById('ttEditDay')?.value);
+  const start=document.getElementById('ttEditStart')?.value||'';
+  const end=document.getElementById('ttEditEnd')?.value||'';
+  const note=document.getElementById('ttEditNote')?.value.trim()||'';
+  const isActivity=document.getElementById('ttEditKind')?.value==='act';
+  const subId=isActivity?null:document.getElementById('ttEditSub')?.value;
+  const activityName=isActivity?(document.getElementById('ttEditAct')?.value||'').trim():'';
+  if(!Number.isInteger(day)||day<0||day>4||!start||!end||start>=end){showToast('กรุณาตรวจวันและเวลาเริ่ม/สิ้นสุด');return;}
+  if(isActivity&&!activityName){showToast('กรุณากรอกชื่อกิจกรรม');return;}
+  if(!isActivity&&(!subId||!subList(cid).some(s=>s.id===subId))){showToast('กรุณาเลือกรายวิชาของห้องนี้');return;}
+  const conflict=ttGet(cid).find(t=>t.id!==pid&&+t.day===day&&t.start===start&&t.end===end);
+  if(conflict){showToast('วันและเวลานี้มีคาบอื่นในห้องแล้ว กรุณาตรวจสอบ');return;}
+  const upd={class_id:cid,subject_id:subId||null,day,start_time:start,end_time:end,note,is_activity:isActivity,activity_name:activityName};
+  try{
+    // อัปเดตแถวเดิมของ Supabase โดยไม่ INSERT คาบใหม่
+    const {data,error}=await sb.from('timetable').update(upd).eq('id',pid).eq('class_id',cid).select('id');
+    if(error)throw error;
+    if(!data||!data.length)throw new Error('ไม่พบรายการคาบในฐานข้อมูล กรุณาโหลดหน้าใหม่');
+    const edited={...old,day,start,end,note,isActivity,activityName,subId:subId||null};
+    ttSet(cid,ttGet(cid).map(t=>t.id===pid?edited:t));
+    save();closeMD();renderTimetable();showToast('บันทึกคาบเดิมแล้ว ✓');
+  }catch(e){console.error(e);alert('แก้ไขคาบไม่สำเร็จ: '+(e.message||e));}
 }
 
 // ── จัดการคาบเวลามาตรฐาน ──
@@ -3487,17 +3614,31 @@ function delStdPeriod(idx){
   save();openManagePeriods();
 }
 
-function delPeriod(cid,pid){
-  if(!confirm('ลบคาบนี้?'))return;
-  ttSet(cid,ttGet(cid).filter(t=>t.id!==pid));
-  save();renderTimetable();
+async function delPeriod(cid,pid){
+  const entry=ttGet(cid).find(t=>t.id===pid);
+  if(!entry){showToast('ไม่พบคาบนี้');return;}
+  const cls=getCls(cid);
+  const subject=(subList(cid).find(s=>s.id===entry.subId)||{}).name||entry.activityName||'คาบเรียน';
+  if(!confirm(`ลบคาบ “${subject}” ของ ${cls?.name||'ห้องนี้'}\n${DAYS_TH[entry.day]} ${entry.start}-${entry.end}?\n\nจะลบเฉพาะคาบนี้ ไม่ลบวิชา คะแนน หรือข้อมูลนักเรียน`))return;
+  try{
+    const {data,error}=await sb.from('timetable').delete().eq('id',pid).eq('class_id',cid).select('id');
+    if(error)throw error;
+    if(!data||!data.some(x=>x.id===pid))throw new Error('ไม่สามารถยืนยันการลบคาบในฐานข้อมูลได้ กรุณาตรวจสิทธิ์ Supabase');
+    ttSet(cid,ttGet(cid).filter(t=>t.id!==pid));
+    save();closeMD();renderTimetable();
+    showToast('ลบเฉพาะคาบที่เลือกแล้ว ✓');
+  }catch(e){console.error(e);alert('ลบคาบไม่สำเร็จ: '+(e.message||e));}
 }
 
-function clearTimetable(cid){
-  if(!confirm('ล้างตารางสอนทั้งหมดของห้องนี้?\nการกระทำนี้ย้อนกลับไม่ได้'))return;
-  ttSet(cid,[]);
-  save();renderTimetable();
-  showToast('ล้างตารางสอนแล้ว');
+async function clearTimetable(cid){
+  if(!confirm('ล้างตารางสอนทั้งหมดของห้องนี้?\nไม่ลบข้อมูลวิชาหรือคะแนน การกระทำนี้ย้อนกลับไม่ได้'))return;
+  try{
+    const {error}=await sb.from('timetable').delete().eq('class_id',cid);
+    if(error)throw error;
+    ttSet(cid,[]);
+    save();renderTimetable();
+    showToast('ล้างคาบในห้องนี้แล้ว');
+  }catch(e){console.error(e);alert('ล้างตารางไม่สำเร็จ: '+(e.message||e));}
 }
 
 function printTimetableAll(){
@@ -3640,6 +3781,13 @@ function printTimetable(cid){
   printTimetableClass(cid);
 }
 
+function openDashboardSubject(cid,subid){
+  // เลือกห้อง/วิชาให้ตรงก่อนเปิดเมนูคะแนน
+  P.scores.cls=cid;
+  P.scores.sub=subid;
+  gotoPage('scores');
+}
+
 function renderDash(){
   const el=document.getElementById('db-content');
   const curCls=termClasses();
@@ -3656,7 +3804,7 @@ function renderDash(){
     })));
   });
   const rate=allTot?Math.round((allMa+allSay)/allTot*100):0;
-  const featured=curCls.flatMap(c=>subList(c.id).map(sub=>({cls:c,sub}))).slice(0,3);
+  const featured=curCls.flatMap(c=>subList(c.id).map(sub=>({cls:c,sub})));
   let html=`<section class="cr-welcome cr-teacher-welcome">
       <img class="cr-avatar" src="cr_avatar_teacher.svg" alt="" aria-hidden="true">
       <div class="cr-welcome-copy"><span class="cr-eyebrow"><i class="ti ti-sparkles"></i> CLASS ROOM · TEACHER WORKSPACE</span>
@@ -3670,12 +3818,13 @@ function renderDash(){
     <div class="sc-stat"><div class="sl">นักเรียน</div><div class="sv" style="color:var(--gn)">${totalStu}</div></div>
     <div class="sc-stat"><div class="sl">มาเรียน</div><div class="sv" style="color:${rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)'}">${rate}%</div></div>
   </div>`;
+  html+=`<div class="cr-dash-shortcuts"><button onclick="gotoPage('attendance')"><img src="cr_attendance.svg" alt=""><span>เช็กชื่อ</span></button><button onclick="gotoPage('scores')"><img src="cr_scores.svg" alt=""><span>ปรับคะแนน</span></button><button onclick="gotoPage('timetable')"><img src="cr_calendar.svg" alt=""><span>ตารางสอน</span></button><button onclick="gotoPage('quiz')"><img src="cr_quiz.svg" alt=""><span>แบบทดสอบ</span></button><button onclick="gotoPage('announcements')"><img src="cr_announcement.svg" alt=""><span>ประกาศ</span></button></div>`;
   if(!curCls.length){html+=noData('school','ยังไม่มีห้องเรียนในภาคเรียนนี้','ไปที่เมนูข้อมูลพื้นฐาน เพื่อสร้างภาคเรียน');el.innerHTML=html;return;}
   if(featured.length){
-    html+=`<section class="cr-subject-section"><div class="cr-section-title"><div><h3><img src="cr_book.svg" alt=""> รายวิชาที่ดูแล</h3><p>เข้าถึงรายวิชาและงานประจำวันได้อย่างรวดเร็ว</p></div><button class="cr-plain" onclick="gotoPage('classroom')">ดูทั้งหมด <i class="ti ti-arrow-right"></i></button></div><div class="cr-subject-grid">`;
+    html+=`<section class="cr-subject-section"><div class="cr-section-title"><div><h3><img src="cr_book.svg" alt=""> รายวิชาที่ดูแล <span class="cr-sub-count">${featured.length} รายวิชา</span></h3><p>แสดงครบทุกห้องเรียนในภาคเรียนนี้ · แตะวิชาเพื่อไปหน้าบันทึกคะแนน</p></div><button class="cr-plain" onclick="gotoPage('classroom')">จัดการรายวิชา <i class="ti ti-arrow-right"></i></button></div><div class="cr-subject-grid">`;
     const pict=['cr_book.svg','cr_classroom.svg','cr_quiz.svg'];
     featured.forEach((it,i)=>{
-      html+=`<button class="cr-subject-card" onclick="gotoPage('scores')"><img src="${pict[i%pict.length]}" alt="" aria-hidden="true"><div><strong>${it.sub.name}</strong><span>${it.cls.name} · เปิดหน้าบันทึกคะแนน</span></div><i class="ti ti-chevron-right"></i></button>`;
+      html+=`<button class="cr-subject-card" title="${_escT(it.sub.name)} · ${_escT(it.cls.name)}" onclick="openDashboardSubject('${it.cls.id}','${it.sub.id}')"><img src="${pict[i%pict.length]}" alt="" aria-hidden="true"><div><strong>${_escT(it.sub.name)}</strong><span>${_escT(it.cls.name)} · บันทึกคะแนน</span></div><i class="ti ti-chevron-right"></i></button>`;
     });
     html+=`</div></section>`;
   }
