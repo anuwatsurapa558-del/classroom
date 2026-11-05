@@ -971,6 +971,39 @@ function tk(cid){
 // ย่อการเข้าถึงข้อมูล
 function stuArr(cid){return db.students[tk(cid)]||db.students[cid]||[];}
 function subArr(cid){return db.subjects[tk(cid)]||db.subjects[cid]||[];}
+/* Class Room v17.4 — สถิติการเช็กชื่อคิดตามจำนวนคาบเรียนจริงของวิชาในวันนั้น
+   คงสถานะเดิม 1 record/วิชา/วัน/นักเรียน ไม่เพิ่มหรือลบ record ใน Supabase
+   ถ้าไม่มีคาบในตารางสอนของวันนั้น ให้ถือเป็น 1 คาบ เพื่อคงข้อมูลเช็กชื่อเก่า */
+function attPeriodWeight(cid,subid,date){
+  const parts=String(date||'').split('-').map(Number);
+  if(parts.length!==3||!parts.every(Number.isFinite))return 1;
+  const jsDay=new Date(parts[0],parts[1]-1,parts[2]).getDay();
+  const day=(jsDay+6)%7; // 0=วันจันทร์, ..., 6=วันอาทิตย์
+  const classes=(ttGet(cid)||[]).filter(t=>!t.isActivity && Number(t.day)===day && String(t.subId)===String(subid));
+  if(!classes.length)return 1;
+  const parseTime=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(String(t||''));return m?(Number(m[1])*60+Number(m[2])):NaN;};
+  const fallback=[['08:40','09:30'],['09:30','10:20'],['10:20','11:10'],['11:10','12:00'],['13:00','13:50'],['13:50','14:40'],['14:40','15:30']];
+  const configured=(typeof PERIODS!=='undefined'&&Array.isArray(PERIODS)&&PERIODS.length)
+    ? PERIODS : (db.periods&&db.periods.length?db.periods:null);
+  const periods=configured?configured.filter(p=>!p.isFixed):fallback.map(([start,end])=>({start,end}));
+  const slots=new Set();
+  classes.forEach(t=>{
+    const s=parseTime(t.start),e=parseTime(t.end);
+    if(!Number.isFinite(s)||!Number.isFinite(e)||e<=s){slots.add(String(t.start)+'|'+String(t.end));return;}
+    let matched=false;
+    periods.forEach(p=>{
+      const ps=parseTime(p.start),pe=parseTime(p.end);
+      if(!Number.isFinite(ps)||!Number.isFinite(pe)||pe<=ps)return;
+      const overlap=Math.min(e,pe)-Math.max(s,ps);
+      if(overlap>=Math.min(10,(pe-ps)*0.3)){
+        slots.add(String(p.start)+'|'+String(p.end));matched=true;
+      }
+    });
+    if(!matched)slots.add(String(t.start)+'|'+String(t.end));
+  });
+  return Math.max(1,slots.size);
+}
+
 function attBlock(cid){return db.attendance[tk(cid)]||db.attendance[cid]||{};}
 function asgBlock(cid){return db.assignments[tk(cid)]||db.assignments[cid]||{};}
 function scBlock(cid){return db.scores[tk(cid)]||db.scores[cid]||{};}
@@ -1498,7 +1531,7 @@ function renderHome(){
   let allMa=0,allTot=0;
   subs.forEach(sub=>{
     const dates=Object.keys((attBlock(cid)[sub.id])||{});
-    dates.forEach(d=>{const st=((attBlock(cid)[sub.id]||{})[d]||{})[sid];if(st==='มา'||st==='สาย')allMa++;if(st)allTot++;});
+    dates.forEach(d=>{const st=((attBlock(cid)[sub.id]||{})[d]||{})[sid],n=attPeriodWeight(cid,sub.id,d);if(st==='มา'||st==='สาย')allMa+=n;if(st)allTot+=n;});
   });
   const attRate=allTot?Math.round(allMa/allTot*100):0;
 
@@ -1515,8 +1548,8 @@ function renderHome(){
   <div class="sg cr-student-kpis">
     <div class="sc"><div class="sl"><img src="cr_book.svg" alt=""> วิชา</div><div class="sv" style="color:var(--tl)">${subs.length}</div></div>
     <div class="sc"><div class="sl"><img src="cr_attendance.svg" alt=""> มาเรียน%</div><div class="sv" style="color:${attRate>=80?'var(--gn)':attRate>=60?'var(--am)':'var(--rd)'}">${attRate}%</div></div>
-    <div class="sc"><div class="sl"><img src="cr_checklist.svg" alt=""> ครั้งมา</div><div class="sv" style="color:var(--gn)">${allMa}</div></div>
-    <div class="sc"><div class="sl"><img src="cr_calendar.svg" alt=""> ครั้งเรียน</div><div class="sv" style="color:var(--mu)">${allTot}</div></div>
+    <div class="sc"><div class="sl"><img src="cr_checklist.svg" alt=""> มาเรียน (คาบ)</div><div class="sv" style="color:var(--gn)">${allMa}</div></div>
+    <div class="sc"><div class="sl"><img src="cr_calendar.svg" alt=""> คาบที่เช็ก</div><div class="sv" style="color:var(--mu)">${allTot}</div></div>
   </div>`;
 
   // ── ตารางเรียนวันนี้ ──
@@ -1614,7 +1647,7 @@ function renderHome(){
       const asgPct=asgs.length?Math.round(sent/asgs.length*100):0;
       // มาเรียน
       const dates=Object.keys((attBlock(cid)[sub.id])||{});
-      let ma=0,tot=0;dates.forEach(d=>{const st=((attBlock(cid)[sub.id]||{})[d]||{})[sid];if(st==='มา'||st==='สาย')ma++;if(st)tot++;});
+      let ma=0,tot=0;dates.forEach(d=>{const st=((attBlock(cid)[sub.id]||{})[d]||{})[sid],n=attPeriodWeight(cid,sub.id,d);if(st==='มา'||st==='สาย')ma+=n;if(st)tot+=n;});
       const attPct=tot?Math.round(ma/tot*100):0;
       const attCol=attPct>=80?'var(--gn)':attPct>=60?'var(--am)':'var(--rd)';
       html+=`<div class="card-bd" style="border-bottom:1px solid var(--bd)">
@@ -1654,7 +1687,7 @@ function renderAttendance(){
   const sub=subs.find(s=>s.id===currentSubject);
   const dates=Object.keys((attBlock(cid)[currentSubject])||{}).sort().reverse();
   let ma=0,say=0,la=0,kh=0,tot=0;
-  dates.forEach(d=>{const st=((attBlock(cid)[currentSubject]||{})[d]||{})[sid];if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;if(st)tot++;});
+  dates.forEach(d=>{const st=((attBlock(cid)[currentSubject]||{})[d]||{})[sid],n=attPeriodWeight(cid,currentSubject,d);if(st==='มา')ma+=n;else if(st==='สาย')say+=n;else if(st==='ลา')la+=n;else if(st==='ขาด')kh+=n;if(st)tot+=n;});
   const rate=tot?Math.round((ma+say)/tot*100):0;
   const col=rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)';
 
@@ -1670,7 +1703,7 @@ function renderAttendance(){
       <span style="font-size:20px;font-weight:800;color:${col}">${rate}%</span>
     </div>
     <div class="prog" style="height:10px"><div class="pf" style="width:${rate}%;background:${col}"></div></div>
-    <div style="font-size:11.5px;color:var(--mu);margin-top:6px">มาเรียน ${ma+say} จาก ${tot} วัน • วิชา ${sub.name}</div>
+    <div style="font-size:11.5px;color:var(--mu);margin-top:6px">มาเรียน ${ma+say} จาก ${tot} คาบ • วิชา ${sub.name}</div>
   </div></div>`;
 
   if(!dates.length){html+=`<div class="card"><div class="empty"><i class="ti ti-calendar-off"></i><div>ยังไม่มีข้อมูลการมาเรียน</div></div></div>`;}
@@ -1679,7 +1712,8 @@ function renderAttendance(){
     dates.forEach(d=>{
       const st=((attBlock(cid)[currentSubject]||{})[d]||{})[sid]||'';
       const bc=st==='มา'?'bg':st==='ขาด'?'br':st==='สาย'?'ba':st==='ลา'?'bb':'bx';
-      html+=`<div class="att-row"><div class="att-date">${thDate(d)}</div><div class="att-status">${st?`<span class="badge ${bc}">${st}</span>`:`<span class="badge bx">—</span>`}</div></div>`;
+      const n=attPeriodWeight(cid,currentSubject,d);
+      html+=`<div class="att-row"><div class="att-date">${thDate(d)} <small style="color:var(--mu);margin-left:5px">${n} คาบ</small></div><div class="att-status">${st?`<span class="badge ${bc}">${st}</span>`:`<span class="badge bx">—</span>`}</div></div>`;
     });
     html+=`</div></div>`;
   }
@@ -1861,9 +1895,9 @@ function printParentReport(){
     const attSub=((db.attendance[termCidKey(cid)]||{})[sub.id])||{};
     let ma=0,say=0,la=0,kh=0,tot=0;
     Object.keys(attSub).forEach(d=>{
-      const st=attSub[d]?.[sid];
-      if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;
-      if(st)tot++;
+      const st=attSub[d]?.[sid],n=attPeriodWeight(cid,sub.id,d);
+      if(st==='มา')ma+=n;else if(st==='สาย')say+=n;else if(st==='ลา')la+=n;else if(st==='ขาด')kh+=n;
+      if(st)tot+=n;
     });
     const attPct=tot?Math.round((ma+say)/tot*100):0;
     const calc=calcTotal(cid,sub.id,sid);
@@ -1875,7 +1909,7 @@ function printParentReport(){
   const officeText='สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสกลนคร';
   const termLine=cur?`ปีการศึกษา ${cur.year} ภาค ${cur.semester}`:'';
 
-  let subjTable='<table class="rtbl"><thead><tr><th class="tl">วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>วันเรียน</th><th>%มาเรียน</th></tr></thead><tbody>';
+  let subjTable='<table class="rtbl"><thead><tr><th class="tl">วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>คาบเรียน</th><th>%มาเรียน</th></tr></thead><tbody>';
   rows.forEach(r=>{
     subjTable+=`<tr><td class="tl">${r.sub.name}</td><td>${r.ma}</td><td>${r.say}</td><td>${r.la}</td><td>${r.kh}</td><td>${r.tot}</td><td>${r.attPct}%</td></tr>`;
   });

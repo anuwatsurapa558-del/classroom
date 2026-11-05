@@ -1265,6 +1265,39 @@ function asgList(cid,sid){
   return ((db.assignments[tk(cid)]||{})[sid])||[];
 }
 function attRec(cid,sid,date){return(((db.attendance[tk(cid)]||{})[sid])||{})[date]||{};}
+/* Class Room v17.4 — สถิติการเช็กชื่อคิดตามจำนวนคาบเรียนจริงของวิชาในวันนั้น
+   คงสถานะเดิม 1 record/วิชา/วัน/นักเรียน ไม่เพิ่มหรือลบ record ใน Supabase
+   ถ้าไม่มีคาบในตารางสอนของวันนั้น ให้ถือเป็น 1 คาบ เพื่อคงข้อมูลเช็กชื่อเก่า */
+function attPeriodWeight(cid,subid,date){
+  const parts=String(date||'').split('-').map(Number);
+  if(parts.length!==3||!parts.every(Number.isFinite))return 1;
+  const jsDay=new Date(parts[0],parts[1]-1,parts[2]).getDay();
+  const day=(jsDay+6)%7; // 0=วันจันทร์, ..., 6=วันอาทิตย์
+  const classes=(ttGet(cid)||[]).filter(t=>!t.isActivity && Number(t.day)===day && String(t.subId)===String(subid));
+  if(!classes.length)return 1;
+  const parseTime=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(String(t||''));return m?(Number(m[1])*60+Number(m[2])):NaN;};
+  const fallback=[['08:40','09:30'],['09:30','10:20'],['10:20','11:10'],['11:10','12:00'],['13:00','13:50'],['13:50','14:40'],['14:40','15:30']];
+  const configured=(typeof PERIODS!=='undefined'&&Array.isArray(PERIODS)&&PERIODS.length)
+    ? PERIODS : (db.periods&&db.periods.length?db.periods:null);
+  const periods=configured?configured.filter(p=>!p.isFixed):fallback.map(([start,end])=>({start,end}));
+  const slots=new Set();
+  classes.forEach(t=>{
+    const s=parseTime(t.start),e=parseTime(t.end);
+    if(!Number.isFinite(s)||!Number.isFinite(e)||e<=s){slots.add(String(t.start)+'|'+String(t.end));return;}
+    let matched=false;
+    periods.forEach(p=>{
+      const ps=parseTime(p.start),pe=parseTime(p.end);
+      if(!Number.isFinite(ps)||!Number.isFinite(pe)||pe<=ps)return;
+      const overlap=Math.min(e,pe)-Math.max(s,ps);
+      if(overlap>=Math.min(10,(pe-ps)*0.3)){
+        slots.add(String(p.start)+'|'+String(p.end));matched=true;
+      }
+    });
+    if(!matched)slots.add(String(t.start)+'|'+String(t.end));
+  });
+  return Math.max(1,slots.size);
+}
+
 function attDates(cid,subid){
   // คืนรายการวันที่ที่มีการเช็คชื่อจริง (มี status อย่างน้อย 1 คน)
   const rawDates=Object.keys(((db.attendance[tk(cid)]||{})[subid])||{});
@@ -2134,9 +2167,9 @@ function openReport(cid,sid){
     });
     const dates=attDates(cid,sub.id);
     let ma=0,say=0,la=0,kh=0,tot=0;
-    dates.forEach(d=>{const st=attRec(cid,sub.id,d)[sid];
-      if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;
-      if(st)tot++;
+    dates.forEach(d=>{const st=attRec(cid,sub.id,d)[sid];const n=attPeriodWeight(cid,sub.id,d);
+      if(st==='มา')ma+=n;else if(st==='สาย')say+=n;else if(st==='ลา')la+=n;else if(st==='ขาด')kh+=n;
+      if(st)tot+=n;
     });
     const attPct=tot?Math.round((ma+say)/tot*100):0;
     // ── คะแนน / เกรด ──
@@ -2171,7 +2204,7 @@ function openReport(cid,sid){
 
     <div class="report-title">เวลาเรียน</div>
     <table class="report-tbl">
-      <thead><tr><th class="tl">วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>วันเรียน</th><th>%มาเรียน</th></tr></thead>
+      <thead><tr><th class="tl">วิชา</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>คาบเรียน</th><th>%มาเรียน</th></tr></thead>
       <tbody>`;
   rows.forEach(r=>{
     html+=`<tr><td class="tl">${r.sub.name}</td><td>${r.ma}</td><td>${r.say}</td><td>${r.la}</td><td>${r.kh}</td><td>${r.tot}</td><td>${r.attPct}%</td></tr>`;
@@ -3913,9 +3946,13 @@ function renderDash(){
   // นับเฉพาะเช็คชื่อของภาคเรียนปัจจุบัน (curCls) ไม่รวมภาคเก่า
   curCls.forEach(c2=>{
     const bS=db.attendance[tk(c2.id)]||{};
-    Object.values(bS).forEach(bD=>Object.values(bD).forEach(rec=>Object.values(rec).forEach(st=>{
-      if(st==='มา')allMa++;else if(st==='สาย')allSay++;else if(st==='ลา')allLa++;else if(st==='ขาด')allKh++;allTot++;
-    })));
+    Object.entries(bS).forEach(([subid,bD])=>Object.entries(bD).forEach(([date,rec])=>{
+      const n=attPeriodWeight(c2.id,subid,date);
+      Object.values(rec).forEach(st=>{
+        if(st==='มา')allMa+=n;else if(st==='สาย')allSay+=n;else if(st==='ลา')allLa+=n;else if(st==='ขาด')allKh+=n;
+        if(st)allTot+=n;
+      });
+    }));
   });
   const rate=allTot?Math.round((allMa+allSay)/allTot*100):0;
   const featured=curCls.flatMap(c=>subList(c.id).map(sub=>({cls:c,sub})));
@@ -4008,7 +4045,7 @@ function renderDash(){
     if(!subs.length){html+=`<tr><td><b>${c.name}</b></td><td colspan="6" style="color:var(--hn);font-size:12px">ยังไม่มีวิชา</td></tr>`;return;}
     subs.forEach((sub,si)=>{
       const dates=Object.keys(((db.attendance[tk(c.id)]||{})[sub.id])||{});
-      let ma=0,tot=0;dates.forEach(d=>Object.values(attRec(c.id,sub.id,d)).forEach(s=>{if(s==='มา'||s==='สาย')ma++;if(s)tot++;}));
+      let ma=0,tot=0;dates.forEach(d=>{const n=attPeriodWeight(c.id,sub.id,d);Object.values(attRec(c.id,sub.id,d)).forEach(s=>{if(s==='มา'||s==='สาย')ma+=n;if(s)tot+=n;});});
       const r2=tot?Math.round(ma/tot*100):0,col=r2>=80?'var(--gn)':r2>=60?'var(--am)':'var(--rd)';
       const wA=sub.wAssign??70,wE=sub.wExam??30;
       html+=`<tr>${si===0?`<td rowspan="${subs.length}" style="font-weight:700;vertical-align:top;padding-top:12px">${c.name}</td>`:''}<td><span class="badge bt">${sub.name}</span></td><td style="font-size:11px;color:var(--mu)">เก็บ${wA}:สอบ${wE}</td><td>${stus.length}</td><td>${dates.length}</td><td style="font-weight:700;color:${col}">${r2}%</td><td>${asgList(c.id,sub.id).length}</td></tr>`;
@@ -4141,12 +4178,13 @@ function renderAttCheck(){
   const todayHint=renderTodayHint(cid,subid);
   const sub=getSub(cid,subid);
   const rec=attRec(cid,subid,attDate);
+  const periodCount=attPeriodWeight(cid,subid,attDate);
   const cnt={มา:0,สาย:0,ลา:0,ขาด:0};
   Object.values(rec).forEach(s=>{if(cnt[s]!==undefined)cnt[s]++;});
   const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
   let html=`<div class="dnav"><button onclick="shiftDate(-1)"><i class="ti ti-chevron-left"></i></button><div class="dd">${thDate(attDate)}</div><input type="date" value="${attDate}" onchange="attDate=this.value;renderAttCheck()" style="width:auto;padding:4px 8px;font-size:13px"><button onclick="shiftDate(1)"><i class="ti ti-chevron-right"></i></button></div>
   <div class="card mb14"><div class="cp" style="border-bottom:1px solid var(--bd)">
-    <div class="f ic jb fw g8"><div><b>${getCls(cid).name}</b> <span class="badge bt" style="margin:0 6px">${sub.name}</span><span style="font-size:13px;color:var(--mu)">${stus.length} คน</span></div>
+    <div class="f ic jb fw g8"><div><b>${getCls(cid).name}</b> <span class="badge bt" style="margin:0 6px">${sub.name}</span><span style="font-size:13px;color:var(--mu)">${stus.length} คน</span> <span class="badge bt" style="margin-left:5px">${periodCount} คาบ · เช็กครั้งเดียว</span></div>
     <div class="f g8"><button class="btn btn-sm" style="color:var(--gn);border-color:var(--gn)" title="ตั้งทุกคนเป็นมา" onclick="markAll('${cid}','${subid}','มา')"><i class="ti ti-check-all"></i> ทั้งห้อง=มา</button><button class="btn btn-sm" title="ล้างทั้งหมด" onclick="clearAllAtt('${cid}','${subid}')"><i class="ti ti-eraser"></i></button><button class="btn btn-g btn-sm" onclick="saveAtt('${cid}','${subid}')"><i class="ti ti-device-floppy"></i>บันทึก</button></div>
   </div></div><div class="cp" style="padding-top:6px;padding-bottom:6px">`;
   stus.forEach(s=>{
@@ -4264,8 +4302,9 @@ function renderAttEdit(){
   const dates=attDates(cid,subid).sort().reverse();
   if(!dates.length){el.innerHTML=noData('calendar-off','ยังไม่มีข้อมูลการมาเรียน','ไปเช็คชื่อที่แท็บ "เช็คชื่อ" ก่อน');return;}
   const rec=attRec(cid,subid,attEditDate);
+  const periodCount=attPeriodWeight(cid,subid,attEditDate);
   const km={'มา':'ma','สาย':'sa','ลา':'la','ขาด':'kh'};
-  let html=`<div class="info-box"><i class="ti ti-edit"></i> <b>โหมดแก้ไข</b> — เลือกวันที่ต้องการแก้ไข แล้วกดบันทึก</div>
+  let html=`<div class="info-box"><i class="ti ti-edit"></i> <b>โหมดแก้ไข</b> — เลือกวันที่ต้องการแก้ไข แล้วกดบันทึก · วันที่เลือกนับ ${periodCount} คาบ</div>
   <div class="cp" style="background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);margin-bottom:14px;box-shadow:var(--sh)">
     <div class="f ic g8 fw"><label style="font-size:13px;font-weight:600">เลือกวันที่:</label>
     <select class="wa" onchange="attEditDate=this.value;renderAttEdit()" style="font-size:14px">`;
@@ -4416,18 +4455,18 @@ function renderAttSummary(){
   const dates=attDates(cid,subid).sort();
   if(!dates.length){el.innerHTML=noData('calendar-off','ยังไม่มีข้อมูล');return;}
   let tMa=0,tSay=0,tLa=0,tKh=0,tot=0;
-  stus.forEach(s=>dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา')tMa++;else if(st==='สาย')tSay++;else if(st==='ลา')tLa++;else if(st==='ขาด')tKh++;if(st)tot++;}));
+  stus.forEach(s=>dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id],n=attPeriodWeight(cid,subid,d);if(st==='มา')tMa+=n;else if(st==='สาย')tSay+=n;else if(st==='ลา')tLa+=n;else if(st==='ขาด')tKh+=n;if(st)tot+=n;}));
   const rate=tot?Math.round((tMa+tSay)/tot*100):0,col=rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)';
   let html=`<div class="f ic g8 mb14"><span class="badge bt">${getCls(cid).name}</span><i class="ti ti-chevron-right" style="color:var(--hn)"></i><span class="badge bt">${sub.name}</span></div>
-  <div class="sg"><div class="sc-stat"><div class="sl">วันเช็ค</div><div class="sv" style="color:var(--bl)">${dates.length}</div></div><div class="sc-stat"><div class="sl">มา</div><div class="sv" style="color:var(--gn)">${tMa}</div></div><div class="sc-stat"><div class="sl">สาย</div><div class="sv" style="color:var(--am)">${tSay}</div></div><div class="sc-stat"><div class="sl">ลา</div><div class="sv" style="color:var(--bl)">${tLa}</div></div><div class="sc-stat"><div class="sl">ขาด</div><div class="sv" style="color:var(--rd)">${tKh}</div></div><div class="sc-stat"><div class="sl">อัตรา</div><div class="sv" style="color:${col}">${rate}%</div></div></div>`;
+  <div class="sg"><div class="sc-stat"><div class="sl">วันเช็ค</div><div class="sv" style="color:var(--bl)">${dates.length}</div></div><div class="sc-stat"><div class="sl">คาบเรียน</div><div class="sv" style="color:var(--tl)">${dates.reduce((sum,d)=>sum+attPeriodWeight(cid,subid,d),0)}</div></div><div class="sc-stat"><div class="sl">มา (คาบ)</div><div class="sv" style="color:var(--gn)">${tMa}</div></div><div class="sc-stat"><div class="sl">สาย</div><div class="sv" style="color:var(--am)">${tSay}</div></div><div class="sc-stat"><div class="sl">ลา</div><div class="sv" style="color:var(--bl)">${tLa}</div></div><div class="sc-stat"><div class="sl">ขาด</div><div class="sv" style="color:var(--rd)">${tKh}</div></div><div class="sc-stat"><div class="sl">อัตรา</div><div class="sv" style="color:${col}">${rate}%</div></div></div>`;
   const recent=dates.slice(-20);
   html+=`<div class="chbox mb14"><div class="chtitle">อัตรามาเรียนรายวัน (${recent.length} วันล่าสุด)</div><div class="barchart">`;
-  recent.forEach(d=>{let ma=0,t2=0;stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')ma++;if(st)t2++;});const pct=t2?Math.round(ma/t2*100):0,c2=pct>=80?'var(--gn)':pct>=60?'var(--am)':'var(--rd)';const[,m,day]=d.split('-');html+=`<div class="bw"><div class="bval" style="font-size:9px">${pct}%</div><div class="bout"><div class="bin" style="height:${pct}%;background:${c2}"></div></div><div class="blbl">${+day}/${+m}</div></div>`;});
+  recent.forEach(d=>{let ma=0,t2=0;const n=attPeriodWeight(cid,subid,d);stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')ma+=n;if(st)t2+=n;});const pct=t2?Math.round(ma/t2*100):0,c2=pct>=80?'var(--gn)':pct>=60?'var(--am)':'var(--rd)';const[,m,day]=d.split('-');html+=`<div class="bw"><div class="bval" style="font-size:9px">${pct}%</div><div class="bout"><div class="bin" style="height:${pct}%;background:${c2}"></div></div><div class="blbl">${+day}/${+m}</div></div>`;});
   html+=`</div></div>`;
 
   // ── สถิติรายเดือน ──
   const months={};
-  dates.forEach(d=>{const ym=d.slice(0,7);if(!months[ym])months[ym]={ma:0,tot:0};stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')months[ym].ma++;if(st)months[ym].tot++;});});
+  dates.forEach(d=>{const ym=d.slice(0,7),n=attPeriodWeight(cid,subid,d);if(!months[ym])months[ym]={ma:0,tot:0};stus.forEach(s=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')months[ym].ma+=n;if(st)months[ym].tot+=n;});});
   const monthKeys=Object.keys(months).sort();
   if(monthKeys.length){
     const thMonth=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -4446,12 +4485,12 @@ function renderAttSummary(){
   const risk=[];
   stus.forEach(s=>{
     let ma=0,kh=0,tot=0;
-    dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา'||st==='สาย')ma++;else if(st==='ขาด')kh++;if(st)tot++;});
+    dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id],n=attPeriodWeight(cid,subid,d);if(st==='มา'||st==='สาย')ma+=n;else if(st==='ขาด')kh+=n;if(st)tot+=n;});
     const pct=tot?Math.round(ma/tot*100):100;
     if(tot>0&&(pct<80||kh>=3))risk.push({s,pct,kh,ma,tot});
   });
   risk.sort((a,b)=>a.pct-b.pct);
-  html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd);background:${risk.length?'var(--rdl)':'var(--gnl)'}"><b style="color:${risk.length?'var(--rd)':'var(--gn)'}"><i class="ti ti-alert-triangle"></i> นักเรียนที่ต้องติดตาม (เวลาเรียน < 80% หรือขาด ≥ 3 ครั้ง)</b></div>`;
+  html+=`<div class="card"><div class="cp" style="border-bottom:1px solid var(--bd);background:${risk.length?'var(--rdl)':'var(--gnl)'}"><b style="color:${risk.length?'var(--rd)':'var(--gn)'}"><i class="ti ti-alert-triangle"></i> นักเรียนที่ต้องติดตาม (เวลาเรียน < 80% หรือขาด ≥ 3 คาบ)</b></div>`;
   if(!risk.length){
     html+=`<div class="empty" style="padding:20px"><i class="ti ti-circle-check" style="color:var(--gn)"></i><div>นักเรียนทุกคนมีเวลาเรียนเพียงพอ</div></div>`;
   }else{
@@ -4475,7 +4514,7 @@ function renderAttInd(){
   let html=`<div class="card mb14"><div class="tw"><table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>รวมมา</th><th>%มา</th></tr></thead><tbody>`;
   stus.forEach(s=>{
     let ma=0,say=0,la=0,kh=0,tot=0;
-    dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id];if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;if(st)tot++;});
+    dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id],n=attPeriodWeight(cid,subid,d);if(st==='มา')ma+=n;else if(st==='สาย')say+=n;else if(st==='ลา')la+=n;else if(st==='ขาด')kh+=n;if(st)tot+=n;});
     const rate=tot?Math.round((ma+say)/tot*100):0,col=rate>=80?'var(--gn)':rate>=60?'var(--am)':'var(--rd)';
     html+=`<tr><td style="font-weight:700;color:var(--mu)">${s.no}</td><td>${s.firstName} ${s.lastName}</td><td><span class="badge bg">${ma}</span></td><td><span class="badge ba">${say}</span></td><td><span class="badge bb">${la}</span></td><td><span class="badge br">${kh}</span></td><td style="font-weight:700">${ma+say}</td><td style="font-weight:700;color:${col}">${rate}%</td></tr>`;
   });
@@ -4490,8 +4529,8 @@ function renderAttIndDetail(cid,subid){
   const s=stuList(cid).find(x=>x.id===selStu);if(!s)return;
   const dates=attDates(cid,subid).sort();
   let rows='';
-  dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id]||'—';const bc=st==='มา'?'bg':st==='ขาด'?'br':st==='สาย'?'ba':st==='ลา'?'bb':'bx';rows+=`<tr><td>${thDate(d)}</td><td><span class="badge ${bc}">${st}</span></td></tr>`;});
-  el.innerHTML=rows?`<div class="tw"><table style="max-width:320px"><thead><tr><th>วันที่</th><th>สถานะ</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<p style="color:var(--mu);font-size:13px">ยังไม่มีข้อมูล</p>`;
+  dates.forEach(d=>{const st=attRec(cid,subid,d)[s.id]||'—',n=attPeriodWeight(cid,subid,d);const bc=st==='มา'?'bg':st==='ขาด'?'br':st==='สาย'?'ba':st==='ลา'?'bb':'bx';rows+=`<tr><td>${thDate(d)}</td><td><span class="badge ${bc}">${st}</span></td><td>${st==='—'?'—':n+' คาบ'}</td></tr>`;});
+  el.innerHTML=rows?`<div class="tw"><table style="max-width:320px"><thead><tr><th>วันที่</th><th>สถานะ</th><th>จำนวนคาบ</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<p style="color:var(--mu);font-size:13px">ยังไม่มีข้อมูล</p>`;
 }
 
 /* ════════════════════════════════════════════
@@ -9042,18 +9081,18 @@ function exportAttendance(){
     const dates=attDates(cid,sub.id).sort();
     rows.push(`# ห้อง: ${cls.name}  วิชา: ${sub.name}${sub.code?' ('+sub.code+')':''}`);
     if(mode==='daily'){
-      const hdr=['เลขที่','ชื่อ','นามสกุล'];dates.forEach(d=>hdr.push(thDate(d)));hdr.push('รวมมา','รวมขาด','วันเรียนทั้งหมด','%มาเรียน');
+      const hdr=['เลขที่','ชื่อ','นามสกุล'];dates.forEach(d=>hdr.push(thDate(d)+' ('+attPeriodWeight(cid,sub.id,d)+' คาบ)'));hdr.push('รวมมา (คาบ)','รวมขาด (คาบ)','คาบเรียนทั้งหมด','%มาเรียน');
       rows.push(csvRow(hdr));
       stus.forEach(s=>{
         const row=[s.no,s.firstName,s.lastName];let ma=0,kh=0,tot=0;
-        dates.forEach(d=>{const st=attRec(cid,sub.id,d)[s.id]||'';row.push(st);if(st==='มา'||st==='สาย')ma++;if(st==='ขาด')kh++;if(st)tot++;});
+        dates.forEach(d=>{const st=attRec(cid,sub.id,d)[s.id]||'',n=attPeriodWeight(cid,sub.id,d);row.push(st);if(st==='มา'||st==='สาย')ma+=n;if(st==='ขาด')kh+=n;if(st)tot+=n;});
         const pct=tot?Math.round(ma/tot*100):0;row.push(ma,kh,tot,pct+'%');rows.push(csvRow(row));
       });
     }else{
-      rows.push(csvRow(['เลขที่','ชื่อ','นามสกุล','มา','มาสาย','ลา','ขาด','รวมมา','รวมขาด','ทั้งหมด','%มาเรียน']));
+      rows.push(csvRow(['เลขที่','ชื่อ','นามสกุล','มา (คาบ)','มาสาย (คาบ)','ลา (คาบ)','ขาด (คาบ)','รวมมา (คาบ)','รวมขาด (คาบ)','คาบทั้งหมด','%มาเรียน']));
       stus.forEach(s=>{
         let ma=0,say=0,la=0,kh=0,tot=0;
-        dates.forEach(d=>{const st=attRec(cid,sub.id,d)[s.id];if(st==='มา')ma++;else if(st==='สาย')say++;else if(st==='ลา')la++;else if(st==='ขาด')kh++;if(st)tot++;});
+        dates.forEach(d=>{const st=attRec(cid,sub.id,d)[s.id],n=attPeriodWeight(cid,sub.id,d);if(st==='มา')ma+=n;else if(st==='สาย')say+=n;else if(st==='ลา')la+=n;else if(st==='ขาด')kh+=n;if(st)tot+=n;});
         const pct=tot?Math.round((ma+say)/tot*100):0;rows.push(csvRow([s.no,s.firstName,s.lastName,ma,say,la,kh,ma+say,kh,tot,pct+'%']));
       });
     }
