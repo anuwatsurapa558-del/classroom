@@ -1942,6 +1942,7 @@ function gotoPage(p,btn){
   document.getElementById('tsub').textContent=S[p]||'';
   if(window.innerWidth<768)closeSB();
   renderPage(p);
+  crSaveTeacherView();
 }
 function renderPage(p){
   if(p==='dashboard')renderDash();
@@ -1989,8 +1990,8 @@ function selBar(containerId,page,showSub){
   html+=`</div>`;
   el.innerHTML=html;
 }
-function pickCls(page,cid){P[page].cls=cid;if(P[page].sub!==undefined)P[page].sub=null;selStu=null;selAsg=null;renderPage(page);}
-function pickSub(page,sid){P[page].sub=sid;selStu=null;selAsg=null;renderPage(page);}
+function pickCls(page,cid){P[page].cls=cid;if(P[page].sub!==undefined)P[page].sub=null;selStu=null;selAsg=null;renderPage(page);crSaveTeacherView();}
+function pickSub(page,sid){P[page].sub=sid;selStu=null;selAsg=null;renderPage(page);crSaveTeacherView();}
 
 /* ── CLASS SORT ── */
 function clsSortKey(n){const m=n.match(/[มปMm][.]?\s*(\d+)\s*[/\\\-]?\s*(\d*)/);if(!m)return n;return String(+m[1]).padStart(3,'0')+String(+(m[2]||0)).padStart(3,'0')+n;}
@@ -2875,6 +2876,7 @@ function switchTerm(id){
   currentTermId=id;
   Object.keys(P).forEach(p=>{P[p].cls=null;if(P[p].sub!==undefined)P[p].sub=null;});
   renderSchool();renderDash();
+  crSaveTeacherView();
   showToast('สลับไปภาคเรียน: '+(db.terms.find(t=>t.id===id)?.label||''));
 }
 function setCurrentTerm(id){
@@ -4119,6 +4121,7 @@ function attSub(tab,btn){
   if(btn)btn.classList.add('active');
   ['check','edit','summary','individual'].forEach(t=>{document.getElementById('att-'+t).style.display=t===tab?'block':'none';});
   renderAtt();
+  crSaveTeacherView();
 }
 
 /* เช็คชื่อ */
@@ -4549,6 +4552,7 @@ function scSub(tab,btn){
   if(btn)btn.classList.add('active');
   ['entry','exam','all','grade'].forEach(t=>{document.getElementById('sc-'+t).style.display=t===tab?'block':'none';});
   renderSc();
+  crSaveTeacherView();
 }
 
 /* คะแนนเก็บ */
@@ -9802,7 +9806,8 @@ function _initDB(){
     save();
   }
   const cur=db.terms.find(t=>t.isCurrent);
-  currentTermId=cur?cur.id:(db.terms[0]?.id||null);
+  const selected=db.terms.find(t=>t.id===currentTermId);
+  currentTermId=selected?selected.id:(cur?cur.id:(db.terms[0]?.id||null));
 }
 
 /* ── REALTIME SUBSCRIPTION ── */
@@ -10177,11 +10182,82 @@ async function _gcSaveOverride(subid,stuId,grade,note){
 function saveGradeOverrideValue(subid,stuId,value){return _gcSaveOverride(subid,stuId,value,gradeOverride(subid,stuId).note);}
 function saveGradeNoteValue(subid,stuId,value){return _gcSaveOverride(subid,stuId,gradeOverride(subid,stuId).gradeOverride,value);}
 
+/* ═══ Class Room v17.5 — remember teacher view on Refresh ═══
+   Session-only UI preferences. No grade/student records are saved here. */
+const CR_TEACHER_VIEW_KEY='classroom_teacher_view_v17_5';
+const CR_TEACHER_PAGES=['dashboard','school','classroom','students','subjects','timetable','attendance','scores','quiz','announcements','fiveS','export'];
+let crTeacherViewReady=false;
+function crSaveTeacherView(){
+  if(!crTeacherViewReady)return;
+  try{
+    const params={};
+    for(const [name,v] of Object.entries(P)){
+      params[name]={cls:v.cls||null};
+      if('sub' in v)params[name].sub=v.sub||null;
+      if(name==='timetable')params[name].viewAll=!!v.viewAll;
+      if(name==='classroom'||name==='quiz'||name==='fiveS')params[name].tab=v.tab||'';
+    }
+    sessionStorage.setItem(CR_TEACHER_VIEW_KEY,JSON.stringify({
+      page:curPage(),termId:currentTermId,params,
+      scSubtab,attSubtab,attDate,attEditDate
+    }));
+  }catch(e){/* private browsing / disabled storage: keep site functional */}
+}
+function crSyncTeacherSubtabs(){
+  for(const [prefix,active,options] of [
+    ['sc',scSubtab,['entry','exam','all','grade']],
+    ['att',attSubtab,['check','edit','summary','individual']]
+  ]){
+    const bar=document.getElementById(prefix+'-subtabs');
+    if(bar)bar.querySelectorAll('.tb').forEach(b=>{
+      const code=b.getAttribute('onclick')||'';
+      b.classList.toggle('active',code.includes("'"+active+"'"));
+    });
+    options.forEach(tab=>{
+      const region=document.getElementById(prefix+'-'+tab);
+      if(region)region.style.display=tab===active?'block':'none';
+    });
+  }
+}
+function crRestoreTeacherView(){
+  let saved=null;
+  try{saved=JSON.parse(sessionStorage.getItem(CR_TEACHER_VIEW_KEY)||'null')}catch(e){}
+  if(saved&&typeof saved==='object'){
+    if(saved.termId&&db.terms.some(t=>t.id===saved.termId))currentTermId=saved.termId;
+    if(saved.params&&typeof saved.params==='object'){
+      for(const [name,old] of Object.entries(saved.params)){
+        if(!P[name]||!old||typeof old!=='object')continue;
+        if('cls' in P[name]&&'cls' in old){
+          P[name].cls=old.cls&&termClasses().some(c=>c.id===old.cls)?old.cls:null;
+        }
+        if('sub' in P[name]&&'sub' in old){
+          P[name].sub=old.sub&&P[name].cls&&subList(P[name].cls).some(s=>s.id===old.sub)?old.sub:null;
+        }
+        if(name==='timetable'&&typeof old.viewAll==='boolean')P[name].viewAll=old.viewAll;
+        if(name==='classroom'&&['students','subjects'].includes(old.tab))P[name].tab=old.tab;
+        if(name==='quiz'&&['list','results'].includes(old.tab))P[name].tab=old.tab;
+        if(name==='fiveS'&&['groups','rounds','summary'].includes(old.tab))P[name].tab=old.tab;
+      }
+    }
+    if(['entry','exam','all','grade'].includes(saved.scSubtab))scSubtab=saved.scSubtab;
+    if(['check','edit','summary','individual'].includes(saved.attSubtab))attSubtab=saved.attSubtab;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(saved.attDate||''))attDate=saved.attDate;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(saved.attEditDate||''))attEditDate=saved.attEditDate;
+  }
+  crSyncTeacherSubtabs();
+  crTeacherViewReady=true;
+  const page=saved&&CR_TEACHER_PAGES.includes(saved.page)?saved.page:'dashboard';
+  // Reuse the existing navigation function so the header, page and menu stay in sync.
+  gotoPage(page);
+}
+window.addEventListener('pagehide',crSaveTeacherView);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')crSaveTeacherView()});
+
 /* ── INIT ── */
 load().then(()=>{
   updateSidebarLogo();
   renderSchool();
-  renderDash();
+  crRestoreTeacherView();
   _setupRealtime();
 });
 
