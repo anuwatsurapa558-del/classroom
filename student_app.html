@@ -3478,34 +3478,96 @@ async function doSetPassword(cid,sid,isChange){
   saveSession();renderApp();
 }
 
-/* ── EDIT MY INFO ── */
+/* ── EDIT MY INFO (v17.6: รหัสประจำตัวนักเรียน) ── */
 function editMyInfo(){
   const stu=stuArr(me.classId).find(s=>s.id===me.studentId);
   if(!stu)return;
   const content=document.getElementById('mainContent');
   content.innerHTML=`
   <div class="login-box" style="margin-top:0">
-    <div class="login-logo"><i class="ti ti-user-edit"></i><h2>แก้ไขข้อมูล</h2></div>
-    <div class="fg"><label class="fl">เลขที่</label><input type="number" id="editNo" value="${stu.no}"></div>
-    <div class="fg"><label class="fl">ชื่อ</label><input type="text" id="editFn" value="${stu.firstName}"></div>
-    <div class="fg"><label class="fl">นามสกุล</label><input type="text" id="editLn" value="${stu.lastName}"></div>
-    <button class="btn btn-tl btn-full" onclick="saveMyInfo()"><i class="ti ti-check"></i> บันทึก</button>
+    <div class="login-logo"><i class="ti ti-user-edit"></i><h2>ข้อมูลส่วนตัว</h2>
+      <p>แก้ไขข้อมูลนักเรียนที่กำลังเข้าสู่ระบบ</p></div>
+    <div class="fg"><label class="fl" for="editNo">เลขที่</label><input type="number" id="editNo" min="1" step="1" value="${Number(stu.no)||''}"></div>
+    <div class="fg"><label class="fl" for="editFn">ชื่อ</label><input type="text" id="editFn" value="${_escStu(stu.firstName||'')}"></div>
+    <div class="fg"><label class="fl" for="editLn">นามสกุล</label><input type="text" id="editLn" value="${_escStu(stu.lastName||'')}"></div>
+    <div class="fg">
+      <label class="fl" for="editStudentCode"><i class="ti ti-id"></i> รหัสประจำตัวนักเรียน</label>
+      <input type="text" id="editStudentCode" value="${_escStu(stu.studentCode||'')}" maxlength="30" autocomplete="off" placeholder="กรอกรหัสประจำตัวที่โรงเรียนกำหนด">
+      <div style="font-size:11.5px;color:var(--mu);margin-top:5px"><i class="ti ti-info-circle"></i> ตัวเลข 0 นำหน้าจะไม่หาย ระบบจะตรวจรหัสซ้ำในห้องเรียนก่อนบันทึก</div>
+    </div>
+    <div id="editInfoErr" role="alert" aria-live="polite"></div>
+    <button class="btn btn-tl btn-full" id="saveMyInfoBtn" onclick="saveMyInfo()"><i class="ti ti-check"></i> บันทึกข้อมูลส่วนตัว</button>
     <div style="margin:14px 0;border-top:1px solid var(--bd)"></div>
     <button class="btn btn-outline btn-full" onclick="renderSetPassword('${me.classId}','${me.studentId}',true)"><i class="ti ti-lock"></i> เปลี่ยนรหัสผ่าน</button>
     <div style="margin-top:10px;text-align:center"><button class="btn btn-sm btn-outline" onclick="switchTab('home')">← ยกเลิก</button></div>
   </div>`;
 }
 async function saveMyInfo(){
-  const stu=stuArr(me.classId).find(s=>s.id===me.studentId);if(!stu)return;
-  const no=parseInt(document.getElementById('editNo')?.value)||stu.no;
+  if(!me)return;
+  const cid=me.classId,sid=me.studentId;
+  const stu=stuArr(cid).find(s=>s.id===sid);
+  if(!stu)return;
+  const errEl=document.getElementById('editInfoErr');
+  const button=document.getElementById('saveMyInfoBtn');
+  const showError=(msg)=>{
+    if(errEl)errEl.innerHTML=`<div class="err-box" style="margin-bottom:10px"><i class="ti ti-alert-triangle"></i> ${_escStu(msg)}</div>`;
+  };
+  if(button?.disabled)return;
+  if(errEl)errEl.textContent='';
+
+  const noRaw=(document.getElementById('editNo')?.value||'').trim();
+  const no=Number(noRaw);
   const fn=(document.getElementById('editFn')?.value||'').trim()||stu.firstName;
   const ln=(document.getElementById('editLn')?.value||'').trim();
-  const updatedObj={id:me.studentId,no,studentCode:stu.studentCode||'',firstName:fn,lastName:ln};
-  showToast('กำลังบันทึก...');
-  // ส่ง object ที่แก้แล้วให้ merge กับ cloud
-  await saveStudentInfo(me.classId,me.studentId,updatedObj,null);
-  showToast('บันทึกเรียบร้อย ✓');
-  switchTab('home');
+  const code=(document.getElementById('editStudentCode')?.value||'').trim();
+  const oldCode=String(stu.studentCode||'').trim();
+
+  if(!Number.isSafeInteger(no)||no<1){showError('กรุณากรอกเลขที่เป็นจำนวนเต็มมากกว่า 0');return;}
+  if(!fn){showError('กรุณากรอกชื่อนักเรียน');return;}
+  if(!code&&oldCode){showError('ไม่สามารถลบรหัสประจำตัวเดิมให้เป็นช่องว่างได้');return;}
+  if(code.length>30||/\s/.test(code)){showError('รหัสประจำตัวต้องยาวไม่เกิน 30 ตัวอักษร และไม่มีช่องว่าง');return;}
+
+  const original=button?.innerHTML;
+  if(button){button.disabled=true;button.innerHTML='<i class="ti ti-loader"></i> กำลังบันทึก...';}
+  try{
+    // ตรวจจากฐานข้อมูลจริง เพื่อไม่ให้ใช้รหัสเดียวกับนักเรียนคนอื่นในห้อง
+    if(code&&_normStuIdentity(code)!==_normStuIdentity(oldCode)){
+      const {data:others,error:readErr}=await sb.from('students')
+        .select('id,student_code').eq('class_id',cid);
+      if(readErr)throw readErr;
+      if((others||[]).some(x=>x.id!==sid&&_normStuIdentity(x.student_code)===_normStuIdentity(code))){
+        showError('รหัสประจำตัวนักเรียนนี้มีผู้ใช้อยู่แล้วในห้อง กรุณาตรวจสอบกับครู');
+        return;
+      }
+    }
+
+    // อัปเดตเฉพาะข้อมูลส่วนตัว ไม่สร้าง student ใหม่ และไม่เขียนทับ password
+    const updates={no,first_name:fn,last_name:ln,student_code:code};
+    const {data:saved,error:saveErr}=await sb.from('students')
+      .update(updates).eq('id',sid).eq('class_id',cid)
+      .select('id,no,first_name,last_name,student_code').maybeSingle();
+    if(saveErr)throw saveErr;
+    if(!saved){throw new Error('ไม่พบข้อมูลนักเรียนที่จะบันทึก หรือไม่มีสิทธิ์แก้ไข');}
+
+    // อัปเดตหน้าจอและ cache เฉพาะเมื่อบันทึก Supabase สำเร็จแล้ว
+    stu.no=saved.no;
+    stu.firstName=saved.first_name;
+    stu.lastName=saved.last_name;
+    stu.studentCode=saved.student_code||'';
+    _lastSaveTimeStu=Date.now();
+    try{localStorage.setItem('crDB4',JSON.stringify(db));}catch(e){console.warn('cache:',e);}
+    setSync('ok');
+    showToast('บันทึกข้อมูลส่วนตัวและรหัสประจำตัวแล้ว ✓');
+    switchTab('home');
+  }catch(e){
+    console.error('saveMyInfo:',e);
+    const m=String(e?.message||e||'');
+    showError(m.includes('DUPLICATE_STUDENT_CODE')||m.toLowerCase().includes('duplicate')
+      ?'รหัสประจำตัวนักเรียนนี้ซ้ำกับข้อมูลที่มีอยู่แล้ว กรุณาตรวจสอบกับครู'
+      :'บันทึกไม่สำเร็จ: '+m);
+  }finally{
+    if(button){button.disabled=false;button.innerHTML=original;}
+  }
 }
 
 function logout(){const key=crStudentViewKey();if(key){try{sessionStorage.removeItem(key)}catch(e){}}me=null;localStorage.removeItem('stuSession');currentTab='home';renderLogin();}
